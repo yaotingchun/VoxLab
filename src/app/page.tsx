@@ -1,8 +1,18 @@
-import { Button } from "@/components/ui/button"
-import { AbstractMic } from "@/components/ui/abstract-mic"
-import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight } from "lucide-react"
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AbstractMic } from "@/components/ui/abstract-mic";
+import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { SignOutModal } from "@/components/auth/SignOutModal";
 
 export default function Home() {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const { user, logout } = useAuth();
   return (
     <main className="flex min-h-screen flex-col items-center justify-between relative overflow-hidden">
       {/* Background Ambience */}
@@ -24,9 +34,33 @@ export default function Home() {
           <a href="#how-it-works" className="hover:text-primary transition-colors">How it Works</a>
           <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
         </div>
-        <Button variant="outline" className="rounded-full hidden sm:flex border-white/10 hover:bg-white/5">
-          Sign In
-        </Button>
+        {user ? (
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-white hidden sm:block">
+              {user.email?.split('@')[0]}
+            </span>
+            <Button
+              variant="outline"
+              className="rounded-full border-white/10 hover:bg-white/5"
+              onClick={() => setIsSignOutModalOpen(true)}
+            >
+              Sign Out
+            </Button>
+            <Link href="/dashboard">
+              <Button className="rounded-full">
+                Dashboard
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            className="rounded-full hidden sm:flex border-white/10 hover:bg-white/5"
+            onClick={() => setIsAuthModalOpen(true)}
+          >
+            Sign In
+          </Button>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -211,6 +245,15 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <SignOutModal
+        isOpen={isSignOutModalOpen}
+        onClose={() => setIsSignOutModalOpen(false)}
+        onConfirm={() => {
+          logout();
+          setIsSignOutModalOpen(false);
+        }}
+      />
     </main>
   )
 }
