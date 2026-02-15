@@ -47,6 +47,7 @@ wss.on("connection", (ws: WebSocket) => {
                     languageCodes: ["en-US"],
                     features: {
                         enableAutomaticPunctuation: true,
+                        enableWordTimeOffsets: true,
                     },
                 },
                 streamingFeatures: {
@@ -70,6 +71,11 @@ wss.on("connection", (ws: WebSocket) => {
                 if (response.results && response.results.length > 0) {
                     for (const result of response.results) {
                         const transcript = result.alternatives?.[0]?.transcript || "";
+                        const words = result.alternatives?.[0]?.words?.map(w => ({
+                            word: w.word,
+                            startTime: Number(w.startOffset?.seconds || 0) + (w.startOffset?.nanos || 0) / 1e9,
+                            endTime: Number(w.endOffset?.seconds || 0) + (w.endOffset?.nanos || 0) / 1e9
+                        })) || [];
                         const isFinal = result.isFinal || false;
 
                         // Extract audio timestamp from resultEndOffset
@@ -82,7 +88,7 @@ wss.on("connection", (ws: WebSocket) => {
                         }
 
                         if (transcript) {
-                            const message = JSON.stringify({ transcript, isFinal, audioTimestampMs });
+                            const message = JSON.stringify({ transcript, words, isFinal, audioTimestampMs });
                             if (ws.readyState === WebSocket.OPEN) {
                                 ws.send(message);
                             }
