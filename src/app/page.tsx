@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AbstractMic } from "@/components/ui/abstract-mic";
-import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight, User } from "lucide-react";
+import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SignOutModal } from "@/components/auth/SignOutModal";
@@ -32,7 +32,7 @@ export default function Home() {
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
           <a href="#features" className="hover:text-primary transition-colors">Features</a>
           <a href="#how-it-works" className="hover:text-primary transition-colors">How it Works</a>
-          <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
+          <Link href="/speech-coach" className="hover:text-primary transition-colors">Speech Coach</Link>
         </div>
         {user ? (
           <div className="flex items-center gap-4">
@@ -46,11 +46,6 @@ export default function Home() {
             >
               Sign Out
             </Button>
-            <Link href="/dashboard">
-              <Button className="rounded-full">
-                Dashboard
-              </Button>
-            </Link>
           </div>
         ) : (
           <Button
@@ -82,10 +77,19 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button size="lg" className="rounded-full text-base group">
-              Start Training Now
-              <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Button>
+            {user ? (
+              <Link href="/speech-coach">
+                <Button size="lg" className="rounded-full text-base group">
+                  Start Training Now
+                  <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
+            ) : (
+              <Button size="lg" className="rounded-full text-base group" onClick={() => setIsAuthModalOpen(true)}>
+                Start Training Now
+                <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Button>
+            )}
             <Button variant="outline" size="lg" className="rounded-full text-base border-white/10 hover:bg-white/5 backdrop-blur-sm">
               Watch Demo
             </Button>
@@ -254,6 +258,7 @@ export default function Home() {
           setIsSignOutModalOpen(false);
         }}
       />
+
     </main>
   )
 }
