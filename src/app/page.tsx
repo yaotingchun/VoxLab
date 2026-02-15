@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AbstractMic } from "@/components/ui/abstract-mic";
@@ -13,6 +14,15 @@ export default function Home() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleStartTraining = () => {
+    if (user) {
+      router.push("/dashboard/coach");
+    } else {
+      setIsAuthModalOpen(true);
+    }
+  };
   return (
     <main className="flex min-h-screen flex-col items-center justify-between relative overflow-hidden">
       {/* Background Ambience */}
@@ -82,7 +92,7 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button size="lg" className="rounded-full text-base group">
+            <Button size="lg" className="rounded-full text-base group" onClick={handleStartTraining}>
               Start Training Now
               <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Button>
