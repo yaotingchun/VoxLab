@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         });
 
         const result = streamText({
-            model: google('models/gemini-flash-latest'),
+            model: google('models/gemini-2.5-flash'),
             system: `You are a world-class Public Speaking Coach AI. Your goal is to help users improve their public speaking skills, including voice modulation, pacing, content structure, and confidence.
 
     When a user provides a speech script:
