@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google';
+import { vertex } from '@ai-sdk/google-vertex';
 import { streamText } from 'ai';
 
 // Allow streaming responses up to 30 seconds
@@ -9,10 +9,7 @@ export async function POST(req: Request) {
         console.log("Received chat request");
         const { messages } = await req.json();
 
-        if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-            console.error("GOOGLE_GENERATIVE_AI_API_KEY is missing");
-            return new Response("Missing Google API Key", { status: 500 });
-        }
+
 
         // Manual conversion to CoreMessage[]
         const coreMessages = messages.map((m: any) => {
@@ -27,7 +24,7 @@ export async function POST(req: Request) {
         });
 
         const result = streamText({
-            model: google('models/gemini-2.5-flash'),
+            model: vertex('gemini-2.5-flash'),
             system: `You are a world-class Public Speaking Coach AI. Your goal is to help users improve their public speaking skills, including voice modulation, pacing, content structure, and confidence.
 
     When a user provides a speech script:
