@@ -42,5 +42,3 @@ next-env.d.ts
 
 # google credentials
 credentials/google.json
-package.json
-package-lock.json
