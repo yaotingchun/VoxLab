@@ -7,6 +7,7 @@ import { useUnifiedAnalysis } from "@/hooks/useUnifiedAnalysis";
 import { FeedbackPanel } from "@/components/posture/FeedbackPanel";
 import { SessionSummary } from "@/components/analysis/SessionSummary"; // NEW
 import { analyzeSession } from "@/app/actions/analyzeSession"; // NEW
+import { FacialFeedbackPanel } from "@/components/analysis/FacialFeedbackPanel"; // NEW
 import { motion, AnimatePresence } from "framer-motion";
 
 export function PresentationCoach() {
@@ -78,7 +79,6 @@ export function PresentationCoach() {
                             emotionState={result.emotionState}
                             // Split feedback for different display zones
                             postureMessages={result.feedbackItems.filter(i => !['SMILE_GOOD', 'SMILE_TIP', 'EYE_GOOD', 'EYE_FIX', 'BLINK_FAST', 'MOUTH_TENSION', 'EYES_SHIFTY', 'HIGH_STRESS'].includes(i.type)).map(i => i.message)}
-                            faceMessages={result.feedbackItems.filter(i => ['SMILE_GOOD', 'SMILE_TIP', 'EYE_GOOD', 'EYE_FIX', 'BLINK_FAST', 'MOUTH_TENSION', 'EYES_SHIFTY'].includes(i.type)).map(i => i.message)}
                         />
                     )}
 
@@ -142,58 +142,14 @@ export function PresentationCoach() {
                     </div>
                 </div>
 
-                {/* Face Analysis Card */}
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-6 border border-slate-800 space-y-4 shadow-xl">
-                    <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <span>😐</span> Face & Expression
-                    </h3>
-
-                    {/* Engagement Score */}
-                    <div>
-                        <div className="flex justify-between text-sm mb-1">
-                            <span className="text-slate-300">Engagement</span>
-                            <span className="text-slate-400">{Math.round(result.face.engagementScore)}%</span>
-                        </div>
-                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-500 ${result.face.engagementScore > 70 ? 'bg-green-500' : 'bg-blue-500'}`}
-                                style={{ width: `${result.face.engagementScore}%` }}
-                            ></div>
-                        </div>
-                    </div>
-
-                    {/* Explicit Status Indicators */}
-                    <div className="grid grid-cols-2 gap-3 mt-2">
-                        {/* Eye Contact */}
-                        <div className={`p-3 rounded-xl border ${result.isEyeContactSteady ? 'bg-green-900/20 border-green-500/30' : 'bg-yellow-900/20 border-yellow-500/30'}`}>
-                            <p className="text-xs text-slate-400 mb-1">Eye Contact</p>
-                            <p className={`text-sm font-bold ${result.isEyeContactSteady ? 'text-green-400' : 'text-yellow-400'}`}>
-                                {result.isEyeContactSteady ? 'Steady ✅' : 'Drifting ⚠️'}
-                            </p>
-                        </div>
-
-                        {/* Smile */}
-                        <div className={`p-3 rounded-xl border ${result.isSmiling ? 'bg-green-900/20 border-green-500/30' : 'bg-slate-800/50 border-slate-700'}`}>
-                            <p className="text-xs text-slate-400 mb-1">Smile Test</p>
-                            <p className={`text-sm font-bold ${result.isSmiling ? 'text-green-400' : 'text-slate-500'}`}>
-                                {result.isSmiling ? 'Detected 😊' : 'Not Detected'}
-                            </p>
-                        </div>
-
-                        {/* Blink Rate */}
-                        <div className={`p-3 rounded-xl border col-span-2 ${!result.hasHighBlinkRate ? 'bg-slate-800/50 border-slate-700' : 'bg-red-900/20 border-red-500/30'}`}>
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <p className="text-xs text-slate-400 mb-1">Blink Rate</p>
-                                    <p className={`text-sm font-bold ${!result.hasHighBlinkRate ? 'text-slate-300' : 'text-red-400'}`}>
-                                        {!result.hasHighBlinkRate ? 'Normal' : 'Frequent (>30 BPM) ⚠️'}
-                                    </p>
-                                </div>
-                                <div className="text-xs text-slate-500">{result.face.blinkRate} bpm</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                {/* Facial Analysis Panel (NEW) */}
+                <FacialFeedbackPanel
+                    engagementScore={result.face.engagementScore}
+                    isSmiling={result.isSmiling}
+                    isEyeContactSteady={result.isEyeContactSteady}
+                    blinkRate={result.face.blinkRate}
+                    isNervous={result.hasHighBlinkRate}
+                />
 
                 {/* Posture Analysis Card */}
                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-6 border border-slate-800 space-y-4 shadow-xl">
