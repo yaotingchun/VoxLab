@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mic, Sparkles } from "lucide-react";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -44,6 +44,19 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="group relative rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-6" onClick={() => router.push('/dashboard/coach')}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Sparkles className="w-12 h-12" />
+                        </div>
+                        <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                            <Mic className="w-4 h-4 text-primary" />
+                            AI Coach
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Practice your speech with real-time AI feedback.
+                        </p>
+                    </div>
+
                     <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm">
                         <h3 className="font-semibold leading-none tracking-tight">Recent Activity</h3>
                         <p className="text-sm text-muted-foreground mt-2">No recent activity.</p>

@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mic, Loader2, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface AuthModalProps {
     isOpen: boolean;
@@ -53,8 +51,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 await createUserWithEmailAndPassword(auth, email, password);
             }
             // Modal will close via useEffect
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("An unknown error occurred");
+            }
         } finally {
             setLoading(false);
         }
@@ -64,8 +66,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         try {
             await signInWithGoogle();
             // Modal will close via useEffect
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError("An unknown error occurred");
+            }
         }
     };
 
