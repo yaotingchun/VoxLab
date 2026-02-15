@@ -1,70 +1,59 @@
 "use server";
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-
-if (!API_KEY) {
-    console.error("Missing Gemini API Key");
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY as string);
+import { vertex } from '@ai-sdk/google-vertex';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
 interface SessionData {
     duration: number; // in seconds
     averageScore: number;
     issueCounts: Record<string, number>; // e.g., { HEAD_TILT: 5, SLOUCHING: 2 }
+    // New Face Metrics
+    faceMetrics: {
+        averageEngagement: number;
+        smilePercentage: number; // % of time smiling
+        blinkRateAverage: number;
+        eyeContactScore: number;
+    }
 }
 
 export async function analyzeSession(data: SessionData) {
-    if (!API_KEY) {
-        return { error: "API Key not configured." };
-    }
-
     try {
-        // Use Gemini 1.5 Pro (latest available model via SDK usually defaults here or specific version)
-        // Note: The user requested "Gemini 3 Pro", but as of now, the stable public model identifier 
-        // in the SDK is likely "gemini-1.5-pro" or similar. 
-        // I will use "gemini-1.5-pro" which is the current "Pro" class model available via API.
-        // If "Gemini 3" is a very specific future model not yet in common SDKs path, I'll stick to the best available Pro model.
-        // *Correction*: User insisted on Gemini 3. If that's a specific internal or beta model tag, I'd use that. 
-        // However, standard API tag is usually `gemini-1.5-pro` or `gemini-pro`. 
-        // I will use `gemini-1.5-pro` as the most advanced current equivalent, or `gemini-pro`.
-        // Using 'gemini-3-pro-preview' as requested by the user and confirmed available via SDK listModels.
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
         const prompt = `
         You are an expert Presentation and Posture Coach.
-        Analyze the following posture session data:
+        Analyze the following session data:
 
-        - Session Duration: ${data.duration} seconds
-        - Average Stability Score: ${Math.round(data.averageScore)}/100
-        - Detected Issues Count:
-        ${Object.entries(data.issueCounts).map(([k, v]) => `  - ${k}: ${v}`).join('\n')}
-
-        Provide a brief, encouraging, and actionable summary (max 3 sentences).
-        Then, provide 3 specific tips to improve.
+        - Duration: ${data.duration} seconds
+        - Overall Score: ${Math.round(data.averageScore)}/100
         
-        Format the response in JSON:
-        {
-            "summary": "...",
-            "tips": ["Tip 1", "Tip 2", "Tip 3"]
-        }
+        - Posture Issues:
+        ${Object.entries(data.issueCounts).map(([k, v]) => `  - ${k}: ${v} detected`).join('\n')}
+
+        - Facial Expressions:
+        - Engagement: ${data.faceMetrics.averageEngagement}%
+        - Smiled: ${data.faceMetrics.smilePercentage}% of the time
+        - Blink Rate: ${data.faceMetrics.blinkRateAverage} BPM
+        - Eye Contact: ${data.faceMetrics.eyeContactScore}%
+
+        Provide a "Gemini AI Coach" summary.
+        1. A brief, 2-3 sentence analysis of their performance (Tone: Professional, Encouraging, Insightful).
+        2. Three specific, actionable "Quick Tips" to improve next time.
         `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const { object } = await generateObject({
+            model: vertex('gemini-2.5-pro'),
+            schema: z.object({
+                summary: z.string().describe('A brief, 2-3 sentence analysis of their performance'),
+                tips: z.array(z.string()).describe('Three specific, actionable "Quick Tips" to improve next time'),
+            }),
+            prompt: prompt,
+        });
 
-        // Simple cleanup to ensure JSON parsing if model adds markdown blocks
-        const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
-        return JSON.parse(cleanedText);
+        return object;
 
     } catch (error: any) {
-        console.error("Gemini Analysis Error Detailed:", JSON.stringify(error, null, 2));
+        console.error("Vertex Analysis Error Detailed:", JSON.stringify(error, null, 2));
         if (error.message) console.error("Error Message:", error.message);
-        console.log("API Key present:", !!API_KEY);
         return { error: `Failed to generate analysis: ${error.message || "Unknown error"}` };
     }
 }

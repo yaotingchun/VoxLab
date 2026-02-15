@@ -1,4 +1,4 @@
-import { PostureAnalyzer } from "@/components/posture/PostureAnalyzer";
+import { PresentationCoach } from "@/components/analysis/PresentationCoach";
 
 export default function AnalysisPage() {
     return (
@@ -10,27 +10,23 @@ export default function AnalysisPage() {
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                             <span className="font-bold text-white">V</span>
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight">VoxLab Analysis</h1>
+                        <h1 className="text-xl font-bold tracking-tight">VoxLab Coach</h1>
                     </div>
-                    <button className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">
-                        End Session
-                    </button>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="py-12 px-6">
-                <div className="max-w-3xl mx-auto mb-10 text-center">
-                    <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
-                        Real-Time Posture Coach
+            <main className="py-8 px-4 h-full">
+                <div className="max-w-4xl mx-auto mb-6 text-center">
+                    <h2 className="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
+                        Holistic Presentation Analysis
                     </h2>
-                    <p className="text-slate-400">
-                        Our AI analyzes your posture in real-time to help you present with confidence.
-                        Maintain a stable, upright position for the best score.
+                    <p className="text-slate-400 text-sm">
+                        Real-time feedback on your <strong>Posture</strong>, <strong>Expression</strong>, and <strong>Eye Contact</strong>.
                     </p>
                 </div>
 
-                <PostureAnalyzer />
+                <PresentationCoach />
             </main>
         </div>
     );

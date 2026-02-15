@@ -4,9 +4,11 @@ import { useChat } from '@ai-sdk/react';
 import { Button } from "@/components/ui/button";
 import { Send, User, Mic, FileText, Sparkles } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 export default function CoachPage() {
     const [input, setInput] = useState('');
+    const [scriptInput, setScriptInput] = useState('');
     const { messages, status, sendMessage } = useChat({
         onError: (error) => {
             console.error("Chat error:", error);
@@ -47,6 +49,24 @@ export default function CoachPage() {
         }
     };
 
+    const handleAnalyzeScript = async () => {
+        if (!scriptInput.trim()) return;
+
+        await sendMessage({
+            role: 'user',
+            content: `Please analyze the following script for breathlessness, transitions, and jargon. Provide 3 specific improvements:\n\n"${scriptInput}"`
+        } as any);
+    };
+
+    const handleGenerateWarmup = async () => {
+        if (!scriptInput.trim()) return;
+
+        await sendMessage({
+            role: 'user',
+            content: `Generate a personalized vocal warm-up and tongue twisters based on the vocabulary and difficult words in this script:\n\n"${scriptInput}"`
+        } as any);
+    };
+
     return (
         <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-background text-foreground">
             {/* Header */}
@@ -75,7 +95,27 @@ export default function CoachPage() {
                         <textarea
                             className="flex-1 w-full bg-surface/30 border border-white/10 rounded-xl p-4 text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
                             placeholder="Paste your speech script here..."
+                            value={scriptInput}
+                            onChange={(e) => setScriptInput(e.target.value)}
                         />
+                        <div className="flex gap-2">
+                            <Button
+                                className="flex-1 bg-secondary hover:bg-secondary/90 text-white"
+                                onClick={handleAnalyzeScript}
+                                disabled={isLoading || !scriptInput.trim()}
+                            >
+                                <FileText className="w-4 h-4 mr-2" />
+                                Analyze Script
+                            </Button>
+                            <Button
+                                className="flex-1 bg-accent hover:bg-accent/90 text-white"
+                                onClick={handleGenerateWarmup}
+                                disabled={isLoading || !scriptInput.trim()}
+                            >
+                                <Mic className="w-4 h-4 mr-2" />
+                                Vocal Warm-up
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Chat Interface (Right Panel) */}
@@ -105,9 +145,23 @@ export default function CoachPage() {
                                         ? 'bg-primary text-primary-foreground rounded-tr-sm'
                                         : 'bg-surface border border-white/5 rounded-tl-sm'
                                         }`}>
-                                        <p className="text-sm whitespace-pre-wrap">
-                                            {m.content || (m.parts && m.parts.map((p: any) => p.type === 'text' ? p.text : '').join(''))}
-                                        </p>
+                                        <div className="text-sm prose prose-invert max-w-none">
+                                            <ReactMarkdown
+                                                components={{
+                                                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                                    ul: ({ children }) => <ul className="list-disc ml-4 mb-2 space-y-1">{children}</ul>,
+                                                    ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+                                                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                                                    h1: ({ children }) => <h1 className="text-lg font-bold mt-4 mb-2">{children}</h1>,
+                                                    h2: ({ children }) => <h2 className="text-base font-bold mt-3 mb-2">{children}</h2>,
+                                                    h3: ({ children }) => <h3 className="text-sm font-bold mt-2 mb-1">{children}</h3>,
+                                                    strong: ({ children }) => <strong className="font-bold text-primary">{children}</strong>,
+                                                    blockquote: ({ children }) => <blockquote className="border-l-4 border-primary/30 pl-4 italic my-2">{children}</blockquote>,
+                                                }}
+                                            >
+                                                {m.content || (m.parts && m.parts.map((p: any) => p.type === 'text' ? p.text : '').join(''))}
+                                            </ReactMarkdown>
+                                        </div>
                                     </div>
                                     {m.role === 'user' && (
                                         <div className="w-8 h-8 rounded-full bg-surface border border-white/10 flex items-center justify-center shrink-0">

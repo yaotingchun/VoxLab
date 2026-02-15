@@ -2,9 +2,24 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square, Copy, Check, ArrowLeft, Radio, TrendingUp, Clock, Gauge, AlertTriangle } from "lucide-react";
+import { Mic, Square, Copy, Check, ArrowLeft, Radio, TrendingUp, Clock, Gauge, AlertTriangle, Activity } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import {
+    analyzePauses,
+    calculatePauseStats,
+    getPauseFeedback,
+    Word,
+    PauseStats
+} from "@/lib/pause-analysis";
+import {
+    calculateRMS,
+    detectPitch,
+    calculateAudioStats,
+    getAudioFeedback,
+    getVolumeCategory
+} from "@/lib/audio-analysis";
+import { PitchChart } from "@/components/PitchChart";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3002";
 
@@ -52,6 +67,7 @@ interface TranscriptSegment {
     text: string;
     isFinal: boolean;
     timestamp: number; // ms since recording started
+    words?: Word[];
 }
 
 interface WpmDataPoint {
@@ -199,12 +215,19 @@ export default function SpeechCoachPage() {
     const [recordingDuration, setRecordingDuration] = useState(0);
     const [liveWpm, setLiveWpm] = useState(0);
 
+    // Audio Analysis State
+    const [currentVolume, setCurrentVolume] = useState(0);
+    const [volumeSamples, setVolumeSamples] = useState<number[]>([]);
+    const [pitchSamples, setPitchSamples] = useState<number[]>([]);
+
     const mediaStreamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
     const recordingStartRef = useRef<number>(0);
     const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const analysisIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const { user } = useAuth();
     const router = useRouter();
 
@@ -292,6 +315,30 @@ export default function SpeechCoachPage() {
         return { counts: sorted, total, fillersPerMinute };
     }, [segments, recordingDuration]);
 
+    // Pause Analysis
+    const pauseStats = useMemo(() => {
+        const allWords = segments
+            .filter(s => s.isFinal && s.words)
+            .flatMap(s => s.words!);
+
+        // If we have very few words, analysis might be noisy, but let's run it anyway
+        if (allWords.length < 5) return null;
+
+        const pauses = analyzePauses(allWords);
+        const stats = calculatePauseStats(pauses, recordingDuration);
+        const feedback = getPauseFeedback(stats);
+
+        return { stats, feedback };
+    }, [segments, recordingDuration]);
+
+    // Audio Analysis Stats
+    const audioStats = useMemo(() => {
+        if (volumeSamples.length === 0) return null;
+        const stats = calculateAudioStats(volumeSamples, pitchSamples);
+        const feedback = getAudioFeedback(stats);
+        return { stats, feedback };
+    }, [volumeSamples, pitchSamples]);
+
     // Snapshot live WPM every 5 seconds during recording
     const liveWpmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const averageWpmRef = useRef(averageWpm);
@@ -335,6 +382,9 @@ export default function SpeechCoachPage() {
             if (durationIntervalRef.current) {
                 clearInterval(durationIntervalRef.current);
             }
+            if (analysisIntervalRef.current) {
+                clearInterval(analysisIntervalRef.current);
+            }
         };
     }, []);
 
@@ -370,7 +420,12 @@ export default function SpeechCoachPage() {
                     // Use audio timestamp from Google API (ms from start of audio)
                     const timestamp = data.audioTimestampMs || (Date.now() - recordingStartRef.current);
                     if (data.isFinal) {
-                        setSegments(prev => [...prev, { text: data.transcript, isFinal: true, timestamp }]);
+                        setSegments(prev => [...prev, {
+                            text: data.transcript,
+                            isFinal: true,
+                            timestamp,
+                            words: data.words // Ensure server sends this
+                        }]);
                         setInterimText("");
                     } else {
                         setInterimText(data.transcript);
@@ -413,6 +468,8 @@ export default function SpeechCoachPage() {
             setSegments([]);
             setInterimText("");
             setRecordingDuration(0);
+            setVolumeSamples([]);
+            setPitchSamples([]);
             recordingStartRef.current = Date.now();
 
             // Duration timer
@@ -433,6 +490,34 @@ export default function SpeechCoachPage() {
             audioContextRef.current = audioContext;
             const source = audioContext.createMediaStreamSource(stream);
 
+            // Audio Analysis Setup
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            source.connect(analyser);
+            analyserRef.current = analyser;
+
+            // Start Analysis Loop (100ms)
+            const analysisData = new Float32Array(analyser.fftSize);
+            analysisIntervalRef.current = setInterval(() => {
+                if (!analyserRef.current) return;
+                analyserRef.current.getFloatTimeDomainData(analysisData);
+
+                const rms = calculateRMS(analysisData);
+                setCurrentVolume(rms);
+
+                const pitch = detectPitch(analysisData, 16000); // 16kHz context
+
+                // Collect samples
+                setVolumeSamples(prev => [...prev, rms]);
+
+                if (pitch) {
+                    setPitchSamples(prev => [...prev, pitch]);
+                } else {
+                    setPitchSamples(prev => [...prev, 0]); // 0 for silence/no pitch
+                }
+
+            }, 100);
+
             // ScriptProcessorNode to capture raw audio buffers
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
             processorRef.current = processor;
@@ -445,6 +530,10 @@ export default function SpeechCoachPage() {
                 }
             };
 
+            // Connect graph: Source -> Analyser -> Processor -> Destination (muted)
+            // Note: We already connected source -> analyser above.
+            // But we also need source -> processor.
+            // Web Audio allows fan-out.
             source.connect(processor);
             processor.connect(audioContext.destination);
 
@@ -456,6 +545,9 @@ export default function SpeechCoachPage() {
             setError(err instanceof Error ? err.message : "Failed to start recording");
             if (durationIntervalRef.current) {
                 clearInterval(durationIntervalRef.current);
+            }
+            if (analysisIntervalRef.current) {
+                clearInterval(analysisIntervalRef.current);
             }
         }
     };
@@ -496,6 +588,10 @@ export default function SpeechCoachPage() {
         if (durationIntervalRef.current) {
             clearInterval(durationIntervalRef.current);
             durationIntervalRef.current = null;
+        }
+        if (analysisIntervalRef.current) {
+            clearInterval(analysisIntervalRef.current);
+            analysisIntervalRef.current = null;
         }
 
         // Freeze final duration
@@ -657,6 +753,23 @@ export default function SpeechCoachPage() {
                                 <span className="font-mono">{liveWpm} WPM</span>
                             </div>
                         )}
+
+                    </div>
+                )}
+
+                {/* Live Volume Meter */}
+                {isRecording && (
+                    <div className="w-full max-w-xs mb-6 flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-100 ease-out ${currentVolume > 0.15 ? "bg-red-500" :
+                                    currentVolume > 0.02 ? "bg-green-500" :
+                                        "bg-white/30"
+                                    }`}
+                                style={{ width: `${Math.min(100, currentVolume * 500)}%` }}
+                            />
+                        </div>
                     </div>
                 )}
 
@@ -777,6 +890,143 @@ export default function SpeechCoachPage() {
                                         ))}
                                     </div>
                                 </>
+                            )}
+                        </div>
+
+                        {/* Pause Analysis Card */}
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Pause Analysis
+                                </div>
+                                {pauseStats && (
+                                    <div className={`text-sm ${pauseStats.stats.pauseRatio > 0.25 ? "text-amber-400" : "text-muted-foreground"
+                                        }`}>
+                                        {Math.round(pauseStats.stats.pauseRatio * 100)}% Silence
+                                    </div>
+                                )}
+                            </div>
+
+                            {!pauseStats ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm">
+                                    Speak more to generate pause analysis...
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Breakdown */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
+                                            <div className="text-2xl font-bold text-white">{pauseStats.stats.emphasisCount}</div>
+                                            <div className="text-xs text-muted-foreground">Emphasis Pauses</div>
+                                            <div className="mt-1 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                                <div className="h-full bg-emerald-500" style={{ width: `${(pauseStats.stats.emphasisCount / pauseStats.stats.totalPauses) * 100}%` }} />
+                                            </div>
+                                        </div>
+                                        <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
+                                            <div className="text-2xl font-bold text-amber-400">{pauseStats.stats.thinkingCount}</div>
+                                            <div className="text-xs text-muted-foreground">Thinking Pauses</div>
+                                            <div className="mt-1 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                                <div className="h-full bg-amber-500" style={{ width: `${(pauseStats.stats.thinkingCount / pauseStats.stats.totalPauses) * 100}%` }} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Detailed Feedback */}
+                                    <div className={`p-4 rounded-xl border text-sm ${pauseStats.feedback.type === "good" ? "bg-green-500/10 border-green-500/20 text-green-400" :
+                                        pauseStats.feedback.type === "warn" ? "bg-amber-500/10 border-amber-500/20 text-amber-400" :
+                                            "bg-red-500/10 border-red-500/20 text-red-400"
+                                        }`}>
+                                        <div className="flex gap-2">
+                                            <span className="font-bold shrink-0">
+                                                {pauseStats.feedback.type === "good" ? "✅" : pauseStats.feedback.type === "warn" ? "⚠️" : "🚨"}
+                                            </span>
+                                            <p>{pauseStats.feedback.message}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Stats Row */}
+                                    <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t border-white/5">
+                                        <span>Total Pauses: {pauseStats.stats.totalPauses}</span>
+                                        <span className={pauseStats.stats.breakdownCount > 0 ? "text-red-400" : ""}>
+                                            Breakdowns (&gt;2.5s): {pauseStats.stats.breakdownCount}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Audio Analysis Card (Pitch & Volume) */}
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                                    <TrendingUp className="w-3.5 h-3.5" />
+                                    Vocal Dynamics
+                                </div>
+                                {audioStats && (
+                                    <div className={`text-sm ${audioStats.stats.isMonotone ? "text-amber-400" : "text-green-400"
+                                        }`}>
+                                        {audioStats.stats.isMonotone ? "Monotone" : "Expressive"}
+                                    </div>
+                                )}
+                            </div>
+
+                            {!audioStats ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm">
+                                    Not enough audio data...
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {/* Pitch Range */}
+                                        <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
+                                            <div className="text-2xl font-bold text-white">{audioStats.stats.pitchStdDev.toFixed(1)}</div>
+                                            <div className="text-xs text-muted-foreground">Pitch Variety (st)</div>
+                                            <div className="mt-1 flex gap-0.5 justify-center">
+                                                {[1, 2, 3, 4, 5].map(i => (
+                                                    <div key={i} className={`w-1.5 h-1.5 rounded-full ${(audioStats.stats.pitchStdDev / 3) * 5 >= i ? "bg-purple-500" : "bg-white/10"
+                                                        }`} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {/* Volume Consistency */}
+                                        <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-center">
+                                            <div className="text-2xl font-bold text-white">
+                                                {Math.round((1 - audioStats.stats.quietPercentage) * 100)}%
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">Projection</div>
+                                            <div className="mt-1 h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                                                <div className={`h-full ${audioStats.stats.isTooQuiet ? "bg-red-500" : "bg-green-500"}`} style={{ width: `${(1 - audioStats.stats.quietPercentage) * 100}%` }} />
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    {/* Pitch Wave Graph */}
+                                    <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                                        <div className="text-xs text-muted-foreground mb-4">Pitch Contour (Intonation)</div>
+                                        <div className="h-32 w-full">
+                                            <PitchChart
+                                                pitchData={pitchSamples}
+                                                volumeData={volumeSamples}
+                                                color="#fbbf24"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Detailed Feedback */}
+                                    <div className={`p-4 rounded-xl border text-sm ${audioStats.feedback.type === "good" ? "bg-green-500/10 border-green-500/20 text-green-400" :
+                                        audioStats.feedback.type === "warn" ? "bg-amber-500/10 border-amber-500/20 text-amber-400" :
+                                            "bg-red-500/10 border-red-500/20 text-red-400"
+                                        }`}>
+                                        <div className="flex gap-2">
+                                            <span className="font-bold shrink-0">
+                                                {audioStats.feedback.type === "good" ? "✅" : audioStats.feedback.type === "warn" ? "⚠️" : "🚨"}
+                                            </span>
+                                            <p>{audioStats.feedback.message}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
 
