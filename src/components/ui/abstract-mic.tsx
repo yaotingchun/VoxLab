@@ -1,7 +1,25 @@
 "use client"
 
-import React, { useMemo, useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { motion } from "framer-motion"
+
+interface FrequencyBar {
+    height: number;
+    delay: number;
+    durationUpper: number;
+    durationLower: number;
+}
+
+interface Particle {
+    id: number;
+    spawnX: number;
+    spawnY: number;
+    driftX: number;
+    driftY: number;
+    r: number;
+    delay: number;
+    duration: number;
+}
 
 export function AbstractMic() {
     // Elegant Purple Palette - Wuthering Waves inspired (Darker, High Contrast)
@@ -9,14 +27,17 @@ export function AbstractMic() {
     const primaryColor = "#6d28d9"   // Deep Violet
     const accentColor = "#e9d5ff"    // Bright Lavender
 
-    const [frequencyBars, setFrequencyBars] = useState<any[]>([])
-    const [particles, setParticles] = useState<any[]>([])
+    const [frequencyBars, setFrequencyBars] = useState<FrequencyBar[]>([])
+    const [particles, setParticles] = useState<Particle[]>([])
 
     useEffect(() => {
         // Generate random bars for the frequency visualizer on client side
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setFrequencyBars(Array.from({ length: 24 }).map((_, i) => ({
             height: Math.random() * 50 + 25,
             delay: i * 0.05,
+            durationUpper: 2 + Math.random() * 2,
+            durationLower: 3 + Math.random() * 2,
         })))
 
         // Generate particles on client side
@@ -199,7 +220,7 @@ export function AbstractMic() {
                                         opacity: [0.4, 0.8, 0.4]
                                     }}
                                     transition={{
-                                        duration: 2 + Math.random() * 2,
+                                        duration: bar.durationUpper,
                                         repeat: Infinity,
                                         ease: "easeInOut",
                                         delay: bar.delay
@@ -224,7 +245,7 @@ export function AbstractMic() {
                                         y: [50 - bar.height / 2, 50 - (bar.height * 0.8) / 2, 50 - bar.height / 2],
                                     }}
                                     transition={{
-                                        duration: 3 + Math.random() * 2,
+                                        duration: bar.durationLower,
                                         repeat: Infinity,
                                         ease: "easeInOut",
                                         delay: bar.delay
