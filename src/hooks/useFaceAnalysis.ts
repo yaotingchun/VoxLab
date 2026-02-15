@@ -215,10 +215,11 @@ export function useFaceAnalysis() {
 
         // Total deviation from center (0 is perfect center)
         // We weight Y deviation more because looking down is a common "bad" habit in calls
-        const totalDeviation = (avgCenteringX * 1.0) + (avgCenteringY * 1.5);
+        const totalDeviation = (avgCenteringX * 1.0) + (avgCenteringY * 2.0);
 
         // Strict mapping: Any significant deviation drops score fast
-        const eyeContactScore = Math.max(0, 100 - (totalDeviation * 250));
+        // Increased sensitivity: Multiplier 450 means 22% deviation = 0 score.
+        const eyeContactScore = Math.max(0, 100 - (totalDeviation * 450));
 
         let engagement = 50;
         engagement += (eyeContactScore * 0.3);
