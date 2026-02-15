@@ -1,14 +1,8 @@
 "use server";
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-
-if (!API_KEY) {
-    console.error("Missing Gemini API Key");
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY as string);
+import { vertex } from '@ai-sdk/google-vertex';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
 interface SessionData {
     duration: number; // in seconds
@@ -24,13 +18,7 @@ interface SessionData {
 }
 
 export async function analyzeSession(data: SessionData) {
-    if (!API_KEY) {
-        return { error: "API Key not configured." };
-    }
-
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
         const prompt = `
         You are an expert Presentation and Posture Coach.
         Analyze the following session data:
@@ -50,27 +38,22 @@ export async function analyzeSession(data: SessionData) {
         Provide a "Gemini AI Coach" summary.
         1. A brief, 2-3 sentence analysis of their performance (Tone: Professional, Encouraging, Insightful).
         2. Three specific, actionable "Quick Tips" to improve next time.
-
-        Format the response in pure JSON:
-        {
-            "summary": "...",
-            "tips": ["Tip 1", "Tip 2", "Tip 3"]
-        }
         `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
+        const { object } = await generateObject({
+            model: vertex('gemini-2.5-pro'),
+            schema: z.object({
+                summary: z.string().describe('A brief, 2-3 sentence analysis of their performance'),
+                tips: z.array(z.string()).describe('Three specific, actionable "Quick Tips" to improve next time'),
+            }),
+            prompt: prompt,
+        });
 
-        // Simple cleanup to ensure JSON parsing if model adds markdown blocks
-        const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
-        return JSON.parse(cleanedText);
+        return object;
 
     } catch (error: any) {
-        console.error("Gemini Analysis Error Detailed:", JSON.stringify(error, null, 2));
+        console.error("Vertex Analysis Error Detailed:", JSON.stringify(error, null, 2));
         if (error.message) console.error("Error Message:", error.message);
-        console.log("API Key present:", !!API_KEY);
         return { error: `Failed to generate analysis: ${error.message || "Unknown error"}` };
     }
 }
