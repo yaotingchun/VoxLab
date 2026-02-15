@@ -15,7 +15,7 @@ const LANDMARKS = {
 };
 
 interface PostureIssue {
-    type: 'HEAD_TILT' | 'UNEVEN_SHOULDERS' | 'SLOUCHING' | 'EXCESSIVE_MOVEMENT';
+    type: 'HEAD_TILT' | 'UNEVEN_SHOULDERS' | 'SLOUCHING' | 'EXCESSIVE_MOVEMENT' | 'NERVOUS' | 'DISTRACTED' | 'EMOTION';
     message: string;
 }
 

@@ -275,18 +275,34 @@ export function FeedbackPanel({ score, isStable, issues }: FeedbackPanelProps) {
                                 <span className="mr-2">✨</span> Great posture! Keep it up.
                             </motion.div>
                         ) : (
-                            issues.map((item, index) => (
-                                <motion.div
-                                    key={`${item.type}-${index}`}
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: 20 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="flex items-center text-red-300 bg-red-900/20 p-3 rounded-lg border border-red-500/20 mb-2 last:mb-0"
-                                >
-                                    <span className="mr-2">⚠️</span> {item.message}
-                                </motion.div>
-                            ))
+                            issues.map((item, index) => {
+                                const isPositive = item.type.includes('_GOOD');
+                                const isTip = item.type.includes('_TIP') || item.type.includes('_FIX');
+
+                                let styleClass = "text-red-300 bg-red-900/20 border-red-500/20";
+                                let icon = "⚠️";
+
+                                if (isPositive) {
+                                    styleClass = "text-green-300 bg-green-900/20 border-green-500/20";
+                                    icon = "✨";
+                                } else if (isTip) {
+                                    styleClass = "text-yellow-300 bg-yellow-900/20 border-yellow-500/20";
+                                    icon = "💡";
+                                }
+
+                                return (
+                                    <motion.div
+                                        key={`${item.type}-${index}`}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 20 }}
+                                        transition={{ duration: 0.2 }}
+                                        className={`flex items-center p-3 rounded-lg border mb-2 last:mb-0 ${styleClass}`}
+                                    >
+                                        <span className="mr-2">{icon}</span> {item.message}
+                                    </motion.div>
+                                );
+                            })
                         )}
                     </AnimatePresence>
                 </div>
