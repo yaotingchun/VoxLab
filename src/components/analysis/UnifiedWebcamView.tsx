@@ -21,6 +21,7 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
     const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
     const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
     const requestRef = useRef<number>(0);
+    const lastProcessingTimeRef = useRef<number>(0);
 
     useEffect(() => {
         const loadModels = async () => {
@@ -33,7 +34,7 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                 const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                     baseOptions: {
                         modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`,
-                        delegate: "GPU"
+                        delegate: "CPU"
                     },
                     runningMode: "VIDEO",
                     numPoses: 1,
@@ -46,7 +47,7 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                 const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                     baseOptions: {
                         modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-                        delegate: "GPU"
+                        delegate: "CPU"
                     },
                     runningMode: "VIDEO",
                     numFaces: 1,
@@ -87,20 +88,44 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                 webcamRef.current.video.videoHeight > 0
             ) {
                 const video = webcamRef.current.video;
-                const startTimeMs = performance.now();
 
                 if (video.currentTime !== lastVideoTime) {
                     lastVideoTime = video.currentTime;
 
-                    try {
-                        // Run detections
-                        const poseResult = poseLandmarkerRef.current?.detectForVideo(video, startTimeMs);
-                        const faceResult = faceLandmarkerRef.current?.detectForVideo(video, startTimeMs);
+                    const now = performance.now();
+                    // Throttle to 30 FPS. If < 33ms has passed since last *detection*, skip.
+                    if (now - lastProcessingTimeRef.current < 33) {
+                        // Too fast
+                        requestRef.current = requestAnimationFrame(renderLoop);
+                        return;
+                    }
 
-                        if (poseResult) onPoseResults(poseResult);
-                        if (faceResult) onFaceResults(faceResult);
-                    } catch (error) {
-                        console.error("Detection error:", error);
+                    let startTimeMs = now;
+                    // Strict monotonicity check just in case
+                    if (startTimeMs <= lastProcessingTimeRef.current) {
+                        startTimeMs = lastProcessingTimeRef.current + 0.1;
+                    }
+                    // Update timestamp for next check
+                    lastProcessingTimeRef.current = startTimeMs;
+
+
+                    // Run detections independently
+                    if (poseLandmarkerRef.current) {
+                        try {
+                            const poseResult = poseLandmarkerRef.current.detectForVideo(video, startTimeMs);
+                            onPoseResults(poseResult);
+                        } catch (e) {
+                            console.error("Pose Detection Error:", e);
+                        }
+                    }
+
+                    if (faceLandmarkerRef.current) {
+                        try {
+                            const faceResult = faceLandmarkerRef.current.detectForVideo(video, startTimeMs);
+                            onFaceResults(faceResult);
+                        } catch (e) {
+                            console.error("Face Detection Error:", e);
+                        }
                     }
                 }
             }

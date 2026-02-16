@@ -94,11 +94,11 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0 }}
-                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-24 h-24"
                     >
-                        <div className="w-16 h-16 border-4 border-red-500 rounded-full animate-ping absolute"></div>
-                        <div className="w-4 h-4 bg-red-500 rounded-full relative z-10"></div>
-                        <div className="mt-8 bg-red-900/80 text-white px-3 py-1 rounded text-xs whitespace-nowrap -translate-x-1/2 left-1/2 absolute">
+                        <div className="absolute w-16 h-16 border-4 border-red-500 rounded-full animate-ping"></div>
+                        <div className="relative w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
+                        <div className="absolute top-full mt-2 bg-red-900/80 text-white px-3 py-1 rounded text-xs whitespace-nowrap backdrop-blur-sm border border-red-500/30">
                             Look Here
                         </div>
                     </motion.div>
