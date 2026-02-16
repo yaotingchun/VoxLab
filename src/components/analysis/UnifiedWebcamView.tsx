@@ -21,13 +21,53 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
     const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
     const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
     const requestRef = useRef<number>(0);
+    const [hasMounted, setHasMounted] = useState(false);
+
+    // Global console suppression for TFLite logs
+    useEffect(() => {
+        const originalError = console.error;
+        const originalLog = console.log;
+        const originalInfo = console.info;
+
+        const createFilter = (originalMethod: (...args: any[]) => void) => {
+            return (...args: any[]) => {
+                const msg = args.map(a => String(a)).join(' ');
+                if (
+                    msg.includes('TensorFlow Lite') ||
+                    msg.includes('XNNPACK') ||
+                    msg.includes('INFO:')
+                ) {
+                    return;
+                }
+                originalMethod.apply(console, args);
+            };
+        };
+
+        console.error = createFilter(originalError);
+        console.log = createFilter(originalLog);
+        console.info = createFilter(originalInfo);
+
+        return () => {
+            console.error = originalError;
+            console.log = originalLog;
+            console.info = originalInfo;
+        };
+    }, []);
 
     useEffect(() => {
+        setHasMounted(true);
+    }, []);
+
+    useEffect(() => {
+        let isCancelled = false;
+
         const loadModels = async () => {
             try {
                 const vision = await FilesetResolver.forVisionTasks(
                     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
                 );
+
+                if (isCancelled) return;
 
                 // Load Pose Landmarker
                 const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
@@ -42,6 +82,11 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                     minTrackingConfidence: 0.5,
                 });
 
+                if (isCancelled) {
+                    poseLandmarker.close();
+                    return;
+                }
+
                 // Load Face Landmarker
                 const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                     baseOptions: {
@@ -53,8 +98,14 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                     minFaceDetectionConfidence: 0.5,
                     minFacePresenceConfidence: 0.5,
                     minTrackingConfidence: 0.5,
-                    outputFaceBlendshapes: true, // Useful for advanced expression detection if needed
+                    outputFaceBlendshapes: true,
                 });
+
+                if (isCancelled) {
+                    poseLandmarker.close();
+                    faceLandmarker.close();
+                    return;
+                }
 
                 poseLandmarkerRef.current = poseLandmarker;
                 faceLandmarkerRef.current = faceLandmarker;
@@ -65,13 +116,19 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
             }
         };
 
-        loadModels();
+        if (hasMounted) {
+            loadModels();
+        }
 
         return () => {
+            isCancelled = true;
             poseLandmarkerRef.current?.close();
             faceLandmarkerRef.current?.close();
+            poseLandmarkerRef.current = null;
+            faceLandmarkerRef.current = null;
+            setIsModelLoaded(false);
         };
-    }, []);
+    }, [hasMounted]);
 
     useEffect(() => {
         if (!isModelLoaded || !poseLandmarkerRef.current || !faceLandmarkerRef.current) return;
@@ -92,15 +149,20 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                 if (video.currentTime !== lastVideoTime) {
                     lastVideoTime = video.currentTime;
 
-                    try {
-                        // Run detections
-                        const poseResult = poseLandmarkerRef.current?.detectForVideo(video, startTimeMs);
-                        const faceResult = faceLandmarkerRef.current?.detectForVideo(video, startTimeMs);
+                    // Capture refs local variables
+                    const poseLandmarker = poseLandmarkerRef.current;
+                    const faceLandmarker = faceLandmarkerRef.current;
 
-                        if (poseResult) onPoseResults(poseResult);
-                        if (faceResult) onFaceResults(faceResult);
-                    } catch (error) {
-                        console.error("Detection error:", error);
+                    if (poseLandmarker && faceLandmarker) {
+                        try {
+                            const poseResult = poseLandmarker.detectForVideo(video, startTimeMs);
+                            if (poseResult) onPoseResults(poseResult);
+
+                            const faceResult = faceLandmarker.detectForVideo(video, startTimeMs);
+                            if (faceResult) onFaceResults(faceResult);
+                        } catch (e) {
+                            // Silently fail for frame glitches
+                        }
                     }
                 }
             }
@@ -114,6 +176,8 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
         };
 
     }, [isModelLoaded, onPoseResults, onFaceResults]);
+
+    if (!hasMounted) return <div className="bg-black w-full h-full" />;
 
     return (
         <div className="relative w-full h-full">
