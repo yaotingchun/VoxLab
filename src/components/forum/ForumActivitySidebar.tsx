@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { User, Activity, ArrowRight, Plus } from 'lucide-react';
@@ -10,11 +12,20 @@ interface ForumActivitySidebarProps {
 }
 
 export const ForumActivitySidebar: React.FC<ForumActivitySidebarProps> = ({ recentPosts, onStartDiscussion }) => {
+    const [isHovered, setIsHovered] = useState(false);
+
     return (
-        <div className="space-y-6 sticky top-28 animate-in fade-in slide-in-from-right-4 duration-700 delay-150">
+        <div className="space-y-6 sticky top-28">
             {/* Start Discussion Card */}
-            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:bg-white/[0.06] transition-all">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-indigo-500/20 transition-colors duration-500" />
+            <div
+                className={`bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 relative overflow-hidden transition-all duration-300 z-10 ${isHovered ? 'bg-[#111] shadow-lg shadow-purple-500/10' : ''}`}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                {/* Glow Orb - visible on hover via state */}
+                <div
+                    className={`absolute top-0 right-0 w-32 h-32 bg-purple-600/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 transition-opacity duration-300 pointer-events-none ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                />
 
                 <h3 className="text-lg font-bold text-white mb-2 relative z-10">Have something to share?</h3>
                 <p className="text-sm text-gray-400 mb-6 relative z-10 leading-relaxed">

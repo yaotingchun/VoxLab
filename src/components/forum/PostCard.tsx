@@ -45,65 +45,64 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     return (
         <>
             <div className="block group relative">
-                <Link href={`/forum/${post.id}`} className="block h-full">
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-indigo-500/0 to-purple-500/0 group-hover:from-indigo-500/5 group-hover:via-purple-500/5 group-hover:to-indigo-500/5 transition-all duration-500 rounded-2xl" />
+                <Link href={`/forum/${post.id}`} className="block h-full relative">
+                    {/* Glassy Background & Glow */}
+                    <div className="absolute inset-0 bg-[#1a1a1a]/40 backdrop-blur-md border border-white/5 rounded-2xl group-hover:border-indigo-500/30 transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-indigo-500/10 group-hover:-translate-y-1">
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-purple-500/0 to-indigo-500/0 group-hover:from-indigo-500/5 group-hover:via-purple-500/5 group-hover:to-indigo-500/5 transition-all duration-500 rounded-2xl opacity-0 group-hover:opacity-100" />
+                    </div>
 
-                    <div className="relative flex flex-col sm:flex-row gap-6 p-6 rounded-2xl bg-white/[0.02] backdrop-blur-md border border-white/10 hover:border-indigo-500/30 transition-all duration-300 group-hover:shadow-2xl group-hover:shadow-indigo-500/10 group-hover:-translate-y-1 hover:bg-white/[0.04]">
+                    <div className="relative p-6 flex flex-col gap-4 h-full">
 
-                        {/* Main Content */}
-                        <div className="flex-1 min-w-0 space-y-3">
-                            {/* Header: Author & Time */}
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <div className="flex items-center gap-2 p-1 pr-2 rounded-full bg-white/5 border border-white/5">
-                                    {post.authorAvatar ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={post.authorAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
-                                    ) : (
-                                        <div className="w-5 h-5 rounded-full bg-gray-800 flex items-center justify-center">
-                                            <User className="w-3 h-3 text-gray-400" />
-                                        </div>
-                                    )}
-                                    <span className="font-medium text-gray-300">{post.authorName}</span>
-                                </div>
-                                <span>•</span>
-                                <span>{post.createdAt ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}</span>
-                            </div>
-
-                            {/* Title */}
-                            <h3 className="text-lg font-bold text-gray-200 group-hover:text-white transition-colors leading-snug">
-                                {post.title}
-                            </h3>
-
-                            {/* Tags */}
+                        {/* Top: Tags & Time */}
+                        <div className="flex items-center justify-between text-xs">
                             <div className="flex flex-wrap gap-2">
-                                {post.tags.map(tag => (
-                                    <span key={tag} className="px-2.5 py-1 rounded-md bg-[#1a1a1a] text-xs font-medium text-gray-400 border border-white/5 group-hover:border-white/10 transition-colors">
+                                {post.tags.slice(0, 3).map((tag, i) => (
+                                    <span key={tag} className={`px-2.5 py-1 rounded-full font-medium border ${i === 0 ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' : 'bg-white/5 text-gray-400 border-white/5'}`}>
                                         #{tag}
                                     </span>
                                 ))}
                             </div>
+                            <span className="text-gray-500 font-medium">
+                                {post.createdAt ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                            </span>
                         </div>
 
-                        {/* Stats / Action */}
-                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 sm:gap-1 pl-0 sm:pl-6 sm:border-l border-white/5 min-w-[100px]">
-                            {/* Mobile: Arrow right */}
-                            <div className="sm:hidden text-indigo-400">
-                                <ArrowUpRight className="w-5 h-5" />
+                        {/* Title */}
+                        <h3 className="text-xl font-bold text-gray-100 group-hover:text-white transition-colors leading-relaxed pr-8 line-clamp-2">
+                            {post.title}
+                        </h3>
+
+                        {/* Spacer to push footer down */}
+                        <div className="flex-1" />
+
+                        {/* Bottom: Author & Stats */}
+                        <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-2">
+                            <div className="flex items-center gap-2.5">
+                                {post.authorAvatar ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={post.authorAvatar} alt="" className="w-6 h-6 rounded-full object-cover ring-2 ring-black/50" />
+                                ) : (
+                                    <div className="w-6 h-6 rounded-full bg-gray-800 flex items-center justify-center ring-2 ring-black/50">
+                                        <User className="w-3.5 h-3.5 text-gray-400" />
+                                    </div>
+                                )}
+                                <span className="text-sm font-medium text-gray-400 group-hover:text-gray-300 transition-colors">
+                                    {post.authorName}
+                                </span>
                             </div>
 
-                            {/* Desktop: Stats */}
-                            <div className="flex items-center gap-6 sm:gap-2 sm:flex-col">
-                                <div className="flex items-center gap-1.5 text-gray-400 group-hover:text-indigo-400 transition-colors">
+                            <div className="flex items-center gap-4 text-gray-500 text-xs font-medium">
+                                <div className="flex items-center gap-1.5 group-hover:text-indigo-400 transition-colors">
                                     <MessageSquare className="w-4 h-4" />
-                                    <span className="text-sm font-semibold">{post.commentCount}</span>
+                                    <span>{post.commentCount}</span>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-gray-500">
+                                <div className="flex items-center gap-1.5 group-hover:text-gray-300 transition-colors">
                                     <Eye className="w-4 h-4" />
-                                    <span className="text-xs">{post.viewCount}</span>
+                                    <span>{post.viewCount}</span>
                                 </div>
-                                <div className="flex items-center gap-1.5 text-gray-500">
+                                <div className="flex items-center gap-1.5 group-hover:text-gray-300 transition-colors">
                                     <ThumbsUp className="w-4 h-4" />
-                                    <span className="text-xs">{post.likes}</span>
+                                    <span>{post.likes}</span>
                                 </div>
                             </div>
                         </div>
