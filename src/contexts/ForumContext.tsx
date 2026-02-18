@@ -22,12 +22,13 @@ import {
 import { db } from "@/lib/firebase";
 import { Post, Comment, Reply } from "@/types/forum";
 import { useAuth } from "./AuthContext";
+import { sendNotification } from "@/lib/notifications";
 
 interface ForumContextType {
     posts: Post[];
     stats: { postsToday: number; activeMembers: number; onlineUsers: number };
     loading: boolean;
-    createPost: (title: string, content: string, tags: string[]) => Promise<void>;
+    createPost: (title: string, content: string, tags: string[], mediaUrls?: string[], mediaType?: 'image' | 'video') => Promise<void>;
     likePost: (postId: string) => Promise<void>;
     addComment: (postId: string, content: string) => Promise<void>;
     addReply: (postId: string, commentId: string, content: string) => Promise<void>;
@@ -37,7 +38,7 @@ interface ForumContextType {
     getPost: (postId: string) => Promise<Post | null>;
     incrementView: (postId: string) => Promise<void>;
     deletePost: (postId: string) => Promise<void>;
-    editPost: (postId: string, title: string, content: string, tags: string[]) => Promise<void>;
+    editPost: (postId: string, title: string, content: string, tags: string[], mediaUrls?: string[], mediaType?: 'image' | 'video') => Promise<void>;
 }
 
 const ForumContext = createContext<ForumContextType | undefined>(undefined);
@@ -94,13 +95,15 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
         };
     }, []);
 
-    const createPost = async (title: string, content: string, tags: string[]) => {
+    const createPost = async (title: string, content: string, tags: string[], mediaUrls?: string[], mediaType?: 'image' | 'video') => {
         if (!user) throw new Error("Must be logged in to post");
 
-        await addDoc(collection(db, "posts"), {
+        const docRef = await addDoc(collection(db, "posts"), {
             title,
             content,
             tags,
+            mediaUrls: mediaUrls || [],
+            mediaType: mediaType || null,
             authorId: user.uid,
             authorName: user.displayName || "Anonymous",
             authorAvatar: user.photoURL,
@@ -116,6 +119,17 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
         await setDoc(userRef, {
             stats: { postsCount: increment(1) }
         }, { merge: true }).catch(err => console.error("Error updating user stats", err));
+
+        // Trigger AI Coach (Fire and forget, don't await blocking the UI)
+        fetch('/api/ai/forum-coach', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                postId: docRef.id,
+                postTitle: title,
+                postContent: content
+            }),
+        }).catch(err => console.error("Failed to trigger AI Coach:", err));
     };
 
     const likePost = async (postId: string) => {
@@ -146,6 +160,17 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
                     await setDoc(authorRef, {
                         stats: { likesReceived: increment(1) }
                     }, { merge: true }).catch(err => console.error("Error updating author stats", err));
+
+                    // Send Notification
+                    sendNotification({
+                        recipientId: postData.authorId,
+                        type: 'like',
+                        message: `${user.displayName || "Someone"} liked your post "${postData.title}"`,
+                        link: `/forum/${postId}`,
+                        senderId: user.uid,
+                        senderName: user.displayName || "Anonymous",
+                        senderAvatar: user.photoURL || undefined
+                    });
                 }
             }
         }
@@ -186,6 +211,23 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
         await updateDoc(postRef, {
             commentCount: increment(1)
         });
+
+        // Send Notification to Post Author
+        const postSnap = await getDoc(postRef);
+        if (postSnap.exists()) {
+            const postData = postSnap.data() as Post;
+            if (postData.authorId) {
+                sendNotification({
+                    recipientId: postData.authorId,
+                    type: 'comment',
+                    message: `${user.displayName || "Someone"} commented on your post "${postData.title}"`,
+                    link: `/forum/${postId}`,
+                    senderId: user.uid,
+                    senderName: user.displayName || "Anonymous",
+                    senderAvatar: user.photoURL || undefined
+                });
+            }
+        }
     };
 
     const likeComment = async (postId: string, commentId: string) => {
@@ -215,6 +257,17 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
                     await updateDoc(authorRef, {
                         'stats.likesReceived': increment(1)
                     }).catch(err => console.error("Error updating author stats", err));
+
+                    // Send Notification
+                    sendNotification({
+                        recipientId: data.authorId,
+                        type: 'like',
+                        message: `${user.displayName || "Someone"} liked your comment`,
+                        link: `/forum/${postId}`,
+                        senderId: user.uid,
+                        senderName: user.displayName || "Anonymous",
+                        senderAvatar: user.photoURL || undefined
+                    });
                 }
             }
         }
@@ -256,6 +309,23 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
         await setDoc(userRef, {
             stats: { commentsCount: increment(1) }
         }, { merge: true }).catch(console.error);
+
+        // Send Notification to Comment Author
+        const commentSnap = await getDoc(commentRef);
+        if (commentSnap.exists()) {
+            const commentData = commentSnap.data() as Comment;
+            if (commentData.authorId) {
+                sendNotification({
+                    recipientId: commentData.authorId,
+                    type: 'reply',
+                    message: `${user.displayName || "Someone"} replied to your comment`,
+                    link: `/forum/${postId}`,
+                    senderId: user.uid,
+                    senderName: user.displayName || "Anonymous",
+                    senderAvatar: user.photoURL || undefined
+                });
+            }
+        }
     };
 
     const likeReply = async (postId: string, commentId: string, replyId: string) => {
@@ -287,6 +357,17 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
                         await setDoc(authorRef, {
                             stats: { likesReceived: increment(1) }
                         }, { merge: true }).catch(console.error);
+
+                        // Send Notification
+                        sendNotification({
+                            recipientId: reply.authorId,
+                            type: 'like',
+                            message: `${user.displayName || "Someone"} liked your reply`,
+                            link: `/forum/${postId}`,
+                            senderId: user.uid,
+                            senderName: user.displayName || "Anonymous",
+                            senderAvatar: user.photoURL || undefined
+                        });
                     }
                 }
 
@@ -316,7 +397,7 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
         await deleteDoc(postRef);
     };
 
-    const editPost = async (postId: string, title: string, content: string, tags: string[]) => {
+    const editPost = async (postId: string, title: string, content: string, tags: string[], mediaUrls?: string[], mediaType?: 'image' | 'video') => {
         if (!user) throw new Error("Must be logged in to edit");
         const postRef = doc(db, "posts", postId);
 
@@ -324,6 +405,8 @@ export const ForumProvider = ({ children }: { children: React.ReactNode }) => {
             title,
             content,
             tags,
+            mediaUrls: mediaUrls || [],
+            mediaType: mediaType || null,
             updatedAt: serverTimestamp()
         });
     };

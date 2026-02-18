@@ -23,7 +23,7 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
                 <div key={section.title} className="space-y-6">
                     {/* Section Header */}
                     <div className="flex items-center gap-4">
-                        <div className="h-8 w-1 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full" />
+                        <div className="h-8 w-1 bg-gradient-to-b from-primary to-secondary rounded-full" />
                         <h3 className="text-xl font-bold text-white tracking-tight">
                             {section.title}
                         </h3>
@@ -45,8 +45,8 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
 
                                     {/* Icon Box */}
                                     <div className="shrink-0 flex md:block justify-start">
-                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-white/10 flex items-center justify-center group-hover:scale-105 group-hover:border-indigo-500/30 transition-all duration-300 shadow-lg shadow-black/50">
-                                            <topic.icon className="w-6 h-6 text-gray-400 group-hover:text-indigo-400 transition-colors" />
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border border-white/10 flex items-center justify-center group-hover:scale-105 group-hover:border-primary/30 transition-all duration-300 shadow-lg shadow-black/50">
+                                            <topic.icon className="w-6 h-6 text-gray-400 group-hover:text-primary transition-colors" />
                                         </div>
                                     </div>
 
@@ -67,7 +67,7 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
                                         {stat.latestPost ? (
                                             <div className="w-full group/latest">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[10px] uppercase tracking-wider font-bold text-indigo-500/70 group-hover:text-indigo-400 transition-colors">Latest Activity</span>
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold text-primary/70 group-hover:text-primary transition-colors">Latest Activity</span>
                                                     <span className="text-[10px] text-gray-600 group-hover:text-gray-500 transition-colors">
                                                         {stat.latestPost.createdAt ? formatDistanceToNow(stat.latestPost.createdAt.toDate(), { addSuffix: true }) : ''}
                                                     </span>
@@ -79,7 +79,7 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
                                                     ) : (
                                                         <User className="w-4 h-4 text-gray-500" />
                                                     )}
-                                                    <span className="text-sm text-gray-400 truncate group-hover:text-indigo-200 transition-colors font-medium">
+                                                    <span className="text-sm text-gray-400 truncate group-hover:text-primary-foreground/80 transition-colors font-medium">
                                                         {stat.latestPost.title}
                                                     </span>
                                                 </div>
@@ -90,7 +90,7 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
                                     </div>
 
                                     {/* Arrow */}
-                                    <div className="hidden md:flex items-center justify-center w-8 shrink-0 text-gray-700 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all">
+                                    <div className="hidden md:flex items-center justify-center w-8 shrink-0 text-gray-700 group-hover:text-primary group-hover:translate-x-1 transition-all">
                                         <ArrowRight className="w-5 h-5" />
                                     </div>
                                 </div>

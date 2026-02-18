@@ -39,6 +39,8 @@ export interface Post {
     viewCount: number;
     commentCount: number;
     likedBy: string[]; // User IDs who liked the post
+    mediaUrls?: string[];
+    mediaType?: 'image' | 'video';
 }
 
 export interface UserProfile {

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
+import { formatForumDate } from '@/lib/utils';
 import { ArrowLeft, User, MessageSquare, ThumbsUp, Send, Loader2, Sparkles, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useForumPost } from '@/hooks/useForumPost';
 import { useForum } from '@/contexts/ForumContext';
@@ -142,7 +142,7 @@ export default function PostDetail({ postId }: { postId: string }) {
     return (
         <div className="h-screen bg-[#050505] relative overflow-hidden flex flex-col">
             {/* Ambient Background Glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
 
             <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 flex flex-col min-h-0">
                 <nav className="flex items-center text-sm text-gray-500 mb-8 animate-in fade-in slide-in-from-left-2 duration-500" aria-label="Breadcrumb">
@@ -158,23 +158,23 @@ export default function PostDetail({ postId }: { postId: string }) {
                     {/* Main Discussion Column */}
                     <div className="lg:col-span-8 h-full overflow-y-auto pr-2 pb-20 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         {/* Main Post Card */}
-                        <div className="group relative bg-[#111]/80 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-indigo-500/5">
+                        <div className="group relative bg-[#111]/80 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-primary/5">
                             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
-                            <div className="p-8 relative">
-                                {/* Tags & Meta */}
-                                <div className="flex items-start justify-between mb-6">
+                            <div className="p-6 relative">
+                                {/* Header: Tags & Actions */}
+                                <div className="flex items-start justify-between mb-4">
                                     <div className="flex gap-2 flex-wrap">
                                         {post.tags.map(tag => (
-                                            <span key={tag} className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-xs font-medium tracking-wide">
+                                            <span key={tag} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-[11px] font-medium tracking-wide">
                                                 #{tag}
                                             </span>
                                         ))}
                                     </div>
 
-                                    <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-3">
                                         <span className="text-gray-500 text-xs font-medium uppercase tracking-wider">
-                                            {post.createdAt ? formatDistanceToNow(post.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                                            {post.createdAt ? formatForumDate(post.createdAt.toDate()) : 'Just now'}
                                         </span>
 
                                         {/* Author Actions */}
@@ -217,33 +217,51 @@ export default function PostDetail({ postId }: { postId: string }) {
                                 </div>
 
                                 {/* Title */}
-                                <h1 className="text-3xl md:text-4xl font-bold text-white mb-6 leading-tight tracking-tight">
+                                <h1 className="text-2xl md:text-3xl font-bold text-white mb-4 leading-tight tracking-tight">
                                     {post.title}
                                 </h1>
 
-                                {/* Author Row */}
-                                <div className="flex items-center gap-4 mb-8 pb-8 border-b border-white/5">
-                                    <div className="relative">
-                                        {post.authorAvatar ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={post.authorAvatar} alt={post.authorName} className="w-12 h-12 rounded-full ring-2 ring-white/10 bg-gray-800 object-cover" />
-                                        ) : (
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300 ring-2 ring-white/10">
-                                                <User className="w-6 h-6" />
-                                            </div>
-                                        )}
-                                        {/* Verified/Status badge could go here */}
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-gray-100 text-base">{post.authorName}</div>
-                                        <div className="text-xs text-indigo-400 font-medium">Community Member</div>
+                                {/* Quick Author Info (Inline to save space) */}
+                                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+                                    {post.authorAvatar ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={post.authorAvatar} alt={post.authorName} className="w-8 h-8 rounded-full ring-1 ring-white/10 bg-gray-800 object-cover" />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300 ring-1 ring-white/10">
+                                            <User className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                    <div className="flex items-baseline gap-2">
+                                        <div className="font-bold text-gray-200 text-sm">{post.authorName}</div>
+                                        <div className="text-xs text-primary font-medium opacity-80">Community Member</div>
                                     </div>
                                 </div>
 
                                 {/* Content */}
-                                <div className="text-gray-300 leading-relaxed text-lg font-light mb-8 [&>p]:mb-6 last:[&>p]:mb-0 [&>strong]:text-white [&>strong]:font-bold [&>ul]:list-disc [&>ul]:pl-6 [&>ol]:list-decimal [&>ol]:pl-6">
+                                <div className="text-gray-300 leading-relaxed text-base mb-6 [&>p]:mb-4 last:[&>p]:mb-0 [&>strong]:text-white [&>strong]:font-bold [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5">
                                     <ReactMarkdown>{post.content}</ReactMarkdown>
                                 </div>
+
+                                {/* Media Attachment */}
+                                {post.mediaUrls && post.mediaUrls.length > 0 && (
+                                    <div className="mb-6 rounded-xl overflow-hidden bg-black border border-white/10 relative group/media shadow-lg">
+                                        {post.mediaType === 'video' ? (
+                                            <video
+                                                src={post.mediaUrls[0]}
+                                                className="w-full max-h-[400px] object-contain bg-black"
+                                                controls
+                                                preload="metadata"
+                                            />
+                                        ) : (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                                src={post.mediaUrls[0]}
+                                                alt="Post attachment"
+                                                className="w-full h-auto max-h-[400px] object-contain bg-black"
+                                            />
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Footer Actions */}
                                 <div className="flex items-center gap-6 pt-2">
@@ -283,7 +301,7 @@ export default function PostDetail({ postId }: { postId: string }) {
                                             size="sm"
                                             onClick={handleSummarize}
                                             disabled={summaryLoading}
-                                            className="text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 border border-indigo-500/20 rounded-full"
+                                            className="text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/10 border border-primary/20 rounded-full"
                                         >
                                             {summaryLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
                                             Get Summary
@@ -295,7 +313,7 @@ export default function PostDetail({ postId }: { postId: string }) {
 
 
                             {/* Reply Input */}
-                            <div className="bg-[#111] border border-white/10 rounded-2xl p-1 shadow-lg focus-within:ring-2 focus-within:ring-indigo-500/50 transition-all">
+                            <div className="bg-[#111] border border-white/10 rounded-2xl p-1 shadow-lg focus-within:ring-2 focus-within:ring-primary/50 transition-all">
                                 <form onSubmit={handleSubmitComment} className="relative bg-[#0a0a0a] rounded-xl overflow-hidden">
                                     <textarea
                                         ref={textareaRef}
@@ -306,19 +324,11 @@ export default function PostDetail({ postId }: { postId: string }) {
                                         className="block w-full bg-transparent border-none outline-none focus:ring-0 focus:border-none focus:outline-none shadow-none resize-none min-h-[80px] text-base p-4 text-white placeholder:text-gray-600 appearance-none"
                                     />
                                     <div className="flex justify-between items-center px-4 pb-3 bg-[#0a0a0a]">
-                                        <button
-                                            type="button"
-                                            onClick={handleAiReply}
-                                            disabled={aiReplyLoading}
-                                            className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors"
-                                        >
-                                            {aiReplyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                            AI Suggestion
-                                        </button>
+                                        <div /> {/* Spacer to keep Post Reply on the right */}
                                         <Button
                                             type="submit"
                                             disabled={!user || submitting || !newComment.trim()}
-                                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-lg font-medium shadow-lg shadow-indigo-600/20 transition-all hover:scale-105 active:scale-95"
+                                            className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 rounded-lg font-medium shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
                                         >
                                             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Post Reply'}
                                         </Button>
@@ -402,13 +412,9 @@ export default function PostDetail({ postId }: { postId: string }) {
                                     </div>
 
                                     <div className="pt-6 border-t border-white/5">
-                                        <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10 hover:border-indigo-500/20 transition-colors group cursor-help">
-                                            <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold mb-1">
-                                                <Sparkles className="w-3.5 h-3.5" />
-                                                <span>AI Coach Active</span>
-                                            </div>
-                                            <p className="text-xs text-indigo-300/60 leading-relaxed">
-                                                The AI Coach is monitoring this thread to provide helpful suggestions and summaries.
+                                        <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                                            <p className="text-xs text-gray-500 leading-relaxed text-center">
+                                                Share your thoughts respectfully. This is a supportive community for growth.
                                             </p>
                                         </div>
                                     </div>
@@ -416,14 +422,14 @@ export default function PostDetail({ postId }: { postId: string }) {
                             </div>
 
                             {summary && (
-                                <div className="animate-in fade-in slide-in-from-right-8 duration-700 bg-gradient-to-br from-indigo-900/40 to-[#111] backdrop-blur-xl border border-indigo-500/20 p-6 rounded-2xl relative overflow-hidden shadow-xl">
+                                <div className="animate-in fade-in slide-in-from-right-8 duration-700 bg-gradient-to-br from-primary/20 to-[#111] backdrop-blur-xl border border-primary/20 p-6 rounded-2xl relative overflow-hidden shadow-xl">
                                     <div className="absolute top-0 right-0 p-3 opacity-10">
-                                        <Sparkles className="w-32 h-32 text-indigo-500" />
+                                        <Sparkles className="w-32 h-32 text-primary" />
                                     </div>
-                                    <h4 className="text-sm font-bold text-indigo-300 mb-4 flex items-center gap-2 relative z-10 border-b border-indigo-500/20 pb-2">
+                                    <h4 className="text-sm font-bold text-primary mb-4 flex items-center gap-2 relative z-10 border-b border-primary/20 pb-2">
                                         <Sparkles className="w-4 h-4" /> AI Summary
                                     </h4>
-                                    <div className="relative z-10 text-sm text-indigo-100/90 leading-relaxed font-light [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>strong]:text-indigo-300 [&>strong]:font-bold">
+                                    <div className="relative z-10 text-sm text-primary-foreground/90 leading-relaxed font-light [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>strong]:text-primary [&>strong]:font-bold">
                                         <ReactMarkdown>{summary}</ReactMarkdown>
                                     </div>
                                 </div>

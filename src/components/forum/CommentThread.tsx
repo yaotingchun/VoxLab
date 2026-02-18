@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatForumDate } from '@/lib/utils';
 import { MessageSquare, ThumbsUp, User, Reply, Check, Sparkles, Loader2 } from 'lucide-react';
 import { Comment, Reply as ReplyType } from '@/types/forum';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,18 +58,18 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ postId, comment, p
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full" />
                     ) : (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${comment.isAiGenerated ? 'bg-indigo-500/20 text-indigo-400' : 'bg-gray-800 text-gray-400'
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${comment.isAiGenerated ? 'bg-primary/20 text-primary' : 'bg-gray-800 text-gray-400'
                             }`}>
                             {comment.isAiGenerated ? <Sparkles className="w-4 h-4" /> : <User className="w-4 h-4" />}
                         </div>
                     )}
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className={`font-semibold text-sm ${comment.isAiGenerated ? 'text-indigo-400' : 'text-white'}`}>
+                            <span className={`font-semibold text-sm ${comment.isAiGenerated ? 'text-primary' : 'text-white'}`}>
                                 {comment.authorName}
                             </span>
                             {comment.isAiGenerated && (
-                                <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/20 font-medium">
+                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 font-medium">
                                     AI
                                 </span>
                             )}
@@ -80,7 +80,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ postId, comment, p
                             )}
                         </div>
                         <span className="text-xs text-gray-500">
-                            {comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                            {comment.createdAt ? formatForumDate(comment.createdAt.toDate()) : 'Just now'}
                         </span>
                     </div>
                 </div>
@@ -157,7 +157,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ postId, comment, p
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs font-semibold text-gray-300">{reply.authorName}</span>
                                 <span className="text-[10px] text-gray-600">
-                                    {reply.createdAt ? formatDistanceToNow(reply.createdAt.toDate(), { addSuffix: true }) : 'Just now'}
+                                    {reply.createdAt ? formatForumDate(reply.createdAt.toDate()) : 'Just now'}
                                 </span>
                             </div>
                             <div className="text-xs text-gray-400 mb-2 leading-relaxed [&>p]:mb-2 last:[&>p]:mb-0 [&>strong]:text-gray-300 [&>strong]:font-bold [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4">
