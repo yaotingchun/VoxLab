@@ -24,8 +24,8 @@ export function FacialFeedbackPanel({
                 <Smile className="w-4 h-4 text-blue-400" /> Facial Analysis
             </h3>
 
-            {/* Engagement Score Bar */}
-            <div>
+            {/* Engagement Score Bar - HIDDEN */}
+            {/* <div>
                 <div className="flex justify-between text-sm mb-2">
                     <span className="text-slate-300">Engagement</span>
                     <span className={`font-bold ${engagementScore > 70 ? 'text-green-400' : 'text-slate-400'}`}>
@@ -40,7 +40,7 @@ export function FacialFeedbackPanel({
                         transition={{ duration: 0.5 }}
                     />
                 </div>
-            </div>
+            </div> */}
 
             {/* Status Grid */}
             <div className="grid grid-cols-2 gap-3">
@@ -80,8 +80,8 @@ export function FacialFeedbackPanel({
                     </div>
                 </div>
 
-                {/* Blink Rate */}
-                <div className={`col-span-2 p-3 rounded-xl border flex items-center justify-between px-4 transition-colors duration-300 ${!isNervous
+                {/* Blink Rate - HIDDEN */}
+                {/* <div className={`col-span-2 p-3 rounded-xl border flex items-center justify-between px-4 transition-colors duration-300 ${!isNervous
                     ? 'bg-slate-800/50 border-slate-700'
                     : 'bg-red-900/10 border-red-500/20'
                     }`}>
@@ -99,7 +99,7 @@ export function FacialFeedbackPanel({
                     <div className="text-xl font-mono text-slate-500 flex items-center gap-1">
                         {blinkRate} <span className="text-xs text-slate-600">bpm</span>
                     </div>
-                </div>
+                </div> */}
             </div>
         </div>
     );

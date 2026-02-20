@@ -46,11 +46,11 @@ export function PresentationCoach() {
             });
             console.log("AI Summary Result:", aiSummary);
 
-            if (!aiSummary.error) {
-                setSessionSummary(aiSummary);
-            } else {
+            if ('error' in aiSummary) {
                 console.error("Analysis Error:", aiSummary.error);
                 alert(`AI Analysis Failed: ${aiSummary.error}`); // Temporary alert for debug
+            } else {
+                setSessionSummary(aiSummary);
             }
         } catch (e) {
             console.error("Failed to analyze", e);

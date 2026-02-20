@@ -3,6 +3,7 @@
 import { vertex } from '@ai-sdk/google-vertex';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { PauseStats } from '@/lib/pause-analysis';
 
 interface SessionData {
     duration: number; // in seconds
@@ -14,7 +15,21 @@ interface SessionData {
         smilePercentage: number; // % of time smiling
         blinkRateAverage: number;
         eyeContactScore: number;
-    }
+    };
+    speechMetrics?: {
+        totalWords: number;
+        fillerCounts: Record<string, number>;
+        pauseCount: number;
+        wpmHistory: number[];
+        pauseStats?: PauseStats | null;
+    };
+    audioMetrics?: {
+        averageVolume: number;
+        averagePitch: number;
+        pitchRange: number;
+        isMonotone: boolean;
+        isTooQuiet: boolean;
+    };
 }
 
 export async function analyzeSession(data: SessionData) {
@@ -26,6 +41,12 @@ export async function analyzeSession(data: SessionData) {
         - Duration: ${data.duration} seconds
         - Overall Score: ${Math.round(data.averageScore)}/100
         
+        - Speech Analysis:
+        - Total Words: ${data.speechMetrics?.totalWords || 0}
+        - Filler Words: ${data.speechMetrics ? Object.entries(data.speechMetrics.fillerCounts).map(([k, v]) => `${k}: ${v}`).join(', ') : 'None'}
+        - Pauses Detected: ${data.speechMetrics?.pauseCount || 0}
+        - Pace Stability: ${data.speechMetrics?.wpmHistory.length ? 'Varied' : 'Stable'} (History: ${data.speechMetrics?.wpmHistory.slice(0, 10).join(', ')}...)
+
         - Posture Issues:
         ${Object.entries(data.issueCounts).map(([k, v]) => `  - ${k}: ${v} detected`).join('\n')}
 

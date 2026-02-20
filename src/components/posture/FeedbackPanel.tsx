@@ -246,18 +246,24 @@ export function FeedbackPanel({ score, isStable, issues }: FeedbackPanelProps) {
         return isStable ? "bg-green-500/10 border-green-500/50" : "bg-red-500/10 border-red-500/50";
     };
 
+    // Progressive Display: Only show first two issues at a time to avoid overwhelming user
+    const displayedIssues = issues.slice(0, 2);
+
     // Eliminate duplicate issue types to avoid showing same animation twice
-    const uniqueIssueTypes = Array.from(new Set(issues.map(i => i.type)));
+    const uniqueIssueTypes = Array.from(new Set(displayedIssues.map(i => i.type)));
 
     return (
-        <div className={`p-6 rounded-2xl border-2 backdrop-blur-sm transition-colors duration-300 ${getStatusColor(isStable)}`}>
+        <div className={`p-6 rounded-2xl border-2 backdrop-blur-sm transition-colors duration-300 h-full ${getStatusColor(isStable)}`}>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-white">Posture Analysis</h2>
                 <div className="flex flex-col items-end">
-                    <span className="text-sm text-gray-400">Stability Score</span>
+                    {/* <span className="text-sm text-gray-400">Stability Score</span>
                     <span className={`text-3xl font-bold ${getScoreColor(score)}`}>
                         {Math.round(score)}
-                    </span>
+                    </span> */}
+                    {/* Just showing Title now since user didn't want the stability score explicitly? Or maybe keep Overall Score? 
+                        User said "stability score of posture analysis". I will hide the score part.
+                    */}
                 </div>
             </div>
 
@@ -265,7 +271,7 @@ export function FeedbackPanel({ score, isStable, issues }: FeedbackPanelProps) {
                 <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider">Live Feedback</h3>
                 <div className="min-h-[100px]">
                     <AnimatePresence mode="popLayout">
-                        {issues.length === 0 ? (
+                        {displayedIssues.length === 0 ? (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -275,7 +281,7 @@ export function FeedbackPanel({ score, isStable, issues }: FeedbackPanelProps) {
                                 <span className="mr-2">✨</span> Great posture! Keep it up.
                             </motion.div>
                         ) : (
-                            issues.map((item, index) => {
+                            displayedIssues.map((item, index) => {
                                 const isPositive = item.type.includes('_GOOD');
                                 const isTip = item.type.includes('_TIP') || item.type.includes('_FIX');
 
