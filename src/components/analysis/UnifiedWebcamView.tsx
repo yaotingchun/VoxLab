@@ -186,7 +186,8 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebca
                 ref={webcamRef}
                 audio={false}
                 screenshotFormat="image/jpeg"
-                className="w-full h-full object-cover transform scale-x-[-1]" // Mirror
+                className="w-full h-full"
+                style={{ objectFit: "contain", transform: "scaleX(-1)" }}
                 videoConstraints={{
                     width: 1280,
                     height: 720,

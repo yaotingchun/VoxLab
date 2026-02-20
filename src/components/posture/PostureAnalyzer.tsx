@@ -48,8 +48,17 @@ export function PostureAnalyzer() {
                                     // Dynamic import to avoid build errors if file not found yet? 
                                     // No, standards imports. I'll fix imports in next step.
                                     const { analyzeSession } = await import("@/app/actions/analyzeSession");
-                                    const result = await analyzeSession(data);
-                                    if (result.error) {
+                                    // Provide default face metrics since this component only tracks posture
+                                    const result = await analyzeSession({
+                                        ...data,
+                                        faceMetrics: {
+                                            averageEngagement: 0,
+                                            smilePercentage: 0,
+                                            blinkRateAverage: 0,
+                                            eyeContactScore: 0
+                                        }
+                                    });
+                                    if ('error' in result) {
                                         console.error(result.error);
                                     } else {
                                         setFeedback(result);

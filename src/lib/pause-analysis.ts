@@ -45,7 +45,7 @@ export function analyzePauses(words: Word[]): Pause[] {
                 startTime: currentWord.endTime,
                 endTime: nextWord.startTime,
                 afterWord: currentWord.word,
-                type: classifyPauseAdvanced(gap, currentWord.word) // Step 4
+                type: classifyPauseAdvanced(gap, currentWord.word) // Back to context-free call
             });
         }
     }
