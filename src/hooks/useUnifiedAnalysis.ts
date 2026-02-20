@@ -70,6 +70,33 @@ export function useUnifiedAnalysis() {
         }
     }, [face.eyeContactScore, isDistractedBuffered]);
 
+    // ---------------------------------------------------------
+    // BUFFERING LOGIC for Posture (Leaky Bucket Integrator)
+    // ---------------------------------------------------------
+    const [isPostureIncorrectBuffered, setIsPostureIncorrectBuffered] = useState(false);
+    const postureIntegrator = useRef(0);
+    const lastPostureIntegrationTime = useRef(Date.now());
+
+    useEffect(() => {
+        const now = Date.now();
+        const dt = Math.min(100, now - lastPostureIntegrationTime.current);
+        lastPostureIntegrationTime.current = now;
+
+        const hasIssues = posture.issues.length > 0;
+
+        if (hasIssues) {
+            postureIntegrator.current = Math.min(3500, postureIntegrator.current + dt);
+        } else {
+            postureIntegrator.current = Math.max(0, postureIntegrator.current - (dt * 2.0));
+        }
+
+        const isNowIncorrect = postureIntegrator.current > 3000;
+
+        if (isNowIncorrect !== isPostureIncorrectBuffered) {
+            setIsPostureIncorrectBuffered(isNowIncorrect);
+        }
+    }, [posture.issues, isPostureIncorrectBuffered]);
+
     // Wrapper to control both sessions
     const startUnifiedSession = useCallback(() => {
         startPostureSession();
@@ -95,7 +122,10 @@ export function useUnifiedAnalysis() {
         const feedbackItems: { type: string, message: string }[] = [];
 
         // 1. Posture Feedback
-        posture.issues.forEach(i => feedbackItems.push(i));
+        // Only show posture issues if the buffer threshold is crossed
+        if (isPostureIncorrectBuffered) {
+            posture.issues.forEach(i => feedbackItems.push(i));
+        }
 
         // 2. Face Feedback (Positive & Constructive)
 
@@ -137,7 +167,10 @@ export function useUnifiedAnalysis() {
 
         return {
             totalScore: Math.round(totalScore),
-            posture,
+            posture: {
+                ...posture,
+                issues: isPostureIncorrectBuffered ? posture.issues : []
+            },
             face,
             feedback: feedbackItems.map(f => f.message), // Keep generic string list for compat
             feedbackItems, // New structured list

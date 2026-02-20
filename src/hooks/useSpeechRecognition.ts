@@ -57,6 +57,8 @@ export function useSpeechRecognition() {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const wpmHistoryRef = useRef<NodeJS.Timeout | null>(null);
     const lastWordCountRef = useRef(0);
+    const transcriptRef = useRef("");
+    const interimTextRef = useRef("");
 
     const reset = useCallback(() => {
         setTranscript("");
@@ -70,6 +72,8 @@ export function useSpeechRecognition() {
         setPauseStats(null);
         wordsRef.current = [];
         lastWordCountRef.current = 0;
+        transcriptRef.current = "";
+        interimTextRef.current = "";
         setError(null);
     }, []);
 
@@ -209,8 +213,8 @@ export function useSpeechRecognition() {
                 const diff = (Date.now() - sessionStartRef.current) / 1000;
                 setElapsedTime(Math.floor(diff));
 
-                // Live WPM
-                const currentText = (transcript + " " + interimText).trim();
+                // Live WPM using Refs to avoid stale closure
+                const currentText = (transcriptRef.current + " " + interimTextRef.current).trim();
                 const wordCount = currentText.split(/\s+/).filter(Boolean).length;
                 if (diff > 0) {
                     setWpm(Math.round((wordCount / diff) * 60));
@@ -218,7 +222,7 @@ export function useSpeechRecognition() {
             }, 1000);
 
             wpmHistoryRef.current = setInterval(() => {
-                const currentText = (transcript + " " + interimText).trim();
+                const currentText = (transcriptRef.current + " " + interimTextRef.current).trim();
                 const currentCount = currentText.split(/\s+/).filter(Boolean).length;
                 const newWords = currentCount - lastWordCountRef.current;
                 const intervalWpm = Math.max(0, Math.round((newWords / 5) * 60));
@@ -232,6 +236,14 @@ export function useSpeechRecognition() {
             stopListening();
         }
     }, [reset, stopListening, transcript, interimText]);
+
+    useEffect(() => {
+        transcriptRef.current = transcript;
+    }, [transcript]);
+
+    useEffect(() => {
+        interimTextRef.current = interimText;
+    }, [interimText]);
 
     useEffect(() => {
         return () => {

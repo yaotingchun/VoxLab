@@ -8,7 +8,7 @@ import { useAudioAnalysis } from "@/hooks/useAudioAnalysis";
 import { SpeechCoachWidget } from "@/components/coach/SpeechCoachWidget";
 import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 
-import { FeedbackPanel } from "@/components/posture/FeedbackPanel";
+import { UnifiedFeedbackPanel } from "@/components/analysis/UnifiedFeedbackPanel";
 
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle } from "lucide-react";
@@ -50,7 +50,9 @@ export default function PracticePage() {
         stopAudioAnalysis,
         audioStats,
         volumeSamples,
-        pitchSamples
+        pitchSamples,
+        currentPitch,
+        currentVolume
     } = useAudioAnalysis();
 
     const [isStarted, setIsStarted] = useState(false);
@@ -156,6 +158,8 @@ export default function PracticePage() {
     };
 
 
+    const [isCoachHovered, setIsCoachHovered] = useState(false);
+
     return (
         <div className="flex flex-col h-screen bg-black text-white overflow-hidden p-4 gap-4">
             {/* Header */}
@@ -209,17 +213,33 @@ export default function PracticePage() {
                                 </>
                             )}
 
-                            {/* Speech Coach Widget - Floating Bottom Overlay */}
+                            {/* Speech Coach Widget - Floating Bottom Overlay (Reveal on Hover) */}
                             {isStarted && (
-                                <div className="absolute bottom-6 left-0 right-0 flex justify-center z-[60] pointer-events-auto">
-                                    <SpeechCoachWidget
-                                        isListening={isListening}
-                                        wpm={wpm}
-                                        elapsedTime={elapsedTime}
-                                        transcript={transcript}
-                                        onToggleListening={isListening ? stopListening : startListening}
-                                        onReset={handleReset}
-                                    />
+                                <div
+                                    className="absolute bottom-0 left-0 right-0 h-32 z-[60] flex items-end justify-center pb-6 transition-all"
+                                    onMouseEnter={() => setIsCoachHovered(true)}
+                                    onMouseLeave={() => setIsCoachHovered(false)}
+                                >
+                                    <AnimatePresence>
+                                        {isCoachHovered && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 20 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 20 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="pointer-events-auto"
+                                            >
+                                                <SpeechCoachWidget
+                                                    isListening={isListening}
+                                                    wpm={wpm}
+                                                    elapsedTime={elapsedTime}
+                                                    transcript={transcript}
+                                                    onToggleListening={isListening ? stopListening : startListening}
+                                                    onReset={handleReset}
+                                                />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </div>
                             )}
 
@@ -304,28 +324,17 @@ export default function PracticePage() {
                 {/* RIGHT PANEL: Compact Metrics */}
                 <div className="w-full lg:w-[480px] flex flex-col gap-6 min-w-0">
 
-                    {/* 1. Confidence Score (Compact) */}
-                    <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-slate-800 flex items-center justify-between shadow-lg">
-                        <div className="flex flex-col">
-                            <span className="text-slate-400 text-[20px] font-bold uppercase tracking-wider">Confidence Score</span>
-
-                        </div>
-                        <div className="flex items-end gap-2">
-                            <span className={`text-4xl font-bold ${result.totalScore > 80 ? 'text-green-400' : result.totalScore > 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                {Math.round(result.totalScore)}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* 3. Posture Analysis (Compact) */}
-                    <div className="flex-1 min-h-0 overflow-hidden">
-                        <div className="w-full h-full">
-                            <FeedbackPanel
-                                score={result.posture.score}
-                                isStable={true}
-                                issues={result.posture.issues}
-                            />
-                        </div>
+                    {/* Unified Feedback Panel */}
+                    <div className="flex-1 min-h-[450px]">
+                        <UnifiedFeedbackPanel
+                            pitch={currentPitch}
+                            wpm={wpm}
+                            volume={currentVolume}
+                            isListening={isListening}
+                            postureScore={result.posture.score}
+                            isPostureStable={result.posture.isStable}
+                            postureIssues={result.posture.issues}
+                        />
                     </div>
                 </div>
             </div>

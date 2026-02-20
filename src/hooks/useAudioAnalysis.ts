@@ -12,6 +12,7 @@ import {
 export interface UseAudioAnalysisResult {
     isRecording: boolean;
     currentVolume: number;
+    currentPitch: number;
     volumeSamples: number[];
     pitchSamples: number[];
     audioStats: { stats: AudioStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
@@ -24,6 +25,7 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
 
     // Real-time metrics
     const [currentVolume, setCurrentVolume] = useState(0);
+    const [currentPitch, setCurrentPitch] = useState(0);
 
     // Accumulated data for post-session analysis
     const [volumeSamples, setVolumeSamples] = useState<number[]>([]);
@@ -71,9 +73,12 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
                 // Detect Pitch
                 const pitch = detectPitch(analysisData, 16000); // 16kHz context
                 if (pitch) {
+                    setCurrentPitch(pitch);
                     setPitchSamples(prev => [...prev, pitch]);
                 } else {
-                    setPitchSamples(prev => [...prev, 0]); // 0 indicates unvoiced/silence
+                    // Keep the last valid pitch for persistence (Real-time UI)
+                    // But record 0 in samples for accurate session data/averages
+                    setPitchSamples(prev => [...prev, 0]);
                 }
 
             }, 100);
@@ -130,6 +135,7 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
     return {
         isRecording,
         currentVolume,
+        currentPitch,
         volumeSamples,
         pitchSamples,
         audioStats: getAnalysis(),
