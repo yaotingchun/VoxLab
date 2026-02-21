@@ -54,6 +54,8 @@ export interface UserProfile {
         likesReceived: number;
         bestAnswersCount: number;
     };
+    followersCount: number;
+    followingCount: number;
     lastActiveAt: Timestamp;
     isOnline?: boolean;
 }

@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import { CreatePostModal } from '@/components/forum/CreatePostModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { useRouter } from 'next/navigation';
+import { ForumAuthorHover } from '@/components/forum/ForumAuthorHover';
 
 export default function PostDetail({ postId }: { postId: string }) {
     const { post, comments, loading } = useForumPost(postId);
@@ -223,16 +224,28 @@ export default function PostDetail({ postId }: { postId: string }) {
 
                                 {/* Quick Author Info (Inline to save space) */}
                                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
-                                    {post.authorAvatar ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={post.authorAvatar} alt={post.authorName} className="w-8 h-8 rounded-full ring-1 ring-white/10 bg-gray-800 object-cover" />
-                                    ) : (
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300 ring-1 ring-white/10">
-                                            <User className="w-4 h-4" />
-                                        </div>
-                                    )}
+                                    <ForumAuthorHover
+                                        authorId={post.authorId}
+                                        authorName={post.authorName}
+                                        authorAvatar={post.authorAvatar}
+                                    >
+                                        {post.authorAvatar ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={post.authorAvatar} alt={post.authorName} className="w-8 h-8 rounded-full ring-1 ring-white/10 bg-gray-800 object-cover cursor-pointer hover:ring-primary/50 transition-all" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300 ring-1 ring-white/10 cursor-pointer">
+                                                <User className="w-4 h-4" />
+                                            </div>
+                                        )}
+                                    </ForumAuthorHover>
                                     <div className="flex items-baseline gap-2">
-                                        <div className="font-bold text-gray-200 text-sm">{post.authorName}</div>
+                                        <ForumAuthorHover
+                                            authorId={post.authorId}
+                                            authorName={post.authorName}
+                                            authorAvatar={post.authorAvatar}
+                                        >
+                                            <div className="font-bold text-gray-200 text-sm cursor-pointer hover:text-primary transition-colors">{post.authorName}</div>
+                                        </ForumAuthorHover>
                                         <div className="text-xs text-primary font-medium opacity-80">Community Member</div>
                                     </div>
                                 </div>
@@ -366,7 +379,13 @@ export default function PostDetail({ postId }: { postId: string }) {
                                         </div>
                                         <div>
                                             <div className="text-gray-500 text-xs">Started by</div>
-                                            <div className="text-white font-medium text-sm">{post.authorName}</div>
+                                            <ForumAuthorHover
+                                                authorId={post.authorId}
+                                                authorName={post.authorName}
+                                                authorAvatar={post.authorAvatar}
+                                            >
+                                                <div className="text-white font-medium text-sm cursor-pointer hover:text-primary transition-colors">{post.authorName}</div>
+                                            </ForumAuthorHover>
                                         </div>
                                     </div>
 

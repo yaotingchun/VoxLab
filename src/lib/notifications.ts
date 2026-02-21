@@ -1,7 +1,7 @@
 import { db } from "./firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
-export type NotificationType = 'like' | 'comment' | 'reply' | 'system';
+export type NotificationType = 'like' | 'comment' | 'reply' | 'follow' | 'system';
 
 export interface SendNotificationParams {
     recipientId: string;

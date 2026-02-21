@@ -40,6 +40,8 @@ export function useUserProfile() {
                         likesReceived: 0,
                         bestAnswersCount: 0
                     },
+                    followersCount: 0,
+                    followingCount: 0,
                     lastActiveAt: serverTimestamp() as any, // Typed as any to avoid client/server timestamp mismatch issues initially
                     isOnline: true
                 };
