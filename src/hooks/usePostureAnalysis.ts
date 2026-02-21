@@ -40,6 +40,7 @@ export function usePostureAnalysis() {
         totalScore: 0,
         frameCount: 0,
         issueCounts: {} as Record<string, number>,
+        lastSeenTime: {} as Record<string, number>,
     });
 
     const startSession = useCallback(() => {
@@ -49,6 +50,7 @@ export function usePostureAnalysis() {
             totalScore: 0,
             frameCount: 0,
             issueCounts: {},
+            lastSeenTime: {},
         };
     }, []);
 
@@ -144,8 +146,16 @@ export function usePostureAnalysis() {
         if (isSessionActive) {
             sessionStats.current.frameCount++;
             sessionStats.current.totalScore += currentScore;
+
+            const now = Date.now();
             issues.forEach(issue => {
-                sessionStats.current.issueCounts[issue.type] = (sessionStats.current.issueCounts[issue.type] || 0) + 1;
+                const lastSeen = sessionStats.current.lastSeenTime[issue.type] || 0;
+                // If it's been more than 2 seconds since we last saw this issue, count it as a new distinct occurrence
+                if (now - lastSeen > 2000) {
+                    sessionStats.current.issueCounts[issue.type] = (sessionStats.current.issueCounts[issue.type] || 0) + 1;
+                }
+                // Update the last seen time to current frame
+                sessionStats.current.lastSeenTime[issue.type] = now;
             });
         }
 

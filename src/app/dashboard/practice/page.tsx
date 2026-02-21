@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { UnifiedWebcamView } from "@/components/analysis/UnifiedWebcamView";
 import { useUnifiedAnalysis } from "@/hooks/useUnifiedAnalysis";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -16,6 +16,9 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { analyzeSession } from "@/app/actions/analyzeSession";
+import { analyzeVocal } from "@/app/actions/analyzeVocal";
+import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePosture";
+import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
 // ...
 
 export default function PracticePage() {
@@ -59,6 +62,17 @@ export default function PracticePage() {
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+    // Video Recording State
+    const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+    const videoResolveRef = useRef<((blob: Blob) => void) | null>(null);
+
+    const handleVideoRecorded = useCallback((blob: Blob) => {
+        if (videoResolveRef.current) {
+            videoResolveRef.current(blob);
+            videoResolveRef.current = null;
+        }
+    }, []);
+
     // Auto-scroll transcript
     const transcriptRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -76,8 +90,38 @@ export default function PracticePage() {
             stopListening(); // Speech
             stopAudioAnalysis(); // Audio
 
+            if (audioStream) {
+                audioStream.getTracks().forEach(t => t.stop());
+                setAudioStream(null);
+            }
+
             setIsAnalyzing(true);
             try {
+                // Wait for video buffer to finish processing
+                const videoBlob = await new Promise<Blob>((resolve) => {
+                    videoResolveRef.current = resolve;
+                    // Timeout fallback in case recorder fails
+                    setTimeout(() => resolve(new Blob()), 5000);
+                });
+
+                let videoUrl = undefined;
+                if (videoBlob.size > 0) {
+                    try {
+                        const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
+                        const res = await getGCSUploadUrl(videoBlob.type, ext);
+                        if (res.success && res.uploadUrl) {
+                            await fetch(res.uploadUrl, {
+                                method: 'PUT',
+                                body: videoBlob,
+                                headers: { 'Content-Type': videoBlob.type }
+                            });
+                            videoUrl = res.fileUrl;
+                        }
+                    } catch (e) {
+                        console.error("Video Upload Failed", e);
+                    }
+                }
+
                 // Get Audio Stats & Samples
                 const audioResult = audioStats;
 
@@ -85,45 +129,79 @@ export default function PracticePage() {
                 // If it's null (no words), we pass null
                 const finalPauseStats = pauseStats;
 
-                const aiSummary = await analyzeSession({
-                    duration: data.duration,
-                    averageScore: data.averageScore,
-                    issueCounts: data.issueCounts,
-                    faceMetrics: data.faceMetrics,
-                    speechMetrics: {
-                        totalWords,
-                        fillerCounts,
-                        // @ts-ignore - pauseStats structure mismatch check
-                        pauseStats: finalPauseStats ? finalPauseStats.stats : undefined,
-                        pauseCount,
-                        wpmHistory
-                    },
-                    // @ts-ignore
-                    audioMetrics: audioResult ? audioResult.stats : undefined
-                });
+                const speechMetricsPayload = {
+                    totalWords,
+                    fillerCounts,
+                    // @ts-ignore - pauseStats structure mismatch check
+                    pauseStats: finalPauseStats ? finalPauseStats.stats : undefined,
+                    pauseCount,
+                    wpmHistory
+                };
+
+                const audioMetricsPayload = audioResult ? audioResult.stats : undefined;
+
+                const [aiSummary, vocalSummary, postureSummary] = await Promise.all([
+                    analyzeSession({
+                        duration: data.duration,
+                        averageScore: data.averageScore,
+                        issueCounts: data.issueCounts,
+                        faceMetrics: data.faceMetrics,
+                        speechMetrics: speechMetricsPayload,
+                        // @ts-ignore
+                        audioMetrics: audioMetricsPayload
+                    }),
+                    analyzeVocal({
+                        speechMetrics: speechMetricsPayload,
+                        // @ts-ignore
+                        audioMetrics: audioMetricsPayload
+                    }),
+                    getAIPostureAnalysis({
+                        issueCounts: data.issueCounts,
+                        faceMetrics: data.faceMetrics
+                    })
+                ]);
 
                 if ('error' in aiSummary) {
-                    console.error("Analysis Error:", aiSummary.error);
-                } else {
-                    setSessionSummary({
-                        ...aiSummary,
-                        rawMetrics: {
-                            duration: data.duration,
-                            wpm,
-                            totalWords,
-                            fillerCounts,
-                            pauseCount,
-                            wpmHistory,
-                            words, // Correctly access words from scope
-                            pauseStats: finalPauseStats,
-                            audioMetrics: audioResult ? audioResult.stats : undefined,
+                    console.error("General Analysis Error:", aiSummary.error);
+                }
+                if ('error' in vocalSummary) {
+                    console.error("Vocal Analysis Error:", vocalSummary.error);
+                }
+                if ('error' in postureSummary) {
+                    console.error("Posture Analysis Error:", postureSummary.error);
+                }
 
-                            // Pass raw samples for charts
-                            volumeSamples: volumeSamples,
-                            pitchSamples: pitchSamples,
-                            transcript: transcript // Pass transcript for report
-                        }
-                    });
+                const finalSummaryData = {
+                    ...aiSummary,
+                    vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
+                    postureSummary: 'error' in postureSummary ? null : postureSummary,
+                    videoUrl,
+                    rawMetrics: {
+                        duration: data.duration,
+                        wpm,
+                        totalWords,
+                        fillerCounts,
+                        issueCounts: data.issueCounts,
+                        pauseCount,
+                        wpmHistory,
+                        words, // Correctly access words from scope
+                        pauseStats: finalPauseStats,
+                        audioMetrics: audioResult ? audioResult.stats : undefined,
+
+                        // Pass raw samples for charts
+                        volumeSamples: volumeSamples,
+                        pitchSamples: pitchSamples,
+                        transcript: transcript // Pass transcript for report
+                    }
+                };
+
+                setSessionSummary(finalSummaryData);
+
+                // Save to GCS asynchronously
+                try {
+                    await saveSessionToGCS(finalSummaryData);
+                } catch (e) {
+                    console.error("Failed to save session to GCS:", e);
                 }
             } catch (error) {
                 console.error("Failed to analyze session:", error);
@@ -134,18 +212,21 @@ export default function PracticePage() {
         } else {
             // Start everything
             setSessionSummary(null);
-            setIsStarted(true);
-            startSession();
 
-            // Note: startListening now handles its own AudioContext/WebSocket
-            startListening();
-
-            // Start Audio Analysis (re-request stream or use if available)
+            // Wait for Audio Stream BEFORE starting the flags so MediaRecorder gets it immediately
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                setAudioStream(stream);
                 startAudioAnalysis(stream);
+
+                // Note: startListening now handles its own AudioContext/WebSocket
+                startListening();
+
+                startSession();
+                setIsStarted(true); // Trigger UI and recording
             } catch (e) {
                 console.error("Audio stream failed", e);
+                alert("Please allow microphone access to start the session.");
             }
         }
     };
@@ -187,6 +268,9 @@ export default function PracticePage() {
                             <UnifiedWebcamView
                                 onPoseResults={analyzePosture}
                                 onFaceResults={analyzeFace}
+                                isRecording={isStarted}
+                                audioStream={audioStream}
+                                onVideoRecorded={handleVideoRecorded}
                             />
 
                             {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}
