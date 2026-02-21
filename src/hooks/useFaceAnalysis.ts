@@ -201,10 +201,25 @@ export function useFaceAnalysis() {
         const isDuchenneSmile = isMouthSmiling && isEyeSquinting;
 
         // Engagement Score
-        const leftCentering = calculateIrisCentering(leftIris, leftRef[2], leftRef[3]);
-        const rightCentering = calculateIrisCentering(landmarks[FACE_LANDMARKS.RIGHT_IRIS], rightRef[2], rightRef[3]);
-        const avgCentering = (leftCentering + rightCentering) / 2;
-        const eyeContactScore = Math.max(0, 100 - (avgCentering * 200));
+        // Engagement Score
+        // Horizontal Centering (Left/Right)
+        const leftCenteringX = calculateIrisCentering(leftIris, leftRef[2], leftRef[3]);
+        const rightCenteringX = calculateIrisCentering(landmarks[FACE_LANDMARKS.RIGHT_IRIS], rightRef[2], rightRef[3]);
+        const avgCenteringX = (leftCenteringX + rightCenteringX) / 2;
+
+        // Vertical Centering (Up/Down) - Critical for reading notes/looking down
+        // Top is index 0, Bottom is index 1 in the ref arrays
+        const leftCenteringY = calculateIrisCentering(leftIris, leftRef[0], leftRef[1]);
+        const rightCenteringY = calculateIrisCentering(landmarks[FACE_LANDMARKS.RIGHT_IRIS], rightRef[0], rightRef[1]);
+        const avgCenteringY = (leftCenteringY + rightCenteringY) / 2;
+
+        // Total deviation from center (0 is perfect center)
+        // We weight Y deviation more because looking down is a common "bad" habit in calls
+        const totalDeviation = (avgCenteringX * 1.0) + (avgCenteringY * 2.0);
+
+        // Strict mapping: Any significant deviation drops score fast
+        // Increased sensitivity: Multiplier 450 means 22% deviation = 0 score.
+        const eyeContactScore = Math.max(0, 100 - (totalDeviation * 450));
 
         let engagement = 50;
         engagement += (eyeContactScore * 0.3);

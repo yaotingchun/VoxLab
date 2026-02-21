@@ -8,15 +8,57 @@ interface FeedbackOverlayProps {
     isDistracted: boolean;
     emotionState: string;
     postureMessages: string[];
-    faceMessages: string[];
 }
 
-export function FeedbackOverlay({ isNervous, isDistracted, emotionState, postureMessages, faceMessages }: FeedbackOverlayProps) {
+export function FeedbackOverlay({ isNervous, isDistracted, emotionState, postureMessages }: FeedbackOverlayProps) {
+    // Intervention Logic
+    const [interventionState, setInterventionState] = React.useState<'idle' | 'prompt' | 'active' | 'dismissed'>('idle');
+
+    // Reset logic: If nervousness clears, we reset to idle so it can trigger again later.
+    React.useEffect(() => {
+        if (!isNervous) {
+            setInterventionState('idle');
+        } else if (isNervous && interventionState === 'idle') {
+            setInterventionState('prompt');
+        }
+    }, [isNervous, interventionState]);
+
     return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <AnimatePresence>
-                {/* Nervousness: Breathing Guide (General) */}
-                {isNervous && !faceMessages.includes("Relax your jaw/mouth. 👄") && (
+                {/* 1. INTERACTIVE PROMPT: Only show when Nervous + Prompt state */}
+                {interventionState === 'prompt' && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="absolute top-1/3 left-1/2 transform -translate-x-1/2 z-50 pointer-events-auto"
+                    >
+                        <div className="bg-slate-900/95 backdrop-blur-md border border-blue-500/50 p-6 rounded-2xl shadow-2xl text-center max-w-sm">
+                            <div className="text-3xl mb-2">😰</div>
+                            <h3 className="text-white font-bold text-lg mb-1">Feeling Nervous?</h3>
+                            <p className="text-slate-400 text-sm mb-4">We detected high tension. Would you like a quick breathing guide?</p>
+
+                            <div className="flex gap-3 justify-center">
+                                <button
+                                    onClick={() => setInterventionState('active')}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                                >
+                                    Yes, Help Me
+                                </button>
+                                <button
+                                    onClick={() => setInterventionState('dismissed')}
+                                    className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                                >
+                                    No, I'm Good
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* 2. BREATHING GUIDE: Only show if user said YES ('active') */}
+                {interventionState === 'active' && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{
@@ -30,24 +72,18 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                             repeat: Infinity,
                             ease: "easeInOut"
                         }}
-                        className="absolute inset-0 border-8 border-blue-400/30 rounded-full m-12 flex items-center justify-center"
+                        className="absolute inset-0 border-8 border-blue-400/30 rounded-full m-12 flex items-center justify-center pointer-events-auto"
                     >
-                        <div className="bg-blue-900/80 text-blue-200 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm">
-                            Breathe... In... Out...
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* Specific Mouth Tension Guide */}
-                {faceMessages.some(m => m.includes("Relax your jaw")) && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 50 }}
-                        className="absolute bottom-1/3 left-1/2 transform -translate-x-1/2"
-                    >
-                        <div className="bg-yellow-900/80 text-yellow-200 px-6 py-2 rounded-full text-sm font-bold backdrop-blur-sm border border-yellow-500/50 flex items-center gap-2">
-                            <span>👄</span> Relax Mouth
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="bg-blue-900/80 text-blue-200 px-6 py-3 rounded-full text-xl font-semibold backdrop-blur-sm">
+                                Breathe In... 🌬️
+                            </div>
+                            <button
+                                onClick={() => setInterventionState('dismissed')}
+                                className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-xs transition-colors"
+                            >
+                                Stop Guide
+                            </button>
                         </div>
                     </motion.div>
                 )}
@@ -58,11 +94,11 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0 }}
-                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-24 h-24"
                     >
-                        <div className="w-16 h-16 border-4 border-red-500 rounded-full animate-ping absolute"></div>
-                        <div className="w-4 h-4 bg-red-500 rounded-full relative z-10"></div>
-                        <div className="mt-8 bg-red-900/80 text-white px-3 py-1 rounded text-xs whitespace-nowrap -translate-x-1/2 left-1/2 absolute">
+                        <div className="absolute w-16 h-16 border-4 border-red-500 rounded-full animate-ping"></div>
+                        <div className="relative w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_10px_rgba(239,68,68,0.8)]"></div>
+                        <div className="absolute top-full mt-2 bg-red-900/80 text-white px-3 py-1 rounded text-xs whitespace-nowrap backdrop-blur-sm border border-red-500/30">
                             Look Here
                         </div>
                     </motion.div>
@@ -83,35 +119,18 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                 )}
             </AnimatePresence>
 
-            {/* ZONE 1: Facial Feedback (Top Right Corner) */}
-            <div className="absolute top-4 right-4 flex flex-col items-end space-y-2 max-w-[250px]">
-                <AnimatePresence>
-                    {faceMessages.slice(0, 3).map((msg, idx) => (
-                        <motion.div
-                            key={`face-${msg}-${idx}`}
-                            initial={{ x: 20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 20, opacity: 0 }}
-                            className="bg-black/60 backdrop-blur-md text-white px-3 py-2 rounded-lg text-xs border-r-4 border-blue-400 shadow-lg text-right"
-                        >
-                            {msg}
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </div>
-
-            {/* ZONE 2: Posture Alerts (Bottom Center - Raised above controls) */}
-            <div className="absolute bottom-32 left-4 right-4 flex flex-col items-center space-y-2 pointer-events-none">
+            {/* ZONE 2: Posture Alerts (Top Center - Moved from bottom to clear controls) */}
+            <div className="absolute top-8 left-0 right-0 flex flex-col items-center space-y-2 pointer-events-none z-50">
                 <AnimatePresence>
                     {postureMessages.slice(0, 1).map((msg, idx) => (
                         <motion.div
                             key={`posture-${msg}-${idx}`}
-                            initial={{ y: 20, opacity: 0 }}
+                            initial={{ y: -20, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: -20, opacity: 0 }}
-                            className="bg-red-900/80 backdrop-blur-md text-white px-6 py-3 rounded-xl text-lg font-bold border-2 border-red-500 shadow-2xl text-center"
+                            className="bg-red-950/80 backdrop-blur-md text-red-100 px-4 py-2 rounded-full text-sm font-semibold border border-red-500/50 shadow-xl flex items-center gap-2"
                         >
-                            ⚠️ {msg}
+                            <span className="text-red-400">⚠️</span> {msg}
                         </motion.div>
                     ))}
                 </AnimatePresence>

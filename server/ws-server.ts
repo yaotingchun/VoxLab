@@ -28,8 +28,10 @@ wss.on("connection", (ws: WebSocket) => {
     let recognizeStream: ReturnType<typeof speechClient.streamingRecognize> | null = null;
     let isStreamActive = false;
     let retryCount = 0;
+    let rotationTimer: NodeJS.Timeout | null = null;
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 500;
+    const PROACTIVE_ROTATION_MS = 290000; // 4m 50s (before 305s limit)
 
     async function startStream() {
         try {
@@ -64,6 +66,15 @@ wss.on("connection", (ws: WebSocket) => {
                 recognizer,
                 streamingConfig,
             });
+
+            // Start proactive rotation timer
+            if (rotationTimer) clearTimeout(rotationTimer);
+            rotationTimer = setTimeout(() => {
+                if (isStreamActive) {
+                    console.log("🔄 Proactively rotating STT stream to avoid 305s limit...");
+                    restartStream();
+                }
+            }, PROACTIVE_ROTATION_MS);
 
             recognizeStream!.on("data", (response: google.cloud.speech.v2.IStreamingRecognizeResponse) => {
                 // Reset retry counter on successful data
@@ -101,19 +112,23 @@ wss.on("connection", (ws: WebSocket) => {
                 const grpcError = error as Error & { code?: number };
 
                 // Auto-retry on transient errors (INTERNAL=13, OUT_OF_RANGE=11)
-                if ((grpcError.code === 13 || grpcError.code === 11) && retryCount < MAX_RETRIES) {
+                if (grpcError.code === 11) {
+                    // Code 11 is "OUT_OF_RANGE" - typically the 305s limit. 
+                    // Restart immediately without consuming retries.
+                    console.log("🔄 Stream time limit reached (Code 11). Restarting...");
+                    restartStream();
+                } else if (grpcError.code === 13 && retryCount < MAX_RETRIES) {
                     retryCount++;
-                    const reason = grpcError.code === 11 ? "stream time limit" : "transient error";
-                    console.log(`🔄 Auto-retry ${retryCount}/${MAX_RETRIES} (${reason})...`);
+                    console.log(`🔄 Auto-retry ${retryCount}/${MAX_RETRIES} (Internal Error Code 13)...`);
                     setTimeout(() => {
                         if (ws.readyState === WebSocket.OPEN) {
                             restartStream();
                         }
                     }, RETRY_DELAY_MS);
-                } else if (grpcError.code === 13 || grpcError.code === 11) {
-                    console.error(`❌ Max retries reached (${grpcError.code}):`, error.message);
+                } else if (grpcError.code === 13) {
+                    console.error("❌ Max retries reached (Code 13):", error.message);
                     if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ error: "Transcription stream failed after retries. Try stopping and starting again." }));
+                        ws.send(JSON.stringify({ error: "Transcription stream failed after multiple internal errors." }));
                     }
                 } else {
                     console.error("❌ Stream error:", error.message);
@@ -135,6 +150,7 @@ wss.on("connection", (ws: WebSocket) => {
 
             console.log(`🎤 Streaming recognition started${retryCount > 0 ? ` (retry ${retryCount})` : ""}`);
         } catch (err) {
+            if (rotationTimer) clearTimeout(rotationTimer);
             console.error("❌ Failed to start stream:", err);
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ error: "Failed to start speech recognition stream" }));
@@ -143,11 +159,14 @@ wss.on("connection", (ws: WebSocket) => {
     }
 
     function restartStream() {
+        if (rotationTimer) clearTimeout(rotationTimer);
         if (recognizeStream) {
             try {
+                // Don't call stopStream because that signals client.
+                // Just end the stream write side.
                 recognizeStream.end();
             } catch {
-                // ignore end errors
+                // ignore
             }
         }
         recognizeStream = null;
@@ -156,21 +175,18 @@ wss.on("connection", (ws: WebSocket) => {
     }
 
     function stopStream() {
+        if (rotationTimer) clearTimeout(rotationTimer);
         if (recognizeStream) {
             isStreamActive = false;
             try {
-                // End the write side — Google will flush remaining results
-                // then fire the 'end' event, which sends { done: true }
                 recognizeStream.end();
             } catch {
-                // If end fails, send done immediately
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ done: true }));
                 }
             }
             console.log("⏹️  Stream stopped by client, waiting for final results...");
         } else {
-            // No active stream, send done immediately
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ done: true }));
             }
