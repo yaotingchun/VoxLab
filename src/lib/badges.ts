@@ -19,7 +19,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Complete your very first practice session.",
         icon: "🎤",
         rarity: "common",
-        check: (s) => s.sessionsCount >= 1
+        color: "#22c55e",
+        check: (s) => s.sessionsCount >= 1,
+        progress: (s) => ({ current: Math.min(s.sessionsCount, 1), max: 1 })
     },
     {
         id: "on_a_roll",
@@ -27,7 +29,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Achieve a 3-day practice streak.",
         icon: "🔥",
         rarity: "common",
-        check: (s) => s.streakCount >= 3
+        color: "#f97316",
+        check: (s) => s.streakCount >= 3,
+        progress: (s) => ({ current: Math.min(s.streakCount, 3), max: 3 })
     },
     {
         id: "week_warrior",
@@ -35,7 +39,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Maintain a 7-day practice streak.",
         icon: "📅",
         rarity: "rare",
-        check: (s) => s.streakCount >= 7
+        color: "#3b82f6",
+        check: (s) => s.streakCount >= 7,
+        progress: (s) => ({ current: Math.min(s.streakCount, 7), max: 7 })
     },
     {
         id: "month_master",
@@ -43,7 +49,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Maintain a 30-day practice streak.",
         icon: "🏆",
         rarity: "legendary",
-        check: (s) => s.streakCount >= 30
+        color: "#eab308",
+        check: (s) => s.streakCount >= 30,
+        progress: (s) => ({ current: Math.min(s.streakCount, 30), max: 30 })
     },
     {
         id: "score_star",
@@ -51,7 +59,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Achieve a score of 90 or higher in a session.",
         icon: "⭐",
         rarity: "rare",
-        check: (s) => s.bestScore >= 90
+        color: "#8b5cf6",
+        check: (s) => s.bestScore >= 90,
+        progress: (s) => ({ current: Math.min(s.bestScore, 90), max: 90 })
     },
     {
         id: "perfect_ten",
@@ -59,7 +69,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Score 100 in a practice session.",
         icon: "💯",
         rarity: "legendary",
-        check: (s) => s.bestScore >= 100
+        color: "#ec4899",
+        check: (s) => s.bestScore >= 100,
+        progress: (s) => ({ current: Math.min(s.bestScore, 100), max: 100 })
     },
     {
         id: "chatterbox",
@@ -67,7 +79,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Post 5 threads in the forum.",
         icon: "💬",
         rarity: "common",
-        check: (s) => s.postsCount >= 5
+        color: "#06b6d4",
+        check: (s) => s.postsCount >= 5,
+        progress: (s) => ({ current: Math.min(s.postsCount, 5), max: 5 })
     },
     {
         id: "popular",
@@ -75,7 +89,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Receive 10 likes on your posts.",
         icon: "❤️",
         rarity: "rare",
-        check: (s) => s.likesReceived >= 10
+        color: "#ef4444",
+        check: (s) => s.likesReceived >= 10,
+        progress: (s) => ({ current: Math.min(s.likesReceived, 10), max: 10 })
     },
     {
         id: "social_butterfly",
@@ -83,7 +99,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Gain 5 followers.",
         icon: "👥",
         rarity: "rare",
-        check: (s) => s.followersCount >= 5
+        color: "#14b8a6",
+        check: (s) => s.followersCount >= 5,
+        progress: (s) => ({ current: Math.min(s.followersCount, 5), max: 5 })
     },
     {
         id: "influencer",
@@ -91,7 +109,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Gain 25 followers.",
         icon: "🌟",
         rarity: "epic",
-        check: (s) => s.followersCount >= 25
+        color: "#a855f7",
+        check: (s) => s.followersCount >= 25,
+        progress: (s) => ({ current: Math.min(s.followersCount, 25), max: 25 })
     },
     {
         id: "speed_demon",
@@ -99,7 +119,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Complete a session lasting 10+ minutes.",
         icon: "⚡",
         rarity: "common",
-        check: (s) => s.sessionDuration >= 600
+        color: "#f59e0b",
+        check: (s) => s.sessionDuration >= 600,
+        progress: (s) => ({ current: Math.min(s.sessionDuration, 600), max: 600 })
     },
     {
         id: "marathon_speaker",
@@ -107,7 +129,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Accumulate 5+ hours of total practice time.",
         icon: "🏃",
         rarity: "epic",
-        check: (s) => s.totalPracticeSeconds >= 18000
+        color: "#10b981",
+        check: (s) => s.totalPracticeSeconds >= 18000,
+        progress: (s) => ({ current: Math.min(Math.round(s.totalPracticeSeconds / 60), 300), max: 300 })
     },
     {
         id: "veteran",
@@ -115,7 +139,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
         description: "Complete 50 practice sessions.",
         icon: "🎖️",
         rarity: "epic",
-        check: (s) => s.sessionsCount >= 50
+        color: "#6366f1",
+        check: (s) => s.sessionsCount >= 50,
+        progress: (s) => ({ current: Math.min(s.sessionsCount, 50), max: 50 })
     }
 ];
 

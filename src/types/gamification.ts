@@ -16,7 +16,9 @@ export interface BadgeDefinition {
     description: string;
     icon: string;
     rarity: Badge["rarity"];
+    color: string;  // hex color for the icon tile background
     check: (stats: BadgeCheckStats) => boolean;
+    progress: (stats: BadgeCheckStats) => { current: number; max: number };
 }
 
 export interface BadgeCheckStats {

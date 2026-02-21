@@ -13,7 +13,7 @@ import {
     Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus
 } from "lucide-react";
 import { FollowEntry } from "@/lib/follow";
-import { getUserBadges } from "@/lib/badges";
+import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
 import { getStreak } from "@/lib/streaks";
 import { getFriends } from "@/lib/friends";
@@ -66,7 +66,7 @@ function FollowListModal({ title, list, onClose, onNavigate }: {
 }
 
 // ─── Tab Types ────────────────────────────────────────────────────────────────
-type Tab = "overview" | "badges" | "history" | "friends";
+type Tab = "overview" | "history" | "friends";
 
 export default function ProfilePage() {
     const { user, loading, logout } = useAuth();
@@ -124,10 +124,29 @@ export default function ProfilePage() {
 
     const TABS = [
         { id: "overview" as Tab, label: "Overview", icon: Star },
-        { id: "badges" as Tab, label: `Badges (${earnedBadges.length})`, icon: Trophy },
         { id: "history" as Tab, label: "History", icon: History },
         { id: "friends" as Tab, label: `Friends (${friends.length})`, icon: Users }
     ];
+
+    // Badge progress stats (used in overview)
+    const badgeBestScore = sessions.reduce((best, s) => Math.max(best, s.score ?? 0), 0);
+    const badgeTotalSec = sessions.reduce((t, s) => t + (s.duration ?? 0), 0);
+    const badgeLongestSec = sessions.reduce((best, s) => Math.max(best, s.duration ?? 0), 0);
+    const badgeLiveStats = {
+        sessionsCount: sessions.length,
+        streakCount,
+        longestStreak,
+        averageScore: avgScore,
+        postsCount: 0,
+        likesReceived: 0,
+        followersCount,
+        sessionDuration: badgeLongestSec,
+        totalPracticeSeconds: badgeTotalSec,
+        bestScore: badgeBestScore
+    };
+    const RARITY_LEVEL: Record<string, string> = {
+        common: "LEVEL 1", rare: "LEVEL 2", epic: "LEVEL 3", legendary: "LEVEL 4"
+    };
 
     return (
         <>
@@ -211,8 +230,8 @@ export default function ProfilePage() {
                                 key={t.id}
                                 onClick={() => setActiveTab(t.id)}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === t.id
-                                        ? "border-primary text-primary"
-                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                    ? "border-primary text-primary"
+                                    : "border-transparent text-muted-foreground hover:text-foreground"
                                     }`}
                             >
                                 <t.icon className="w-4 h-4" />
@@ -243,33 +262,41 @@ export default function ProfilePage() {
                                 </CardContent>
                             </Card>
 
-                            {/* Featured Badges */}
-                            <Card>
+                            {/* Achievements — full-width Duolingo-style list */}
+                            <Card className="md:col-span-2">
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" />Recent Badges</CardTitle>
+                                    <CardTitle className="flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" />Achievements</CardTitle>
                                     <CardDescription>
                                         {earnedBadges.length === 0 ? "Complete a session to earn your first badge!" : `${earnedBadges.length} / ${badges.length} earned`}
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    {earnedBadges.length === 0 ? (
-                                        <div className="text-center py-4 text-4xl">🔒</div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-3">
-                                            {earnedBadges.slice(0, 6).map(b => (
-                                                <div key={b.id} title={`${b.name}: ${b.description}`}
-                                                    className={`flex flex-col items-center justify-center w-16 h-16 rounded-xl border ${RARITY_STYLES[b.rarity]} ${RARITY_GLOW[b.rarity]} cursor-default`}>
-                                                    <span className="text-2xl">{b.icon}</span>
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-border">
+                                        {badges.map(b => {
+                                            const def = BADGE_DEFINITIONS.find(d => d.id === b.id);
+                                            const prog = def ? def.progress(badgeLiveStats) : { current: b.earned ? 1 : 0, max: 1 };
+                                            const pct = Math.min(100, Math.round((prog.current / prog.max) * 100));
+                                            const tileColor = b.earned ? (def?.color ?? "#6366f1") : "#374151";
+                                            return (
+                                                <div key={b.id} className={`flex items-center gap-5 px-5 py-4 hover:bg-accent/20 transition-colors ${!b.earned ? "opacity-60" : ""}`}>
+                                                    <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl gap-0.5" style={{ background: tileColor }}>
+                                                        <span className="text-2xl leading-none">{b.icon}</span>
+                                                        <span className="text-[8px] font-black text-white/90 tracking-wider">{RARITY_LEVEL[b.rarity]}</span>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <p className={`font-bold text-sm ${b.earned ? "text-foreground" : "text-muted-foreground"}`}>{b.name}</p>
+                                                            <span className="text-xs text-muted-foreground ml-3 flex-shrink-0">{prog.current}/{prog.max}</span>
+                                                        </div>
+                                                        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden mb-1.5">
+                                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: b.earned ? (def?.color ?? "#6366f1") : "#ca8a04" }} />
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground leading-tight">{b.description}</p>
+                                                    </div>
                                                 </div>
-                                            ))}
-                                            {earnedBadges.length > 6 && (
-                                                <button onClick={() => setActiveTab("badges")}
-                                                    className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border border-dashed text-muted-foreground hover:text-primary hover:border-primary transition-colors text-xs font-medium">
-                                                    +{earnedBadges.length - 6}
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
+                                            );
+                                        })}
+                                    </div>
                                 </CardContent>
                             </Card>
 
@@ -295,31 +322,6 @@ export default function ProfilePage() {
                         </div>
                     )}
 
-                    {/* ── Badges Tab ──────────────────────────────────────────── */}
-                    {activeTab === "badges" && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                            {badges.map(b => (
-                                <div key={b.id}
-                                    className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${b.earned
-                                            ? `${RARITY_STYLES[b.rarity]} ${RARITY_GLOW[b.rarity]}`
-                                            : "border-slate-800 bg-slate-900/30 opacity-40 grayscale"
-                                        }`}
-                                >
-                                    {b.earned && (
-                                        <span className={`absolute top-2 right-2 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ${b.rarity === "legendary" ? "bg-yellow-500/20 text-yellow-400" :
-                                                b.rarity === "epic" ? "bg-purple-500/20 text-purple-400" :
-                                                    b.rarity === "rare" ? "bg-blue-500/20 text-blue-400" :
-                                                        "bg-slate-500/20 text-slate-400"
-                                            }`}>{b.rarity}</span>
-                                    )}
-                                    <span className="text-4xl">{b.icon}</span>
-                                    <p className="text-sm font-semibold text-center leading-tight">{b.name}</p>
-                                    <p className="text-xs text-muted-foreground text-center leading-tight">{b.description}</p>
-                                    {!b.earned && <span className="text-xs text-muted-foreground">🔒 Locked</span>}
-                                </div>
-                            ))}
-                        </div>
-                    )}
 
                     {/* ── History Tab ─────────────────────────────────────────── */}
                     {activeTab === "history" && (
@@ -356,8 +358,8 @@ export default function ProfilePage() {
                                                     </div>
                                                 </div>
                                                 <div className={`flex items-center justify-center mt-3 sm:mt-0 w-12 h-12 rounded-full font-bold text-sm border-2 flex-shrink-0 ${(s.score ?? 0) >= 80 ? "border-green-500 text-green-500 bg-green-500/10" :
-                                                        (s.score ?? 0) >= 60 ? "border-amber-500 text-amber-500 bg-amber-500/10" :
-                                                            "border-red-500 text-red-500 bg-red-500/10"
+                                                    (s.score ?? 0) >= 60 ? "border-amber-500 text-amber-500 bg-amber-500/10" :
+                                                        "border-red-500 text-red-500 bg-red-500/10"
                                                     }`}>{s.score ?? "—"}</div>
                                             </div>
                                         ))}
