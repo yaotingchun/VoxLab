@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { UnifiedWebcamView } from "@/components/analysis/UnifiedWebcamView";
 import { useUnifiedAnalysis } from "@/hooks/useUnifiedAnalysis";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -11,14 +11,17 @@ import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 import { UnifiedFeedbackPanel } from "@/components/analysis/UnifiedFeedbackPanel";
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { analyzeSession } from "@/app/actions/analyzeSession";
-// ...
 
-export default function PracticePage() {
+function PracticePageInner() {
+    const searchParams = useSearchParams();
+    const topic = searchParams.get("topic");
+
     const {
         result,
         analyzePosture,
@@ -164,14 +167,22 @@ export default function PracticePage() {
         <div className="flex flex-col h-screen bg-black text-white overflow-hidden p-4 gap-4">
             {/* Header */}
             <header className="flex items-center justify-between px-2">
-                <Link href="/dashboard" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+                <Link href="/dashboard/practice/topic" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
                     <ArrowLeft className="w-5 h-5" />
-                    <span className="font-medium">Back to Dashboard</span>
+                    <span className="font-medium">Change Topic</span>
                 </Link>
 
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-semibold tracking-wide">AI Practice Mode</span>
+                <div className="flex items-center gap-2">
+                    {topic && (
+                        <div className="flex items-center gap-2 bg-purple-500/10 px-4 py-1.5 rounded-full border border-purple-500/20 max-w-xs">
+                            <MessageSquareText className="w-4 h-4 text-purple-400 shrink-0" />
+                            <span className="text-sm font-medium text-purple-300 truncate">{topic}</span>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <span className="text-sm font-semibold tracking-wide">AI Practice Mode</span>
+                    </div>
                 </div>
             </header>
 
@@ -365,5 +376,13 @@ export default function PracticePage() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function PracticePage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-black"><div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
+            <PracticePageInner />
+        </Suspense>
     );
 }
