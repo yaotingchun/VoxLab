@@ -7,6 +7,7 @@ import { useSessionReplay, TimeSeriesDataPoint } from "@/hooks/useSessionReplay"
 
 interface SessionReplayProps {
     sessionId: string | null;
+    videoUrl?: string | null;
 }
 
 // Mock telemetry data since we don't have the full raw GCS payload for video sync yet
@@ -22,14 +23,28 @@ const generateMockTelemetry = (): TimeSeriesDataPoint[] => {
     return data;
 };
 
-export function SessionReplay({ sessionId }: SessionReplayProps) {
+export function SessionReplay({ sessionId, videoUrl }: SessionReplayProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const timeSeriesData = useMemo(() => generateMockTelemetry(), [sessionId]);
 
     // Wire up our custom React hook
     const { currentTime, currentDataPoint, seekTo } = useSessionReplay(videoRef, timeSeriesData);
 
-    if (!sessionId) return null;
+    if (!sessionId) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="bg-slate-900/80 border border-slate-700/50 p-6 rounded-3xl mt-8 flex flex-col items-center justify-center h-48"
+            >
+                <div className="flex items-center gap-3 opacity-50 mb-3">
+                    <PlayCircle className="text-blue-500" size={32} />
+                    <h3 className="text-xl font-bold text-white">Speech Playback Sync (Time-Machine)</h3>
+                </div>
+                <p className="text-slate-500 text-sm">Record a session or select a node on the graph to view playback details.</p>
+            </motion.div>
+        );
+    }
 
     // A low point click handler to test the seekTo feature
     const handleLowPointClick = (timestamp: number) => {
@@ -58,8 +73,7 @@ export function SessionReplay({ sessionId }: SessionReplayProps) {
                         ref={videoRef}
                         controls
                         className="w-full h-full object-cover opacity-60"
-                        // Using a generic dummy video for demonstration
-                        src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                        src={videoUrl || "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}
                     />
                     <div className="absolute top-4 left-4 flex flex-col gap-2">
                         <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold font-mono text-white flex items-center gap-2 border border-slate-600/50">

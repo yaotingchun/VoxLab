@@ -14,9 +14,10 @@ export async function GET(request: Request) {
 
         const bucket = storage.bucket(BUCKET_NAME);
 
-        // Find all JSON files in the sessions/ folder
-        const [files] = await bucket.getFiles({ prefix: 'sessions/' });
-        console.log(`Found ${files.length} files in GCS prefix sessions/`);
+        // Strict Isolation: Only look inside the authenticated user's dedicated folder
+        const prefixPath = `users/${userId}/sessions/`;
+        const [files] = await bucket.getFiles({ prefix: prefixPath });
+        console.log(`Found ${files.length} files in GCS under: ${prefixPath}`);
 
         const sessionPromises = files
             .filter(file => {
@@ -42,6 +43,36 @@ export async function GET(request: Request) {
                         vocal = Math.round(data.audioMetrics.averageVolume * 1000);
                     }
 
+                    // Generate Signed URLs (Expire in 1 Hour)
+                    const expirationMs = Date.now() + 60 * 60 * 1000;
+                    const options = { version: 'v4' as const, action: 'read' as const, expires: expirationMs };
+
+                    const [jsonUrl] = await file.getSignedUrl(options);
+
+                    // Estimate the Video file path based on the JSON filename
+                    // (Assuming standard format: {uuid}.json -> {uuid}.mp4, or {timestamp}.json -> {timestamp}.webm)
+                    // Currently checking for both .mp4 and .webm dynamically if possible, but let's assume .webm as default for VoxLab Webcam
+                    let videoUrl = null;
+                    try {
+                        const videoFileName = file.name.replace('.json', '.webm');
+                        const videoFile = bucket.file(videoFileName);
+                        const [exists] = await videoFile.exists();
+
+                        if (exists) {
+                            [videoUrl] = await videoFile.getSignedUrl(options);
+                        } else {
+                            // Fallback to testing for .mp4
+                            const mp4FileName = file.name.replace('.json', '.mp4');
+                            const mp4File = bucket.file(mp4FileName);
+                            const [mp4Exists] = await mp4File.exists();
+                            if (mp4Exists) {
+                                [videoUrl] = await mp4File.getSignedUrl(options);
+                            }
+                        }
+                    } catch (vidErr) {
+                        console.warn(`Could not generate signed video URL for ${file.name}:`, vidErr);
+                    }
+
                     // Extract what we need for the dashboard
                     return {
                         id: data.sessionId || file.name,
@@ -53,6 +84,8 @@ export async function GET(request: Request) {
                         facialScore: data.faceMetrics?.eyeContactScore ||
                             Math.max(0, Math.min(100, Math.round((data.score || 50) + (Math.random() * 20 - 10)))),
                         contentScore: Math.max(0, Math.min(100, Math.round((data.score || 50) + (Math.random() * 15 - 5)))),
+                        jsonUrl: jsonUrl,
+                        videoUrl: videoUrl, // The secure short-lived URL for <SessionReplay />
                     };
                 } catch (err) {
                     console.error(`Error parsing file ${file.name}:`, err);

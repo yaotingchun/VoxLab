@@ -19,6 +19,8 @@ export interface ChartDataPoint {
     "Posture & Facial": number | null;
     Content: number | null;
     Overall: number | null;
+    sessionIds?: string[]; // Array of session IDs for this day
+    videoUrls?: (string | null)[];
 }
 
 interface ProgressChartProps {
@@ -27,9 +29,10 @@ interface ProgressChartProps {
     onPrev?: () => void;
     onNext?: () => void;
     canGoNext?: boolean;
+    onNodeClick?: (sessionId: string, videoUrl: string | null) => void;
 }
 
-export function ProgressChart({ data, title, onPrev, onNext, canGoNext }: ProgressChartProps) {
+export function ProgressChart({ data, title, onPrev, onNext, canGoNext, onNodeClick }: ProgressChartProps) {
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
@@ -75,6 +78,12 @@ export function ProgressChart({ data, title, onPrev, onNext, canGoNext }: Progre
                         <LineChart
                             data={data}
                             margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
+                            onClick={(e: any) => {
+                                if (e?.activePayload?.[0]?.payload?.sessionIds?.[0]) {
+                                    const payload = e.activePayload[0].payload;
+                                    onNodeClick?.(payload.sessionIds[0], payload.videoUrls?.[0]);
+                                }
+                            }}
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false} />
                             <XAxis

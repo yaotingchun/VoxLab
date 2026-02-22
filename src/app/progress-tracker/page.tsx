@@ -12,12 +12,12 @@ import { ArchetypeCard } from "@/components/ui/ArchetypeCard";
 import { SessionReplay } from "@/components/ui/SessionReplay";
 import { calculateArchetype, ArchetypeInsight } from "@/lib/archetypes";
 import { analyzeEmotionMatch } from "@/lib/emotionAnalysis";
-import { Sparkles, Trophy, Loader2 } from "lucide-react";
+import { Sparkles, Trophy, Loader2, LogOut } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function ProgressTrackerPage() {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, logout } = useAuth();
 
     // SWR fetching
     const { data: apiData, error, isLoading } = useSWR(
@@ -28,6 +28,9 @@ export default function ProgressTrackerPage() {
     const [streakData, setStreakData] = useState<StreakData | null>(null);
     const [archetypeData, setArchetypeData] = useState<ArchetypeInsight | null>(null);
     const [chartWeekOffset, setChartWeekOffset] = useState<number>(0);
+
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+    const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
 
     // Transforming data for Recharts, grouped actively by the selected 7-day offset
     const currentWeeklyData = useMemo(() => {
@@ -115,11 +118,31 @@ export default function ProgressTrackerPage() {
             <div className="max-w-7xl mx-auto flex flex-col gap-8">
 
                 {/* Header */}
-                <div className="flex items-center gap-3 mb-2">
-                    <Trophy className="text-yellow-500" size={32} />
-                    <h1 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        Performance Analytics Dashboard
-                    </h1>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+                    <div className="flex items-center gap-3">
+                        <Trophy className="text-yellow-500" size={32} />
+                        <h1 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                            Performance Analytics Dashboard
+                        </h1>
+                    </div>
+
+                    <div className="flex items-center gap-4 bg-slate-900/50 p-2 pr-4 rounded-full border border-slate-800">
+                        {user?.photoURL ? (
+                            <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-slate-700" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center">
+                                <span className="text-slate-400 font-bold">{user?.email?.charAt(0).toUpperCase() || "U"}</span>
+                            </div>
+                        )}
+                        <div className="flex flex-col items-start hidden sm:flex">
+                            <span className="text-slate-300 font-bold text-sm leading-tight">{user?.displayName || "VoxLab User"}</span>
+                            <span className="text-slate-500 text-xs leading-tight">{user?.email}</span>
+                        </div>
+                        <div className="w-px h-8 bg-slate-800 mx-2" />
+                        <button onClick={() => logout()} className="text-slate-400 hover:text-red-400 hover:bg-slate-800 p-2 rounded-full transition-colors" title="Sign Out">
+                            <LogOut size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -141,6 +164,10 @@ export default function ProgressTrackerPage() {
                             onPrev={() => setChartWeekOffset(prev => prev - 1)}
                             onNext={() => setChartWeekOffset(prev => prev + 1)}
                             canGoNext={chartWeekOffset < 0}
+                            onNodeClick={(sessionId, videoUrl) => {
+                                setSelectedSessionId(sessionId);
+                                setSelectedVideoUrl(videoUrl);
+                            }}
                         />
 
                         {/* AI Coaching Tip Text Area */}
@@ -161,7 +188,10 @@ export default function ProgressTrackerPage() {
                         </div>
 
                         {/* Session Replay Hub (Time Machine Feature) */}
-                        <SessionReplay sessionId={apiData?.sessions?.[apiData.sessions.length - 1]?.id || null} />
+                        <SessionReplay
+                            sessionId={selectedSessionId || apiData?.sessions?.[apiData.sessions.length - 1]?.id || null}
+                            videoUrl={selectedVideoUrl || apiData?.sessions?.[apiData.sessions.length - 1]?.videoUrl || null}
+                        />
 
                     </div>
 

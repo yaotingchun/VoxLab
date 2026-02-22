@@ -6,6 +6,7 @@ export interface SessionData {
     postureScore: number;
     facialScore: number;
     contentScore: number;
+    videoUrl?: string | null;
 }
 
 export interface WeeklyAggregatedData {
@@ -112,7 +113,9 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
             "Posture & Facial": 0,
             Content: 0,
             Overall: 0,
-            count: 0
+            count: 0,
+            sessionIds: [] as string[],
+            videoUrls: [] as (string | null)[]
         };
     });
 
@@ -126,6 +129,8 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
             dayMatch.Content += session.contentScore;
             dayMatch.Overall += session.score;
             dayMatch.count += 1;
+            dayMatch.sessionIds.push(session.id);
+            if (session.videoUrl) dayMatch.videoUrls.push(session.videoUrl);
         }
     });
 
