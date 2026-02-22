@@ -63,15 +63,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     };
 
     const handleGoogleSignIn = async () => {
+        if (loading) return;
+        setError(null);
+        setLoading(true);
         try {
             await signInWithGoogle();
             // Modal will close via useEffect
         } catch (err: unknown) {
             if (err instanceof Error) {
+                // Ignore benign Firebase error caused by clicking the button twice
+                if ((err as any).code === "auth/cancelled-popup-request") return;
                 setError(err.message);
             } else {
                 setError("An unknown error occurred");
             }
+        } finally {
+            setLoading(false);
         }
     };
 

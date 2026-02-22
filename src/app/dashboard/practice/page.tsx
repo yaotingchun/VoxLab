@@ -20,6 +20,10 @@ import { analyzeSession } from "@/app/actions/analyzeSession";
 import { analyzeVocal } from "@/app/actions/analyzeVocal";
 import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePosture";
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
+import { useAuth } from "@/contexts/AuthContext";
+import { saveSession, getSessionStats } from "@/lib/sessions";
+import { updateStreak } from "@/lib/streaks";
+import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 // ...
 
 function PracticePageInner() {
@@ -62,9 +66,11 @@ function PracticePageInner() {
         currentVolume
     } = useAudioAnalysis();
 
+    const { user } = useAuth();
     const [isStarted, setIsStarted] = useState(false);
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [newBadges, setNewBadges] = useState<string[]>([]);
 
     // Video Recording State
     const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
@@ -207,6 +213,49 @@ function PracticePageInner() {
                 } catch (e) {
                     console.error("Failed to save session to GCS:", e);
                 }
+                // ── Gamification (fire-and-forget) ──────────────────────
+                if (user && !('error' in aiSummary)) {
+                    (async () => {
+                        try {
+                            const topics = Object.keys(data.issueCounts ?? {});
+                            await saveSession(user.uid, {
+                                duration: data.duration,
+                                score: Math.round(data.averageScore),
+                                topics,
+                                wpm,
+                                totalWords,
+                                aiSummary: (aiSummary as any).summary ?? "",
+                                tips: (aiSummary as any).tips ?? [],
+                                fillerCounts,
+                                pauseCount,
+                                wpmHistory,
+                                transcript: transcript ?? "",
+                                pauseStats: finalPauseStats ?? null,
+                                audioMetrics: audioResult?.stats ?? undefined,
+                            });
+                            const newStreak = await updateStreak(user.uid);
+                            const sessionStats = await getSessionStats(user.uid);
+
+                            const awarded = await checkAndAwardBadges(user.uid, {
+                                sessionsCount: sessionStats.sessionsCount,
+                                streakCount: newStreak,
+                                longestStreak: newStreak,
+                                averageScore: Math.round(data.averageScore),
+                                postsCount: 0,
+                                likesReceived: 0,
+                                followersCount: 0,
+                                sessionDuration: data.duration,
+                                totalPracticeSeconds: sessionStats.totalPracticeSeconds,
+                                bestScore: sessionStats.bestScore
+                            });
+
+                            if (awarded.length > 0) setNewBadges(awarded);
+                        } catch (e) {
+                            console.error("Gamification error:", e);
+                        }
+                    })();
+                }
+                // ─────────────────────────────────────────────────────────
             } catch (error) {
                 console.error("Failed to analyze session:", error);
             } finally {
@@ -441,6 +490,33 @@ function PracticePageInner() {
                     <p className="text-blue-300 font-bold animate-pulse">Generating AI Summary...</p>
                 </div>
             )}
+
+            {/* Badge Award Toast */}
+            <AnimatePresence>
+                {newBadges.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -60 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -60 }}
+                        className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex flex-col items-center gap-2"
+                    >
+                        {newBadges.map(id => {
+                            const def = BADGE_DEFINITIONS.find(d => d.id === id);
+                            if (!def) return null;
+                            return (
+                                <div key={id} className="flex items-center gap-3 bg-gradient-to-r from-yellow-500/20 to-amber-500/10 border border-yellow-500/40 rounded-2xl px-5 py-3 shadow-2xl shadow-yellow-900/30 backdrop-blur-md">
+                                    <span className="text-3xl">{def.icon}</span>
+                                    <div>
+                                        <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest">Badge Unlocked!</p>
+                                        <p className="text-white font-semibold">{def.name}</p>
+                                    </div>
+                                    <button onClick={() => setNewBadges(p => p.filter(b => b !== id))} className="ml-2 text-white/40 hover:text-white text-lg">✕</button>
+                                </div>
+                            );
+                        })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Gemini AI Coach Summary - Full Screen Modal */}
             <AnimatePresence>

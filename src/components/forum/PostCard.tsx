@@ -9,6 +9,7 @@ import { useForum } from '@/contexts/ForumContext';
 import { CreatePostModal } from './CreatePostModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { Post } from '@/types/forum';
+import { ForumAuthorHover } from './ForumAuthorHover';
 
 interface PostCardProps {
     post: Post;
@@ -78,25 +79,37 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
                     {/* Header: Avatar, Name, Time, More */}
                     <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                            {/* Avatar */}
-                            <div className="shrink-0 relative">
-                                <div className="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                                {post.authorAvatar ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={post.authorAvatar} alt="" className="relative w-8 h-8 rounded-full object-cover ring-1 ring-transparent group-hover:ring-primary/30 transition-all" />
-                                ) : (
-                                    <div className="relative w-8 h-8 rounded-full bg-white/5 flex items-center justify-center ring-1 ring-white/10 group-hover:ring-white/20 transition-all">
-                                        <User className="w-4 h-4 text-gray-400" />
-                                    </div>
-                                )}
-                            </div>
+                        {/* Avatar + Name wrapped in hover card */}
+                        <div className="flex items-center gap-3" onClick={e => e.preventDefault()}>
+                            <ForumAuthorHover
+                                authorId={post.authorId}
+                                authorName={post.authorName}
+                                authorAvatar={post.authorAvatar}
+                            >
+                                <div className="shrink-0 relative cursor-pointer">
+                                    <div className="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {post.authorAvatar ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={post.authorAvatar} alt="" className="relative w-8 h-8 rounded-full object-cover ring-1 ring-transparent group-hover:ring-primary/30 transition-all" />
+                                    ) : (
+                                        <div className="relative w-8 h-8 rounded-full bg-white/5 flex items-center justify-center ring-1 ring-white/10 group-hover:ring-white/20 transition-all">
+                                            <User className="w-4 h-4 text-gray-400" />
+                                        </div>
+                                    )}
+                                </div>
+                            </ForumAuthorHover>
 
                             {/* Meta */}
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                                    {post.authorName}
-                                </span>
+                                <ForumAuthorHover
+                                    authorId={post.authorId}
+                                    authorName={post.authorName}
+                                    authorAvatar={post.authorAvatar}
+                                >
+                                    <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors cursor-pointer hover:text-primary">
+                                        {post.authorName}
+                                    </span>
+                                </ForumAuthorHover>
                                 <span className="text-xs text-gray-600">•</span>
                                 <span className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
                                     {post.createdAt ? formatForumDate(post.createdAt.toDate()) : 'Just now'}
