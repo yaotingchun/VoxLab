@@ -21,7 +21,6 @@ import { getRecentSessions } from "@/lib/sessions";
 import { getStreak } from "@/lib/streaks";
 import { getFriends } from "@/lib/friends";
 import { Post } from "@/types/forum";
-import { inviteFriendToPractice } from "@/lib/friends";
 import { PracticeSession } from "@/types/gamification";
 
 // ─── Rarity Styles ───────────────────────────────────────────────────────────
@@ -87,7 +86,6 @@ export default function ProfilePage() {
     const [sessions, setSessions] = useState<PracticeSession[]>([]);
     const [friends, setFriends] = useState<FollowEntry[]>([]);
     const [dataLoaded, setDataLoaded] = useState(false);
-    const [invitingFriend, setInvitingFriend] = useState<string | null>(null);
 
     // Privacy settings
     const [hideForumActivity, setHideForumActivity] = useState(false);
@@ -191,18 +189,6 @@ export default function ProfilePage() {
         ? Math.round(sessions.reduce((a, s) => a + (s.score ?? 0), 0) / sessions.length)
         : 0;
 
-    const handleInviteFriend = async (friendUid: string, friendName: string) => {
-        if (!user) return;
-        setInvitingFriend(friendUid);
-        try {
-            const roomId = await inviteFriendToPractice(user.uid, user.displayName || "Someone", user.photoURL, friendUid);
-            router.push(`/dashboard/practice/room/${roomId}`);
-        } catch (e) {
-            console.error("Invite failed:", e);
-        } finally {
-            setInvitingFriend(null);
-        }
-    };
 
     const TABS = [
         { id: "overview" as Tab, label: "Overview", icon: Star },
@@ -491,7 +477,7 @@ export default function ProfilePage() {
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-primary" />Friends</CardTitle>
-                                <CardDescription>Users you mutually follow. Invite them to a practice room!</CardDescription>
+                                <CardDescription>Users you mutually follow.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 {friends.length === 0 ? (
@@ -513,12 +499,11 @@ export default function ProfilePage() {
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    disabled={invitingFriend === f.uid}
-                                                    onClick={() => handleInviteFriend(f.uid, f.displayName)}
-                                                    className="gap-2"
+                                                    disabled
+                                                    className="gap-2 opacity-50 cursor-not-allowed"
                                                 >
                                                     <UserPlus className="w-4 h-4" />
-                                                    {invitingFriend === f.uid ? "Inviting..." : "Invite to Practice"}
+                                                    Practice Room
                                                 </Button>
                                             </div>
                                         ))}

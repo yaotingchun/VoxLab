@@ -61,12 +61,3 @@ export interface PracticeSession {
     audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean };
 }
 
-export interface PracticeRoom {
-    id?: string;
-    hostUid: string;
-    hostName: string;
-    hostAvatar?: string | null;
-    createdAt: Timestamp;
-    status: "waiting" | "active" | "ended";
-    participants: string[];
-}
