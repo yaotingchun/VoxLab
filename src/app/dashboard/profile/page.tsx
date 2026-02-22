@@ -4,13 +4,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
-    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus
+    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff
 } from "lucide-react";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
@@ -85,6 +87,10 @@ export default function ProfilePage() {
     const [dataLoaded, setDataLoaded] = useState(false);
     const [invitingFriend, setInvitingFriend] = useState<string | null>(null);
 
+    // Privacy settings
+    const [hideForumActivity, setHideForumActivity] = useState(false);
+    const [privacySaving, setPrivacySaving] = useState(false);
+
     useEffect(() => {
         if (!loading && !user) router.push("/");
     }, [user, loading, router]);
@@ -96,10 +102,28 @@ export default function ProfilePage() {
                 getStreak(user.uid).then(s => { setStreakCount(s.streakCount); setLongestStreak(s.longestStreak); }),
                 getUserBadges(user.uid).then(setBadges),
                 getRecentSessions(user.uid, 20).then(setSessions),
-                getFriends(user.uid).then(setFriends)
+                getFriends(user.uid).then(setFriends),
+                getDoc(doc(db, "users", user.uid)).then(snap => {
+                    if (snap.exists()) setHideForumActivity(snap.data()?.hideForumActivity ?? false);
+                })
             ]).then(() => setDataLoaded(true));
         }
     }, [user, dataLoaded, loadMyFollowData]);
+
+    const handleToggleHideForumActivity = async () => {
+        if (!user || privacySaving) return;
+        const newValue = !hideForumActivity;
+        setHideForumActivity(newValue);
+        setPrivacySaving(true);
+        try {
+            await setDoc(doc(db, "users", user.uid), { hideForumActivity: newValue }, { merge: true });
+        } catch (err) {
+            console.error("Failed to save privacy setting:", err);
+            setHideForumActivity(!newValue); // revert on error
+        } finally {
+            setPrivacySaving(false);
+        }
+    };
 
     if (loading || !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
@@ -314,6 +338,25 @@ export default function ProfilePage() {
                                             {user.emailVerified ? "Verified" : "Unverified"}
                                         </Badge>
                                     </div>
+
+                                    {/* Privacy Toggle */}
+                                    <div className="flex items-center justify-between py-1">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                            <EyeOff className="w-4 h-4" />
+                                            <span>Hide forum posts from public profile</span>
+                                        </div>
+                                        <button
+                                            onClick={handleToggleHideForumActivity}
+                                            disabled={privacySaving}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${hideForumActivity ? "bg-primary" : "bg-muted-foreground/30"
+                                                }`}
+                                            aria-label="Toggle forum activity visibility"
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${hideForumActivity ? "translate-x-6" : "translate-x-1"
+                                                }`} />
+                                        </button>
+                                    </div>
+
                                     <Button variant="destructive" className="w-full mt-2" onClick={async () => { await logout(); router.push("/"); }}>
                                         <LogOut className="w-4 h-4 mr-2" />Sign Out
                                     </Button>

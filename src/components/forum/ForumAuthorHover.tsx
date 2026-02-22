@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
+import { getUserBadges } from "@/lib/badges";
 import { UserPlus, UserCheck, ExternalLink, User } from "lucide-react";
 
 interface ForumAuthorHoverProps {
@@ -31,16 +32,27 @@ export function ForumAuthorHover({
     const [open, setOpen] = useState(false);
     const [following, setFollowing] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
+    const [earnedBadges, setEarnedBadges] = useState<{ id: string; icon: string; name: string }[]>([]);
+    const [badgesLoaded, setBadgesLoaded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isOwnProfile = user?.uid === authorId;
 
-    // Lazy-load follow status when card opens
+    // Lazy-load follow status + badges when card opens
     useEffect(() => {
-        if (!open || !user || isOwnProfile || following !== null) return;
+        if (!open) return;
+        if (!user || isOwnProfile || following !== null) return;
         checkIsFollowing(authorId).then(setFollowing);
     }, [open, user, isOwnProfile, authorId, checkIsFollowing, following]);
+
+    useEffect(() => {
+        if (!open || badgesLoaded) return;
+        getUserBadges(authorId).then(badges => {
+            setEarnedBadges(badges.filter(b => b.earned).slice(0, 6).map(b => ({ id: b.id, icon: b.icon, name: b.name })));
+            setBadgesLoaded(true);
+        }).catch(() => setBadgesLoaded(true));
+    }, [open, authorId, badgesLoaded]);
 
     const handleMouseEnter = () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -89,7 +101,7 @@ export function ForumAuthorHover({
             {/* Hover Card */}
             {open && (
                 <div
-                    className="absolute left-0 top-full mt-2 z-50 w-56 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 p-4 animate-in fade-in zoom-in-95 duration-150"
+                    className="absolute left-0 top-full mt-2 z-50 w-60 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 p-4 animate-in fade-in zoom-in-95 duration-150"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 >
@@ -112,6 +124,21 @@ export function ForumAuthorHover({
                         </div>
                     </div>
 
+                    {/* Badges Row */}
+                    {badgesLoaded && earnedBadges.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3 pb-3 border-b border-white/5">
+                            {earnedBadges.map(b => (
+                                <span
+                                    key={b.id}
+                                    title={b.name}
+                                    className="text-base leading-none w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                                >
+                                    {b.icon}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex flex-col gap-2">
                         {/* View Profile */}
@@ -129,8 +156,8 @@ export function ForumAuthorHover({
                                 onClick={handleFollow}
                                 disabled={loading || following === null}
                                 className={`w-full flex items-center justify-center gap-2 text-xs font-semibold rounded-lg px-3 py-2 transition-all ${following
-                                        ? "bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-gray-400 hover:text-red-400"
-                                        : "bg-primary hover:bg-primary/80 text-primary-foreground"
+                                    ? "bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-gray-400 hover:text-red-400"
+                                    : "bg-primary hover:bg-primary/80 text-primary-foreground"
                                     } disabled:opacity-50`}
                             >
                                 {following ? (
