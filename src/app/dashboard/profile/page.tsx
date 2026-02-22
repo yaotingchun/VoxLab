@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, collectionGroup, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,13 +12,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
-    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff
+    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff,
+    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight
 } from "lucide-react";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
 import { getStreak } from "@/lib/streaks";
 import { getFriends } from "@/lib/friends";
+import { Post } from "@/types/forum";
 import { inviteFriendToPractice } from "@/lib/friends";
 import { PracticeSession } from "@/types/gamification";
 
@@ -68,7 +70,7 @@ function FollowListModal({ title, list, onClose, onNavigate }: {
 }
 
 // ─── Tab Types ────────────────────────────────────────────────────────────────
-type Tab = "overview" | "history" | "friends";
+type Tab = "overview" | "history" | "friends" | "forum";
 
 export default function ProfilePage() {
     const { user, loading, logout } = useAuth();
@@ -90,6 +92,14 @@ export default function ProfilePage() {
     // Privacy settings
     const [hideForumActivity, setHideForumActivity] = useState(false);
     const [privacySaving, setPrivacySaving] = useState(false);
+
+    // Forum activity
+    const [userPosts, setUserPosts] = useState<Post[]>([]);
+    const [postsLoading, setPostsLoading] = useState(false);
+    const [postsLoaded, setPostsLoaded] = useState(false);
+    const [commentedPosts, setCommentedPosts] = useState<(Post & { userComment: string })[]>([]);
+    const [commentedLoading, setCommentedLoading] = useState(false);
+    const [commentedLoaded, setCommentedLoaded] = useState(false);
 
     useEffect(() => {
         if (!loading && !user) router.push("/");
@@ -125,6 +135,54 @@ export default function ProfilePage() {
         }
     };
 
+    const loadUserPosts = useCallback(async () => {
+        if (!user || postsLoaded) return;
+        setPostsLoading(true);
+        try {
+            const snap = await getDocs(query(
+                collection(db, "posts"),
+                where("authorId", "==", user.uid),
+                orderBy("createdAt", "desc")
+            ));
+            setUserPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Post)));
+            setPostsLoaded(true);
+        } catch (err) { console.error(err); }
+        finally { setPostsLoading(false); }
+    }, [user, postsLoaded]);
+
+    const loadCommentedPosts = useCallback(async () => {
+        if (!user || commentedLoaded) return;
+        setCommentedLoading(true);
+        try {
+            const snap = await getDocs(query(
+                collectionGroup(db, "comments"),
+                where("authorId", "==", user.uid),
+                orderBy("createdAt", "desc"),
+                limit(50)
+            ));
+            const seen = new Set<string>();
+            const entries: { postId: string; comment: string }[] = [];
+            snap.docs.forEach(d => {
+                const postId = d.ref.parent.parent?.id;
+                if (postId && !seen.has(postId)) {
+                    seen.add(postId);
+                    entries.push({ postId, comment: d.data().content as string });
+                }
+            });
+            const posts = await Promise.all(entries.map(async ({ postId, comment }) => {
+                const ps = await getDoc(doc(db, "posts", postId));
+                if (!ps.exists()) return null;
+                return { id: ps.id, ...ps.data(), userComment: comment } as Post & { userComment: string };
+            }));
+            setCommentedPosts(posts.filter(Boolean) as (Post & { userComment: string })[]);
+            setCommentedLoaded(true);
+        } catch (err) { console.error(err); }
+        finally { setCommentedLoading(false); }
+    }, [user, commentedLoaded]);
+
+    // Helpers
+    const formatDate = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+
     if (loading || !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
     const earnedBadges = badges.filter(b => b.earned);
@@ -149,8 +207,13 @@ export default function ProfilePage() {
     const TABS = [
         { id: "overview" as Tab, label: "Overview", icon: Star },
         { id: "history" as Tab, label: "History", icon: History },
-        { id: "friends" as Tab, label: `Friends (${friends.length})`, icon: Users }
+        { id: "friends" as Tab, label: `Friends (${friends.length})`, icon: Users },
+        { id: "forum" as Tab, label: "Forum Activity", icon: MessageSquare }
     ];
+
+    // Trigger lazy loads
+    if (activeTab === "forum" && !postsLoaded && !postsLoading) loadUserPosts();
+    if (activeTab === "forum" && !commentedLoaded && !commentedLoading) loadCommentedPosts();
 
     // Badge progress stats (used in overview)
     const badgeBestScore = sessions.reduce((best, s) => Math.max(best, s.score ?? 0), 0);
@@ -343,7 +406,7 @@ export default function ProfilePage() {
                                     <div className="flex items-center justify-between py-1">
                                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                             <EyeOff className="w-4 h-4" />
-                                            <span>Hide forum posts from public profile</span>
+                                            <span>Hide forum activity (posts &amp; comments) from public profile</span>
                                         </div>
                                         <button
                                             onClick={handleToggleHideForumActivity}
@@ -382,7 +445,11 @@ export default function ProfilePage() {
                                 ) : (
                                     <div className="space-y-3">
                                         {sessions.map((s, i) => (
-                                            <div key={s.id ?? i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors">
+                                            <a
+                                                key={s.id ?? i}
+                                                href={s.id ? `/dashboard/session/${s.id}` : undefined}
+                                                className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border bg-card transition-colors ${s.id ? "hover:bg-accent/5 hover:border-primary/30 cursor-pointer group" : ""}`}
+                                            >
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-semibold">Practice Session</span>
@@ -400,11 +467,18 @@ export default function ProfilePage() {
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className={`flex items-center justify-center mt-3 sm:mt-0 w-12 h-12 rounded-full font-bold text-sm border-2 flex-shrink-0 ${(s.score ?? 0) >= 80 ? "border-green-500 text-green-500 bg-green-500/10" :
-                                                    (s.score ?? 0) >= 60 ? "border-amber-500 text-amber-500 bg-amber-500/10" :
-                                                        "border-red-500 text-red-500 bg-red-500/10"
-                                                    }`}>{s.score ?? "—"}</div>
-                                            </div>
+                                                <div className="flex items-center gap-3 mt-3 sm:mt-0">
+                                                    {s.id && (
+                                                        <span className="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                                                            View Report →
+                                                        </span>
+                                                    )}
+                                                    <div className={`flex items-center justify-center w-12 h-12 rounded-full font-bold text-sm border-2 flex-shrink-0 ${(s.score ?? 0) >= 80 ? "border-green-500 text-green-500 bg-green-500/10" :
+                                                        (s.score ?? 0) >= 60 ? "border-amber-500 text-amber-500 bg-amber-500/10" :
+                                                            "border-red-500 text-red-500 bg-red-500/10"
+                                                        }`}>{s.score ?? "—"}</div>
+                                                </div>
+                                            </a>
                                         ))}
                                     </div>
                                 )}
@@ -452,6 +526,94 @@ export default function ProfilePage() {
                                 )}
                             </CardContent>
                         </Card>
+                    )}
+
+                    {/* ── Forum Activity Tab ──────────────────────────────────── */}
+                    {activeTab === "forum" && (
+                        <div className="space-y-6">
+                            {/* My Posts */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5 text-primary" />My Posts</CardTitle>
+                                    <CardDescription>Posts you have authored in the forum</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {postsLoading ? (
+                                        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />)}</div>
+                                    ) : userPosts.length === 0 ? (
+                                        <div className="flex flex-col items-center py-12 gap-3 text-muted-foreground">
+                                            <FileText className="w-10 h-10 opacity-30" />
+                                            <p>You haven&apos;t posted anything yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {userPosts.map(post => (
+                                                <a key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
+                                                            {post.tags && post.tags.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                    {post.tags.slice(0, 3).map(tag => (
+                                                                        <span key={tag} className="text-[10px] font-medium bg-primary/5 text-primary/80 border border-primary/10 px-1.5 py-0.5 rounded">{tag}</span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-xs text-muted-foreground flex-shrink-0">{post.createdAt ? formatDate(post.createdAt.toDate()) : ""}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+                                                        <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
+                                                        <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
+                                                        <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
+                                                    </div>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* My Comments */}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" />My Comments</CardTitle>
+                                    <CardDescription>Posts you have commented on</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {commentedLoading ? (
+                                        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-24 rounded-xl bg-muted/50 animate-pulse" />)}</div>
+                                    ) : commentedPosts.length === 0 ? (
+                                        <div className="flex flex-col items-center py-12 gap-3 text-muted-foreground">
+                                            <MessageSquare className="w-10 h-10 opacity-30" />
+                                            <p>You haven&apos;t commented on any posts yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {commentedPosts.map(post => (
+                                                <a key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
+                                                            <div className="flex items-start gap-1.5 mt-2">
+                                                                <CornerDownRight className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed italic">&quot;{post.userComment}&quot;</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-xs text-muted-foreground flex-shrink-0">{post.createdAt ? formatDate(post.createdAt.toDate()) : ""}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+                                                        <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
+                                                        <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
+                                                        <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
+                                                    </div>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
                     )}
 
                 </div>

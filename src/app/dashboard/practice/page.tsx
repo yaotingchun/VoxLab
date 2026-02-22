@@ -142,9 +142,15 @@ export default function PracticePage() {
                                 topics,
                                 wpm,
                                 totalWords,
-                                aiSummary: (aiSummary as any).summary ?? ""
+                                aiSummary: (aiSummary as any).summary ?? "",
+                                tips: (aiSummary as any).tips ?? [],
+                                fillerCounts,
+                                pauseCount,
+                                wpmHistory,
+                                transcript: transcript ?? "",
+                                pauseStats: finalPauseStats ?? null,
+                                audioMetrics: audioResult?.stats ?? undefined,
                             });
-
                             const newStreak = await updateStreak(user.uid);
                             const sessionStats = await getSessionStats(user.uid);
 

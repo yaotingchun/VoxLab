@@ -1,4 +1,5 @@
 import { Timestamp } from "firebase/firestore";
+import { PauseStats } from "@/lib/pause-analysis";
 
 export interface Badge {
     id: string;
@@ -50,6 +51,14 @@ export interface PracticeSession {
     wpm?: number;
     totalWords?: number;
     aiSummary?: string;
+    // Rich report fields (saved from v2 onwards)
+    tips?: string[];
+    fillerCounts?: Record<string, number>;
+    pauseCount?: number;
+    wpmHistory?: number[];
+    transcript?: string;
+    pauseStats?: { stats: PauseStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
+    audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean };
 }
 
 export interface PracticeRoom {

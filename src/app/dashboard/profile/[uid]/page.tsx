@@ -4,7 +4,7 @@ import { use, useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
 import { useRouter } from "next/navigation";
-import { doc, getDoc, collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, collectionGroup, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import {
     Users, UserPlus, UserMinus, ArrowLeft, X,
     Flame, Trophy, Mic, Award, Clock, MessageSquare,
-    ThumbsUp, Eye, Lock, FileText
+    ThumbsUp, Eye, Lock, FileText, CornerDownRight
 } from "lucide-react";
 import Link from "next/link";
 import { FollowEntry } from "@/lib/follow";
@@ -71,7 +71,7 @@ function FollowListModal({
 }
 
 // ─── Tab Types ────────────────────────────────────────────────────────────────
-type ProfileTab = "overview" | "posts";
+type ProfileTab = "overview" | "posts" | "comments";
 
 // ─── Public Profile Interface ─────────────────────────────────────────────────
 interface PublicProfile {
@@ -116,6 +116,11 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
     const [userPosts, setUserPosts] = useState<Post[]>([]);
     const [postsLoading, setPostsLoading] = useState(false);
     const [postsLoaded, setPostsLoaded] = useState(false);
+
+    // Commented posts
+    const [commentedPosts, setCommentedPosts] = useState<(Post & { userComment: string })[]>([]);
+    const [commentedLoading, setCommentedLoading] = useState(false);
+    const [commentedLoaded, setCommentedLoaded] = useState(false);
 
     // Redirect own profile
     useEffect(() => {
@@ -184,16 +189,60 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
         }
     }, [uid, postsLoaded]);
 
+    // Lazy-load posts the user commented on
+    const loadCommentedPosts = useCallback(async () => {
+        if (commentedLoaded) return;
+        setCommentedLoading(true);
+        try {
+            const commentsSnap = await getDocs(
+                query(
+                    collectionGroup(db, "comments"),
+                    where("authorId", "==", uid),
+                    orderBy("createdAt", "desc"),
+                    limit(50)
+                )
+            );
+
+            // Deduplicate by post ID, keep first (most recent) comment per post
+            const seen = new Set<string>();
+            const entries: { postId: string; comment: string }[] = [];
+            commentsSnap.docs.forEach(d => {
+                const postId = d.ref.parent.parent?.id;
+                if (postId && !seen.has(postId)) {
+                    seen.add(postId);
+                    entries.push({ postId, comment: d.data().content as string });
+                }
+            });
+
+            // Fetch post metadata for each unique post
+            const posts = await Promise.all(
+                entries.map(async ({ postId, comment }) => {
+                    const snap = await getDoc(doc(db, "posts", postId));
+                    if (!snap.exists()) return null;
+                    return { id: snap.id, ...snap.data(), userComment: comment } as Post & { userComment: string };
+                })
+            );
+
+            setCommentedPosts(posts.filter(Boolean) as (Post & { userComment: string })[]);
+            setCommentedLoaded(true);
+        } catch (err) {
+            console.error("Error loading commented posts:", err);
+        } finally {
+            setCommentedLoading(false);
+        }
+    }, [uid, commentedLoaded]);
+
     useEffect(() => {
         loadProfile();
         checkFollowing();
         loadGamification();
     }, [loadProfile, checkFollowing, loadGamification]);
 
-    // Load posts when tab switches to "posts"
+    // Load posts/comments when tab is activated
     useEffect(() => {
         if (activeTab === "posts") loadUserPosts();
-    }, [activeTab, loadUserPosts]);
+        if (activeTab === "comments") loadCommentedPosts();
+    }, [activeTab, loadUserPosts, loadCommentedPosts]);
 
     const handleOpenModal = async (type: ModalType) => {
         setModal(type);
@@ -253,7 +302,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
 
     const TABS: { id: ProfileTab; label: string; icon: React.ElementType }[] = [
         { id: "overview", label: "Overview", icon: Trophy },
-        { id: "posts", label: `Posts (${profile.stats?.postsCount ?? 0})`, icon: FileText }
+        { id: "posts", label: `Posts (${profile.stats?.postsCount ?? 0})`, icon: FileText },
+        { id: "comments", label: `Comments (${profile.stats?.commentsCount ?? 0})`, icon: MessageSquare }
     ];
 
     return (
@@ -460,6 +510,80 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
                                                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{post.content}</p>
+                                                        {post.tags && post.tags.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                                {post.tags.slice(0, 3).map(tag => (
+                                                                    <span key={tag} className="text-[10px] font-medium bg-primary/5 text-primary/80 border border-primary/10 px-1.5 py-0.5 rounded">
+                                                                        {tag}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground flex-shrink-0 mt-0.5">
+                                                        {post.createdAt ? formatForumDate(post.createdAt.toDate()) : "Just now"}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+                                                    <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
+                                                    <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
+                                                    <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* ── Comments Tab ───────────────────────────────────────── */}
+                    {activeTab === "comments" && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <MessageSquare className="w-5 h-5 text-primary" />
+                                    Comment Activity
+                                </CardTitle>
+                                <CardDescription>
+                                    {profile.hideForumActivity
+                                        ? "This user has hidden their forum activity."
+                                        : `Posts ${profile.displayName?.split(" ")[0] || "this user"} has commented on`}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {profile.hideForumActivity ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                                        <div className="p-4 rounded-full bg-muted"><Lock className="w-8 h-8" /></div>
+                                        <p className="font-medium">Forum activity is private</p>
+                                        <p className="text-sm text-center">This user has chosen to hide their forum posts.</p>
+                                    </div>
+                                ) : commentedLoading ? (
+                                    <div className="space-y-3">
+                                        {Array.from({ length: 4 }).map((_, i) => (
+                                            <div key={i} className="h-24 rounded-xl bg-muted/50 animate-pulse" />
+                                        ))}
+                                    </div>
+                                ) : commentedPosts.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                                        <MessageSquare className="w-10 h-10 opacity-30" />
+                                        <p>No comments yet.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {commentedPosts.map(post => (
+                                            <Link
+                                                key={post.id}
+                                                href={`/forum/${post.id}`}
+                                                className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group"
+                                            >
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
+                                                        <div className="flex items-start gap-1.5 mt-2">
+                                                            <CornerDownRight className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed italic">"{post.userComment}"</p>
+                                                        </div>
                                                         {post.tags && post.tags.length > 0 && (
                                                             <div className="flex flex-wrap gap-1 mt-2">
                                                                 {post.tags.slice(0, 3).map(tag => (
