@@ -104,10 +104,10 @@ export function PitchChart({
     return (
         <div className="relative w-full h-full">
             {/* HTML Labels */}
-            <div className="absolute top-0 left-0 text-[10px] text-muted-foreground font-mono leading-none bg-black/20 px-1 rounded backdrop-blur-[1px]">
+            <div className="absolute -top-1 left-0 text-[11px] font-bold text-slate-300 pointer-events-none">
                 High ({maxHz}Hz)
             </div>
-            <div className="absolute bottom-0 left-0 text-[10px] text-muted-foreground font-mono leading-none bg-black/20 px-1 rounded backdrop-blur-[1px]">
+            <div className="absolute -bottom-1 left-0 text-[11px] font-bold text-slate-300 pointer-events-none">
                 Low ({minHz}Hz)
             </div>
 

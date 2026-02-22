@@ -4,6 +4,7 @@ import { Search, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NotificationDropdown } from './NotificationDropdown';
+import Link from 'next/link';
 
 interface ForumHeaderProps {
     searchQuery: string;
@@ -55,9 +56,12 @@ export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearch
                     <NotificationDropdown />
 
                     {user && (
-                        <div className="flex items-center gap-3 pl-3 border-l border-white/5">
+                        <Link
+                            href="/dashboard/profile"
+                            className="flex items-center gap-3 pl-3 border-l border-white/5 group cursor-pointer"
+                        >
                             <div className="text-right hidden sm:block">
-                                <div className="text-sm font-bold text-white leading-none mb-1">
+                                <div className="text-sm font-bold text-white leading-none mb-1 group-hover:text-primary transition-colors">
                                     {user.displayName?.split(' ')[0]}
                                 </div>
                                 <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
@@ -65,17 +69,17 @@ export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearch
                                 </div>
                             </div>
 
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-secondary p-[1px] shadow-lg shadow-primary/20">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-secondary p-[1px] shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
                                 <div className="w-full h-full rounded-full bg-[#111] overflow-hidden">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img
                                         src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}&background=6d28d9&color=fff`}
                                         alt="User"
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     )}
                 </div>
             </div>

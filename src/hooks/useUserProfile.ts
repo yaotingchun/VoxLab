@@ -24,9 +24,14 @@ export function useUserProfile() {
             if (docSnap.exists()) {
                 setProfile(docSnap.data() as UserProfile);
 
-                // Update lastActiveAt periodically (e.g., every 5 minutes if we wanted, but here we just update on session start/snapshot for now)
-                // For "Online" status, we might want a separate presence system or just update this timestamp more frequently.
-                // For now, let's update it when the hook mounts/auth changes.
+                // Keep Firestore in sync with the latest Firebase Auth profile data.
+                // This fixes stale/missing displayName and photoURL shown on public profiles.
+                if (user.displayName || user.photoURL) {
+                    updateDoc(userRef, {
+                        ...(user.displayName && { displayName: user.displayName }),
+                        ...(user.photoURL && { photoURL: user.photoURL }),
+                    }).catch(err => console.error("Error syncing profile:", err));
+                }
             } else {
                 // Create profile if not exists
                 const newProfile: UserProfile = {
@@ -40,6 +45,8 @@ export function useUserProfile() {
                         likesReceived: 0,
                         bestAnswersCount: 0
                     },
+                    followersCount: 0,
+                    followingCount: 0,
                     lastActiveAt: serverTimestamp() as any, // Typed as any to avoid client/server timestamp mismatch issues initially
                     isOnline: true
                 };

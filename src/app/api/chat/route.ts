@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     1.  Provide actionable, encouraging advice.
     2.  Use examples where possible.
 
-    Maintain a supportive, professional, and inspiring persona. be concise.`,
+    Maintain a supportive, professional, and inspiring persona. Keep your entire response under 150 words. Be extremely concise and punchy. Use bullet points where possible to keep it scannable.`,
             messages: coreMessages,
         });
 

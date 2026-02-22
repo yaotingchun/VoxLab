@@ -24,18 +24,21 @@ interface SessionData {
         pauseStats?: PauseStats | null;
     };
     audioMetrics?: {
-        averageVolume: number;
-        averagePitch: number;
-        pitchRange: number;
-        isMonotone: boolean;
-        isTooQuiet: boolean;
+        averageVolume?: number;
+        averagePitch?: number;
+        pitchRange?: number;
+        isMonotone?: boolean;
+        isTooQuiet?: boolean;
+        avgVolume?: number;
+        avgPitch?: number;
+        volumeRange?: number;
     };
 }
 
 export async function analyzeSession(data: SessionData) {
     try {
         const prompt = `
-        You are an expert Presentation and Posture Coach.
+        You are an expert Presentation, Vocal, and Posture Coach.
         Analyze the following session data:
 
         - Duration: ${data.duration} seconds
@@ -56,9 +59,17 @@ export async function analyzeSession(data: SessionData) {
         - Blink Rate: ${data.faceMetrics.blinkRateAverage} BPM
         - Eye Contact: ${data.faceMetrics.eyeContactScore}%
 
+        - Vocal & Audio Metrics:
+        - Average Volume: ${data.audioMetrics?.avgVolume?.toFixed(2) || data.audioMetrics?.averageVolume?.toFixed(2) || 'N/A'} dBFS
+        - Average Pitch: ${data.audioMetrics?.avgPitch?.toFixed(2) || data.audioMetrics?.averagePitch?.toFixed(2) || 'N/A'} Hz
+        - Pitch Range: ${data.audioMetrics?.pitchRange?.toFixed(2) || 'N/A'} Hz
+        - Monotone: ${data.audioMetrics?.isMonotone ? 'Yes' : 'No'}
+        - Too Quiet: ${data.audioMetrics?.isTooQuiet ? 'Yes' : 'No'}
+
         Provide a "Gemini AI Coach" summary.
-        1. A brief, 2-3 sentence analysis of their performance (Tone: Professional, Encouraging, Insightful).
-        2. Three specific, actionable "Quick Tips" to improve next time.
+        1. A brief, 2-3 sentence analysis of their overall performance, encompassing their script, posture, and VOCAL delivery.
+        2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).
+        3. An objective 'score' from 0 to 100 evaluating their overall performance across all these pillars. Make it tough but fair.
         `;
 
         const { object } = await generateObject({
@@ -66,6 +77,7 @@ export async function analyzeSession(data: SessionData) {
             schema: z.object({
                 summary: z.string().describe('A brief, 2-3 sentence analysis of their performance'),
                 tips: z.array(z.string()).describe('Three specific, actionable "Quick Tips" to improve next time'),
+                score: z.number().min(0).max(100).describe('An objective score from 0 to 100 evaluating their overall performance'),
             }),
             prompt: prompt,
         });

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mic, Sparkles } from "lucide-react";
+import { Loader2, Mic, Sparkles, Video } from "lucide-react";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -37,7 +37,10 @@ export default function DashboardPage() {
                         <span className="text-muted-foreground">
                             Logged in as: <span className="text-foreground font-medium">{user.email}</span>
                         </span>
-                        <Button variant="outline" onClick={() => logout()}>
+                        <Button variant="outline" onClick={() => router.push('/dashboard/profile')}>
+                            My Profile
+                        </Button>
+                        <Button variant="ghost" onClick={() => logout()}>
                             Logout
                         </Button>
                     </div>
@@ -57,7 +60,19 @@ export default function DashboardPage() {
                         </p>
                     </div>
 
-                    <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm">
+                    <div className="group relative rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-6" onClick={() => router.push('/dashboard/practice/topic')}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Video className="w-12 h-12" />
+                        </div>
+                        <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                            <Video className="w-4 h-4 text-blue-400" />
+                            Practice Session
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Choose a topic and start a full practice session with posture, voice, and speech analysis.
+                        </p>
+                    </div>
+                    <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => router.push('/dashboard/profile')}>
                         <h3 className="font-semibold leading-none tracking-tight">Recent Activity</h3>
                         <p className="text-sm text-muted-foreground mt-2">No recent activity.</p>
                     </div>
