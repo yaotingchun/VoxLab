@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -29,6 +29,18 @@ interface DetailedSessionReportProps {
         } | null;
         vocalSummary?: { summary: string; tips: string[], score?: number } | null;
         postureSummary?: { summary: string; tips: string[], score?: number } | null;
+        slideAnalysis?: {
+            coveredPoints: string[];
+            missedPoints: string[];
+            alignmentScore: number;
+            feedback: string;
+        } | null;
+        rubricAnalysis?: {
+            rubricScore: number;
+            strengths: string[];
+            weaknesses: string[];
+            feedback: string;
+        } | null;
         videoUrl?: string; // Newly added video URL from GCS
         rawMetrics?: {
             topic?: string | null;
@@ -195,14 +207,22 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                 ? `The speaker was practicing on the topic: "${metrics.topic}". Evaluate how well their speech addresses this topic, what key points they covered, and what important angles or arguments they missed.\n\n`
                 : '';
 
+            const slideContext = data.slideAnalysis
+                ? `\n\n[SLIDES CONTEXT]: An initial analysis compared the speech to the speaker's uploaded slides. It found: "${data.slideAnalysis.feedback}". The speaker covered points like [${data.slideAnalysis.coveredPoints.join(", ")}] but MISSED points like [${data.slideAnalysis.missedPoints.join(", ")}]. Provide actionable advice on how to incorporate the missed visual points into their verbal delivery.`
+                : '';
+
+            const rubricContext = data.rubricAnalysis
+                ? `\n\n[RUBRIC CONTEXT]: An initial analysis graded the speech against a rubric, scoring it ${data.rubricAnalysis.rubricScore}/100. Strengths: [${data.rubricAnalysis.strengths.join(", ")}]. Weaknesses: [${data.rubricAnalysis.weaknesses.join(", ")}]. Integrate this feedback into your coaching naturally.`
+                : '';
+
             sendContentMessage({
                 role: 'user',
-                content: `${topicContext}Please analyze this speech script, giving me feedback and structural tips:\n\n${metrics.transcript}`
+                content: `${topicContext}Please analyze this speech script, giving me feedback and structural tips:\n\n${metrics.transcript}${slideContext}${rubricContext}`
             } as any).finally(() => {
                 setIsAnalyzingContent(false);
             });
         }
-    }, [metrics.transcript, sendContentMessage, hasTriggeredContent, metrics.topic]);
+    }, [metrics.transcript, sendContentMessage, hasTriggeredContent, metrics.topic, data.slideAnalysis, data.rubricAnalysis]);
 
     // Derive the final content analysis text from the AI assistant message
     const streamedContentAnalysis = contentMessages
@@ -381,14 +401,15 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </div >
 
                                 {/* Total Words */}
-                                < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
+                                <div className="p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
                                     <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                        <Type className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
+                                        <TrendingUp className="w-5 h-5 text-indigo-400" /> <span className="text-xs font-bold uppercase">Words</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.totalWords}</div>
-                                    <div className="text-xs text-slate-400">Duration: {Math.floor(metrics.duration / 60)}m {metrics.duration % 60}s</div>
-                                </div >
-
+                                    <div className="text-sm text-slate-500">
+                                        {Math.floor(metrics.duration / 60)}m {(metrics.duration % 60).toFixed(2)}s
+                                    </div>
+                                </div>
                                 {/* Filler Words */}
                                 < div className={`p-5 rounded-2xl border bg-slate-800/30 ${fillerTotal > 5 ? 'border-red-500/30' : 'border-green-500/30'}`
                                 }>
@@ -1212,6 +1233,112 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </ul>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Slide Alignment Analysis */}
+                            {data.slideAnalysis && (
+                                <div className="space-y-6">
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-blue-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-3">
+                                            <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                                <FileText className="w-4 h-4" /> Slide Alignment
+                                            </h3>
+                                            <p className="text-slate-300 text-sm leading-relaxed">
+                                                {data.slideAnalysis.feedback}
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={data.slideAnalysis.alignmentScore}
+                                                label="Alignment"
+                                                color="text-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ✅ Points Covered
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.slideAnalysis.coveredPoints.map((point, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ⚠️ Missed Points
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                    </li>
+                                                )) : <p className="text-slate-500 italic text-sm">All key points were covered!</p>}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Rubric Analysis */}
+                            {data.rubricAnalysis && (
+                                <div className="space-y-6">
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-purple-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-3">
+                                            <h3 className="text-sm font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4" /> Rubric Evaluation
+                                            </h3>
+                                            <p className="text-slate-300 text-sm leading-relaxed">
+                                                {data.rubricAnalysis.feedback}
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={data.rubricAnalysis.rubricScore}
+                                                label="Rubric Score"
+                                                color="text-purple-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                🌟 Key Strengths
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.rubricAnalysis.strengths.map((str, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{str}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                📉 Areas to Improve
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.rubricAnalysis.weaknesses.map((weakness, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs font-bold">↓</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{weakness}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 
