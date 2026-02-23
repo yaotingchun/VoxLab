@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2 } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -257,29 +257,50 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
             >
                 {/* Header / Controls */}
                 <div className="sticky top-0 z-50 flex justify-between items-center p-6 bg-slate-900/95 backdrop-blur-md border-b border-slate-800">
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setCurrentReportIndex((prev) => (prev > 0 ? prev - 1 : 3))}
-                            className="text-slate-400 hover:text-white"
+                    <div className="flex bg-slate-800/50 p-1 rounded-xl border border-slate-700/50">
+                        <button
+                            onClick={() => setCurrentReportIndex(0)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 0
+                                ? "bg-slate-700 text-purple-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
                         >
-                            <ChevronLeft className="w-5 h-5" />
-                        </Button>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2 min-w-[140px] justify-center">
-                            {currentReportIndex === 0 && <><span className="text-purple-400">⚡</span> General</>}
-                            {currentReportIndex === 1 && <><Mic className="w-5 h-5 text-pink-400" /> Vocal</>}
-                            {currentReportIndex === 2 && <><Activity className="w-5 h-5 text-blue-400" /> Posture</>}
-                            {currentReportIndex === 3 && <><BarChart3 className="w-5 h-5 text-green-400" /> Content</>}
-                        </h2>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setCurrentReportIndex((prev) => (prev < 3 ? prev + 1 : 0))}
-                            className="text-slate-400 hover:text-white"
+                            <Sparkles className={`w-4 h-4 ${currentReportIndex === 0 ? "text-purple-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">General</span>
+                        </button>
+
+                        <button
+                            onClick={() => setCurrentReportIndex(1)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 1
+                                ? "bg-slate-700 text-pink-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
                         >
-                            <ChevronRight className="w-5 h-5" />
-                        </Button>
+                            <Mic className={`w-4 h-4 ${currentReportIndex === 1 ? "text-pink-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">Vocal</span>
+                        </button>
+
+                        <button
+                            onClick={() => setCurrentReportIndex(2)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 2
+                                ? "bg-slate-700 text-blue-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
+                        >
+                            <Activity className={`w-4 h-4 ${currentReportIndex === 2 ? "text-blue-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">Posture</span>
+                        </button>
+
+                        <button
+                            onClick={() => setCurrentReportIndex(3)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 3
+                                ? "bg-slate-700 text-green-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
+                        >
+                            <BarChart3 className={`w-4 h-4 ${currentReportIndex === 3 ? "text-green-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">Content</span>
+                        </button>
                     </div>
                     <div className="flex items-center gap-4">
                         <Button
