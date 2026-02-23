@@ -3,9 +3,14 @@ import { Activity, Clock, AlertCircle, Mic, TrendingUp, BarChart3, AlertTriangle
 import { PacingChart } from "./PacingChart";
 import { PitchChart } from "@/components/PitchChart";
 
-interface PrintableReportTemplateProps {
+import { CircularScoreChart } from "./CircularScoreChart";
+import ReactMarkdown from "react-markdown";
+
+export interface PrintableReportTemplateProps {
     data: any;
     metrics: any;
+    localContentScore?: number;
+    contentAnalysis?: string;
 }
 
 // Internal reusable page component to ensure consistent A4 sizing and header/footer
@@ -17,7 +22,7 @@ const PrintablePage = ({ children, pageNum, totalPages }: { children: React.Reac
     }, []);
 
     return (
-        <div className="printable-page w-[794px] h-[1123px] bg-white text-slate-900 p-12 font-sans relative flex flex-col mb-8 shadow-lg">
+        <div className="printable-page w-[794px] h-[1123px] bg-white text-slate-900 p-12 font-sans relative flex flex-col mb-8 shadow-lg overflow-hidden">
             {/* Header */}
             <div className="flex justify-between items-end border-b-2 border-slate-200 pb-6 mb-8 shrink-0">
                 <div>
@@ -53,7 +58,7 @@ const MetricCard = ({ title, icon: Icon, children, className = "" }: { title: st
     </div>
 );
 
-export function PrintableReportTemplate({ data, metrics }: PrintableReportTemplateProps) {
+export function PrintableReportTemplate({ data, metrics, localContentScore, contentAnalysis }: PrintableReportTemplateProps) {
     const fillerTotal = Object.values(metrics.fillerCounts || {}).reduce((a: any, b: any) => a + b, 0) as number;
 
     const getWpmColor = (wpm: number) => {
@@ -99,18 +104,77 @@ export function PrintableReportTemplate({ data, metrics }: PrintableReportTempla
         }
     } : null;
 
+    // Chunk transcript for multiple pages if it's very long
+    const charsPerPage = 2500;
+    const transcriptText = metrics.transcript || "";
+    const transcriptChunks = [];
+    for (let i = 0; i < transcriptText.length; i += charsPerPage) {
+        transcriptChunks.push(transcriptText.substring(i, i + charsPerPage));
+    }
+    if (transcriptChunks.length === 0) transcriptChunks.push("");
+
+    // Smarter chunking for Content Analysis to handle Markdown safely
+    const contentAnalysisText = contentAnalysis || "";
+    const analysisChunks: string[] = [];
+    const MAX_CHUNK_SIZE = 1400; // Strict limit to guarantee no vertical overflow with rendered Markdown
+
+    let remainingText = contentAnalysisText;
+    while (remainingText.length > 0) {
+        if (remainingText.length <= MAX_CHUNK_SIZE) {
+            analysisChunks.push(remainingText.trim());
+            break;
+        }
+
+        // Find a safe split point before MAX_CHUNK_SIZE looking backwards
+        let splitIndex = MAX_CHUNK_SIZE;
+
+        const doubleNewline = remainingText.lastIndexOf('\n\n', MAX_CHUNK_SIZE);
+        if (doubleNewline > MAX_CHUNK_SIZE * 0.4) {
+            splitIndex = doubleNewline;
+        } else {
+            const singleNewline = remainingText.lastIndexOf('\n', MAX_CHUNK_SIZE);
+            if (singleNewline > MAX_CHUNK_SIZE * 0.4) {
+                splitIndex = singleNewline;
+            } else {
+                const sentenceEnd = remainingText.lastIndexOf('. ', MAX_CHUNK_SIZE);
+                if (sentenceEnd > MAX_CHUNK_SIZE * 0.4) {
+                    splitIndex = sentenceEnd + 1;
+                } else {
+                    const space = remainingText.lastIndexOf(' ', MAX_CHUNK_SIZE);
+                    if (space > 0) {
+                        splitIndex = space;
+                    }
+                }
+            }
+        }
+
+        analysisChunks.push(remainingText.substring(0, splitIndex).trim());
+        remainingText = remainingText.substring(splitIndex).trim();
+    }
+
+    if (analysisChunks.length === 0) analysisChunks.push("");
+
+    const pageNumTotal = 7 + transcriptChunks.length + analysisChunks.length;
+
     return (
         <div id="printable-root">
             {/* PAGE 1: Summary, Metrics, Filler Words */}
-            <PrintablePage pageNum={1} totalPages={4}>
+            <PrintablePage pageNum={1} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-blue-600" /> General Report
+                </h2>
+
                 {/* Executive Summary */}
-                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8">
-                    <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <Activity className="w-4 h-4" /> Executive Summary
-                    </h3>
-                    <p className="text-slate-700 leading-relaxed italic">
-                        "{data.summary}"
-                    </p>
+                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                    <div className="flex-1">
+                        <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Executive Summary</h3>
+                        <p className="text-sm text-slate-700 leading-relaxed italic">"{data.summary}"</p>
+                    </div>
+                    {data.score !== undefined && (
+                        <div className="flex-shrink-0">
+                            <CircularScoreChart score={data.score} label="Overall Score" color="text-blue-600" size={120} strokeWidth={10} />
+                        </div>
+                    )}
                 </div>
 
                 {/* Key Metrics Grid */}
@@ -118,222 +182,344 @@ export function PrintableReportTemplate({ data, metrics }: PrintableReportTempla
                     {/* WPM */}
                     <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center gap-2 text-slate-500 mb-2">
-                            <Clock className="w-4 h-4" /> <span className="text-[10px] font-bold uppercase">Pace</span>
+                            <Clock className="w-5 h-5" /> <span className="text-xs font-bold uppercase">Pace</span>
                         </div>
-                        <div className="text-2xl font-bold text-slate-900 mb-1">{metrics.wpm} <span className="text-sm font-medium text-slate-500">WPM</span></div>
-                        <div className={`text-xs font-medium ${getWpmColor(metrics.wpm)}`}>
+                        <div className="text-3xl font-bold text-slate-900 mb-1">{metrics.wpm} <span className="text-sm font-medium text-slate-500">WPM</span></div>
+                        <div className={`text-sm font-medium ${getWpmColor(metrics.wpm)}`}>
                             {metrics.wpm < 110 ? "Slow" : metrics.wpm > 160 ? "Fast" : "Optimal"}
                         </div>
                     </div>
                     {/* Total Words */}
                     <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center gap-2 text-slate-500 mb-2">
-                            <TrendingUp className="w-4 h-4" /> <span className="text-[10px] font-bold uppercase">Words</span>
+                            <TrendingUp className="w-5 h-5" /> <span className="text-xs font-bold uppercase">Words</span>
                         </div>
-                        <div className="text-2xl font-bold text-slate-900 mb-1">{metrics.totalWords}</div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-3xl font-bold text-slate-900 mb-1">{metrics.totalWords}</div>
+                        <div className="text-sm text-slate-500">
                             {Math.floor(metrics.duration / 60)}m {Math.floor(metrics.duration % 60)}s
                         </div>
                     </div>
                     {/* Fillers */}
                     <div className={`p-4 rounded-xl border bg-white shadow-sm ${fillerTotal > 5 ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}>
                         <div className="flex items-center gap-2 text-slate-500 mb-2">
-                            <AlertCircle className="w-4 h-4" /> <span className="text-[10px] font-bold uppercase">Fillers</span>
+                            <AlertCircle className="w-5 h-5" /> <span className="text-xs font-bold uppercase">Fillers</span>
                         </div>
-                        <div className={`text-2xl font-bold mb-1 ${fillerTotal > 5 ? 'text-red-700' : 'text-green-700'}`}>{fillerTotal}</div>
+                        <div className={`text-3xl font-bold mb-1 ${fillerTotal > 5 ? 'text-red-700' : 'text-green-700'}`}>{fillerTotal}</div>
                     </div>
                     {/* Pauses */}
                     <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center gap-2 text-slate-500 mb-2">
-                            <Mic className="w-4 h-4" /> <span className="text-[10px] font-bold uppercase">Pauses</span>
+                            <Mic className="w-5 h-5" /> <span className="text-xs font-bold uppercase">Pauses</span>
                         </div>
-                        <div className="text-2xl font-bold text-slate-900 mb-1">{metrics.pauseCount}</div>
+                        <div className="text-3xl font-bold text-slate-900">{metrics.pauseStats?.stats?.totalPauses || 0}</div>
                     </div>
                 </div>
 
-                {/* Filler Words & Stats */}
-                <div className="mb-8 p-6 rounded-2xl border border-slate-200 bg-slate-50">
+                {/* Filler Words Breakdown */}
+                <div className="mb-4 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
                     <h4 className="text-sm font-bold text-slate-900 mb-4 border-b border-slate-200 pb-2 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-slate-500" /> Filler Word Breakdown
+                        <AlertCircle className="w-5 h-5 text-slate-500" /> Filler Word Breakdown
                     </h4>
-                    <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-3">
-                            {Object.entries(metrics.fillerCounts || {}).map(([word, count]) => (
-                                <div key={word} className="flex items-center justify-between text-sm">
-                                    <span className="capitalize text-slate-700 font-medium">{word}</span>
-                                    <div className="flex items-center gap-3 flex-1 mx-4">
-                                        <div className="h-2 bg-slate-200 rounded-full flex-1 overflow-hidden">
-                                            <div
-                                                className="h-full bg-slate-500 rounded-full"
-                                                style={{ width: `${Math.min(((count as number) / Math.max(fillerTotal, 1)) * 100, 100)}%` }}
-                                            />
-                                        </div>
-                                        <span className="font-mono font-bold text-slate-900">{count as number}</span>
+                    <div className="space-y-3">
+                        {Object.entries(metrics.fillerCounts || {}).map(([word, count]) => (
+                            <div key={word} className="flex items-center justify-between text-sm">
+                                <span className="capitalize text-slate-700 font-medium">{word}</span>
+                                <div className="flex items-center gap-3 flex-1 mx-4">
+                                    <div className="h-2 bg-slate-200 rounded-full flex-1 overflow-hidden">
+                                        <div
+                                            className="h-full bg-slate-500 rounded-full"
+                                            style={{ width: `${Math.min(((count as number) / Math.max(fillerTotal, 1)) * 100, 100)}%` }}
+                                        />
                                     </div>
+                                    <span className="font-mono font-bold text-slate-900">{count as number}</span>
                                 </div>
-                            ))}
-                            {fillerTotal === 0 && <div className="text-sm text-slate-500 italic">No filler words detected.</div>}
+                            </div>
+                        ))}
+                        {fillerTotal === 0 && <div className="text-sm text-slate-500 italic">No filler words detected.</div>}
+                    </div>
+                </div>
+            </PrintablePage>
+
+            {/* PAGE 2: General Recommendations */}
+            <PrintablePage pageNum={2} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-blue-600" /> General Recommendations
+                </h2>
+
+                <div className="flex-1 mt-4">
+                    <h4 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-3 pb-3 border-b border-slate-200">
+                        <span>💡</span> General Coach's Feedback
+                    </h4>
+                    <ul className="space-y-4">
+                        {data.tips.map((tip: string, index: number) => (
+                            <li key={index} className="flex gap-4 items-start text-[15px] text-slate-700 p-5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shrink-0 shadow-sm">
+                                    {index + 1}
+                                </span>
+                                <div className="leading-relaxed mt-1">{tip}</div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </PrintablePage>
+
+            {/* PAGE 3: Vocal Analysis */}
+            <PrintablePage pageNum={3} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <Mic className="w-6 h-6 text-pink-600" /> Vocal Analysis
+                </h2>
+
+                {/* Vocal Summary & Score */}
+                {data.vocalSummary && (
+                    <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                        <div className="flex-1">
+                            <h3 className="text-xs font-bold text-pink-700 uppercase tracking-widest mb-3">Vocal Coach Summary</h3>
+                            <p className="text-[15px] text-slate-700 leading-relaxed italic">"{data.vocalSummary.summary}"</p>
                         </div>
-                        {/* Audio Stats Mini-Table */}
-                        {audioStats && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 bg-white rounded-lg border border-slate-200 text-center">
-                                    <div className="text-sm text-slate-500 mb-1">Pitch Variety</div>
-                                    <div className="text-xl font-bold text-slate-900">{audioStats.stats.pitchStdDev?.toFixed(1) || 0}</div>
-                                </div>
-                                <div className="p-3 bg-white rounded-lg border border-slate-200 text-center">
-                                    <div className="text-sm text-slate-500 mb-1">Clarity</div>
-                                    <div className="text-xl font-bold text-slate-900">{Math.round((1 - (audioStats.stats.quietPercentage || 0)) * 100)}%</div>
-                                </div>
+                        {data.vocalSummary.score !== undefined && (
+                            <div className="flex-shrink-0">
+                                <CircularScoreChart score={data.vocalSummary.score} label="Vocal Score" color="text-pink-600" size={120} strokeWidth={10} />
                             </div>
                         )}
                     </div>
+                )}
+
+                {/* Vocal Recommendations */}
+                {data.vocalSummary?.tips && data.vocalSummary.tips.length > 0 && (
+                    <div className="mb-8">
+                        <h4 className="text-[15px] font-bold text-slate-900 mb-4 flex items-center gap-3">
+                            <span>💡</span> Vocal Pitch & Tone Recommendations
+                        </h4>
+                        <ul className="space-y-4">
+                            {data.vocalSummary.tips.map((tip: string, index: number) => (
+                                <li key={index} className="flex gap-4 items-start text-[14px] text-slate-700 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                    <span className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center text-sm font-bold shrink-0">
+                                        {index + 1}
+                                    </span>
+                                    <div className="leading-relaxed mt-1">{tip}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </PrintablePage>
+
+            {/* PAGE 4: Vocal Dynamics & Pauses */}
+            <PrintablePage pageNum={4} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <Mic className="w-6 h-6 text-pink-600" /> Vocal Dynamics & Pacing
+                </h2>
+
+                {/* Vocal Dynamics (Charts & Stats) */}
+                <div className="mb-8 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center justify-between border-b border-slate-200 pb-3">
+                        <div className="flex items-center gap-2"><Mic className="w-5 h-5 text-slate-500" /> Vocal Dynamics</div>
+                    </h3>
+                    <div className="grid grid-cols-3 gap-6 mb-4">
+                        {audioStats && audioStats.stats && (
+                            <>
+                                <div className="p-4 bg-white rounded-xl border border-slate-200 text-center shadow-sm">
+                                    <div className="text-sm text-slate-500 mb-2">Pitch Variety</div>
+                                    <div className="text-2xl font-bold text-slate-900">{audioStats.stats.pitchStdDev?.toFixed(1) || 0}</div>
+                                </div>
+                                <div className="p-4 bg-white rounded-xl border border-slate-200 text-center shadow-sm">
+                                    <div className="text-sm text-slate-500 mb-2">Clarity</div>
+                                    <div className="text-2xl font-bold text-slate-900">{Math.round((1 - (audioStats.stats.quietPercentage || 0)) * 100)}%</div>
+                                </div>
+                                <div className={`p-4 bg-white rounded-xl border border-slate-200 text-center shadow-sm flex items-center justify-center font-bold text-xl ${audioStats.stats.isMonotone ? 'text-amber-600' : 'text-green-600'}`}>
+                                    {audioStats.stats.isMonotone ? "Monotone" : "Expressive"}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                        <div className="text-xs text-slate-400 mb-2 font-bold uppercase tracking-wider">Pitch Contour (Intonation)</div>
+                        <div className="h-40 w-full relative">
+                            <PitchChart pitchData={metrics.pitchSamples || []} volumeData={metrics.volumeSamples || []} color="#fbbf24" />
+                        </div>
+                    </div>
                 </div>
 
-                {/* Pause Analysis (High Fidelity) */}
-                <MetricCard title="Pause Analysis" icon={Clock}>
+                {/* Pause Analysis */}
+                <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm min-h-0">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                        <Clock className="w-5 h-5 text-slate-500" /> Pause Analysis
+                    </h3>
                     {metrics.pauseStats && metrics.pauseStats.stats ? (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 rounded-xl bg-white border border-slate-200 text-center shadow-sm">
-                                    <div className="text-2xl font-bold text-slate-900">{metrics.pauseStats.stats.emphasisCount}</div>
-                                    <div className="text-xs text-slate-500">Emphasis Pauses</div>
-                                    <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="p-5 rounded-xl bg-white border border-slate-200 text-center shadow-sm">
+                                    <div className="text-4xl font-bold text-slate-900 mb-2">{metrics.pauseStats.stats.emphasisCount}</div>
+                                    <div className="text-sm text-slate-500">Emphasis Pauses</div>
+                                    <div className="mt-4 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                                         <div className="h-full bg-emerald-500" style={{ width: `${(metrics.pauseStats.stats.emphasisCount / Math.max(metrics.pauseStats.stats.totalPauses, 1)) * 100}%` }} />
                                     </div>
                                 </div>
-                                <div className="p-3 rounded-xl bg-white border border-slate-200 text-center shadow-sm">
-                                    <div className="text-2xl font-bold text-amber-600">{metrics.pauseStats.stats.thinkingCount}</div>
-                                    <div className="text-xs text-slate-500">Thinking Pauses</div>
-                                    <div className="mt-2 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                <div className="p-5 rounded-xl bg-white border border-slate-200 text-center shadow-sm">
+                                    <div className="text-4xl font-bold text-amber-600 mb-2">{metrics.pauseStats.stats.thinkingCount}</div>
+                                    <div className="text-sm text-slate-500">Thinking Pauses</div>
+                                    <div className="mt-4 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                                         <div className="h-full bg-amber-500" style={{ width: `${(metrics.pauseStats.stats.thinkingCount / Math.max(metrics.pauseStats.stats.totalPauses, 1)) * 100}%` }} />
                                     </div>
                                 </div>
                             </div>
                             {metrics.pauseStats.feedback && (
-                                <div className={`p-4 rounded-xl border text-sm flex items-start gap-3 ${metrics.pauseStats.feedback.type === 'good' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                    <div>
-                                        <div className="font-bold mb-1">Feedback</div>
-                                        {metrics.pauseStats.feedback.message}
+                                <div className="p-5 rounded-xl border bg-white shadow-sm flex items-start gap-4">
+                                    <div className="text-3xl">{metrics.pauseStats.feedback.type === 'good' ? '✅' : metrics.pauseStats.feedback.type === 'warn' ? '⚠️' : '🚨'}</div>
+                                    <div className="mt-1">
+                                        <div className="text-[15px] font-bold text-slate-900 mb-1">Pacing Feedback</div>
+                                        <div className="text-[14px] text-slate-700 leading-relaxed">{metrics.pauseStats.feedback.message}</div>
                                     </div>
                                 </div>
                             )}
                         </div>
-                    ) : <div className="text-sm text-slate-400 italic">No pause data available.</div>}
-                </MetricCard>
+                    ) : (
+                        <em className="text-slate-400 text-sm">No pause tracking available.</em>
+                    )}
+                </div>
             </PrintablePage>
 
-            {/* PAGE 2: Deep Analysis (Pacing & Dynamics) */}
-            <PrintablePage pageNum={2} totalPages={4}>
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Deep Analysis</h2>
+            {/* PAGE 5: Posture Analysis */}
+            <PrintablePage pageNum={5} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-cyan-600" /> Posture & Presence
+                </h2>
 
-                {/* Vocal Dynamics (Charts) */}
-                <div className="mb-8 p-6 rounded-2xl border border-slate-200 bg-slate-50">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <Mic className="w-4 h-4 text-slate-500" /> Vocal Dynamics
-                    </h3>
-                    {/* Pitch Wave Graph - Wrapped in dark container to preserve chart contrast/visibility as requested by user logic to match screen */}
-                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-                        <div className="text-xs text-slate-400 mb-4 font-bold uppercase tracking-wider">Pitch Contour (Intonation)</div>
-                        <div className="h-48 w-full">
-                            <PitchChart
-                                pitchData={metrics.pitchSamples || []}
-                                volumeData={metrics.volumeSamples || []}
-                                color="#fbbf24"
-                            />
+                {/* Posture Summary & Score */}
+                {data.postureSummary && (
+                    <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-6 flex items-center justify-between gap-8 shadow-sm">
+                        <div className="flex-1">
+                            <h3 className="text-xs font-bold text-cyan-700 uppercase tracking-widest mb-3">Body Language Coach</h3>
+                            <p className="text-[15px] text-slate-700 leading-relaxed italic">"{data.postureSummary.summary}"</p>
                         </div>
+                        {data.postureSummary.score !== undefined && (
+                            <div className="flex-shrink-0">
+                                <CircularScoreChart score={data.postureSummary.score} label="Posture Score" color="text-cyan-600" size={120} strokeWidth={10} />
+                            </div>
+                        )}
                     </div>
+                )}
+
+                {/* Posture Recommendations */}
+                {data.postureSummary?.tips && data.postureSummary.tips.length > 0 && (
+                    <div className="flex-1 mb-8">
+                        <h4 className="text-[15px] font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <span>💡</span> Posture Recommendations
+                        </h4>
+                        <ul className="space-y-4">
+                            {data.postureSummary.tips.map((tip: string, index: number) => (
+                                <li key={index} className="flex gap-4 items-start text-[14px] text-slate-700 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                    <span className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 flex items-center justify-center text-sm font-bold shrink-0">
+                                        {index + 1}
+                                    </span>
+                                    <div className="leading-relaxed mt-1">{tip}</div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </PrintablePage>
+
+            {/* PAGE 6: Detailed Posture Issues */}
+            <PrintablePage pageNum={6} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-cyan-600" /> Posture Deviations
+                </h2>
+
+                {/* Detected Posture Issues */}
+                <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm min-h-0">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                        <AlertTriangle className="w-5 h-5 text-red-500" /> Detected Posture Issues
+                    </h3>
+                    {metrics.issueCounts && Object.keys(metrics.issueCounts).length > 0 ? (
+                        <div className="space-y-4">
+                            {Object.entries(metrics.issueCounts).map(([issue, count]) => (
+                                <div key={issue} className="flex items-center justify-between group p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                    <span className="text-slate-800 text-base font-bold capitalize">{issue.replace(/_/g, ' ').toLowerCase()}</span>
+                                    <span className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-slate-500 uppercase">Count</span>
+                                        <span className="w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-sm border border-red-200">
+                                            {count as number}
+                                        </span>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <em className="text-slate-400 text-sm">No significant posture deviations detected. Great form!</em>
+                    )}
+                </div>
+            </PrintablePage>
+
+            {/* PAGE 7: Content Analysis */}
+            <PrintablePage pageNum={7} totalPages={pageNumTotal}>
+                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                    <BarChart3 className="w-6 h-6 text-green-600" /> Content & Script Analysis
+                </h2>
+
+                {/* Content Score Summary */}
+                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                    <div className="flex-1">
+                        <h3 className="text-xs font-bold text-green-700 uppercase tracking-widest mb-3">Content Heuristic Evaluation</h3>
+                        <p className="text-slate-700 text-[15px] leading-relaxed">
+                            Score calculated locally based on your transcript length, pacing dynamics, and filler word frequency.
+                        </p>
+                    </div>
+                    {localContentScore !== undefined && (
+                        <div className="flex-shrink-0">
+                            <CircularScoreChart score={localContentScore} label="Content Score" color="text-green-600" size={120} strokeWidth={10} />
+                        </div>
+                    )}
                 </div>
 
-                {/* Pacing Over Time */}
-                <div className="mb-8 p-6 rounded-2xl border border-slate-200 bg-slate-50">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <Activity className="w-4 h-4 text-slate-500" /> Pacing Analysis
+                {/* Pacing Chart */}
+                <div className="mb-6 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                        <Activity className="w-5 h-5 text-slate-500" /> Pacing Analysis
                     </h3>
-
-                    {/* Chart - Dark Container */}
-                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 mb-6">
-                        <div className="text-xs text-slate-400 mb-4 font-bold uppercase tracking-wider">WPM Trend (30s Intervals)</div>
-                        <div className="h-48 w-full">
+                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                        <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">WPM Trend</div>
+                        <div className="h-48 w-full relative">
                             <PacingChart
                                 dataPoints={
                                     pacingBuckets.length > 0
-                                        ? pacingBuckets.map(b => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
-                                        : (metrics.wpmHistory || []).map((val: number, i: number) => ({ time: (i + 1) * 5, wpm: val, wordCount: 0 }))
+                                        ? pacingBuckets.map((b: any) => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
+                                        : [{ time: 0, wpm: metrics.wpm, wordCount: 0 }, { time: metrics.duration, wpm: metrics.wpm, wordCount: 0 }]
                                 }
                             />
                         </div>
                     </div>
-
-                    {/* Interval Breakdown Table moved to Page 3 */}
                 </div>
-
-
             </PrintablePage>
 
-            {/* PAGE 3: Interval Breakdown (Dedicated Page) */}
-            <PrintablePage pageNum={3} totalPages={4}>
-                <div className="flex-1">
-                    <h4 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 pb-4 border-b border-slate-100">
-                        <Activity className="w-5 h-5 text-purple-600" /> Interval Breakdown
-                    </h4>
+            {/* PAGE 8+: Transcript Elements */}
 
-                    {/* Interval Breakdown Table - Full Page Mode */}
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white mb-8">
-                        <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            <div className="col-span-3">Time</div>
-                            <div className="col-span-7">Pace Visualization</div>
-                            <div className="col-span-2 text-right">WPM</div>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                            {pacingBuckets.length > 0 ? pacingBuckets.map((b, i) => (
-                                <div key={i} className="grid grid-cols-12 gap-4 px-6 py-3 items-center text-sm">
-                                    <div className="col-span-3 font-mono text-slate-600 text-xs">{b.intervalLabel}</div>
-                                    <div className="col-span-7">
-                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full ${b.color}`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
-                                        </div>
-                                    </div>
-                                    <div className={`col-span-2 text-right font-mono font-bold ${b.textColor}`}>{b.wpm}</div>
-                                </div>
-                            )) : (
-                                <div className="p-4 text-center text-slate-400 italic text-xs">No interval data recorded.</div>
-                            )}
+            {transcriptChunks.map((chunk, index) => (
+                <PrintablePage key={`chunk-${index}`} pageNum={8 + index} totalPages={pageNumTotal}>
+                    <div className="flex-1 flex flex-col min-h-0 mb-6">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                            <Mic className="w-5 h-5 text-slate-500" /> Full Transcript {index > 0 ? "(Continued)" : ""}
+                        </h3>
+                        <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 whitespace-pre-wrap font-serif overflow-hidden">
+                            {chunk ? chunk : <em className="text-slate-400">No transcript available for this session.</em>}
                         </div>
                     </div>
-                </div>
-                {/* Recommendations (Moved to Page 3) */}
-                <div className="flex-1 mt-4">
-                    <h4 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2 pb-4 border-b border-slate-100">
-                        <span>💡</span> Coach's Recommendations
-                    </h4>
-                    <ul className="space-y-4">
-                        {data.tips.map((tip: string, index: number) => (
-                            <li key={index} className="flex gap-4 items-start text-sm text-slate-700 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
-                                <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-md">
-                                    {index + 1}
-                                </span>
-                                <div className="leading-relaxed">
-                                    <h5 className="font-bold text-slate-900 mb-0.5">Observation {index + 1}</h5>
-                                    {tip}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                <div className="flex-1"></div>
-            </PrintablePage>
+                </PrintablePage>
+            ))}
 
-            {/* PAGE 4: Full Transcript */}
-            <PrintablePage pageNum={4} totalPages={4}>
-                <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2 pb-4 border-b border-slate-100">
-                    <Mic className="w-5 h-5 text-blue-600" /> Full Transcript
-                </h2>
-                <div className="flex-1 bg-slate-50 rounded-xl p-8 border border-slate-200 text-sm leading-relaxed text-slate-700 whitespace-pre-wrap font-serif">
-                    {metrics.transcript ? metrics.transcript : <em className="text-slate-400">No transcript available for this session.</em>}
-                </div>
-            </PrintablePage>
+            {/* PAGE 8+n: AI Content Coach Analysis */}
+            {analysisChunks.map((chunk, index) => (
+                <PrintablePage key={`analysis-${index}`} pageNum={8 + transcriptChunks.length + index} totalPages={pageNumTotal}>
+                    <div className="flex-1 flex flex-col min-h-0 mb-6">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                            <Activity className="w-5 h-5 text-slate-500" /> AI Content Coach Findings {index > 0 ? "(Continued)" : ""}
+                        </h3>
+                        <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 font-serif overflow-hidden prose prose-base max-w-none break-inside-avoid shadow-inner prose-p:my-5 prose-li:my-2 prose-headings:mb-4 prose-headings:mt-6">
+                            {chunk ? <ReactMarkdown>{chunk}</ReactMarkdown> : <em className="text-slate-400">Content analysis pending or unavailable.</em>}
+                        </div>
+                    </div>
+                </PrintablePage>
+            ))}
         </div>
     );
 }

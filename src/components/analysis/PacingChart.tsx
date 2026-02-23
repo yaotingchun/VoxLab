@@ -67,7 +67,7 @@ export function PacingChart({ dataPoints }: { dataPoints: WpmDataPoint[] }) {
     }
 
     return (
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
             {/* Target zone shading */}
             <rect
                 x={padding.left} y={targetTop}

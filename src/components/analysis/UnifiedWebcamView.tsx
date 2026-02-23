@@ -13,15 +13,61 @@ import {
 interface UnifiedWebcamViewProps {
     onPoseResults: (results: PoseLandmarkerResult) => void;
     onFaceResults: (results: FaceLandmarkerResult) => void;
+    isRecording?: boolean;
+    audioStream?: MediaStream | null;
+    onVideoRecorded?: (blob: Blob) => void;
 }
 
-export function UnifiedWebcamView({ onPoseResults, onFaceResults }: UnifiedWebcamViewProps) {
+export function UnifiedWebcamView({ onPoseResults, onFaceResults, isRecording, audioStream, onVideoRecorded }: UnifiedWebcamViewProps) {
     const webcamRef = useRef<Webcam>(null);
     const [isModelLoaded, setIsModelLoaded] = useState(false);
     const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
     const faceLandmarkerRef = useRef<FaceLandmarker | null>(null);
     const requestRef = useRef<number>(0);
     const [hasMounted, setHasMounted] = useState(false);
+
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recordedChunksRef = useRef<BlobPart[]>([]);
+
+    useEffect(() => {
+        if (isRecording && webcamRef.current?.stream && audioStream) {
+            console.log("[MediaRecorder] Both streams detected. Initializing recorder...");
+            const videoTracks = webcamRef.current.stream.getVideoTracks();
+            const audioTracks = audioStream.getAudioTracks();
+
+            if (videoTracks.length > 0 && audioTracks.length > 0) {
+                const combinedStream = new MediaStream([videoTracks[0], audioTracks[0]]);
+                let options = { mimeType: 'video/webm' };
+                if (!MediaRecorder.isTypeSupported('video/webm')) {
+                    options = { mimeType: 'video/mp4' }; // Fallback
+                }
+                const recorder = new MediaRecorder(combinedStream, options);
+                mediaRecorderRef.current = recorder;
+                recordedChunksRef.current = [];
+
+                recorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        recordedChunksRef.current.push(e.data);
+                    }
+                };
+
+                recorder.onstop = () => {
+                    console.log(`[MediaRecorder] Stopped. Total chunks: ${recordedChunksRef.current.length}`);
+                    const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType });
+                    console.log(`[MediaRecorder] Emitting blob of size: ${blob.size}`);
+                    if (onVideoRecorded) onVideoRecorded(blob);
+                };
+
+                recorder.start(1000); // 1-second chunks
+                console.log("[MediaRecorder] Started recording.");
+            } else {
+                console.warn("[MediaRecorder] Missing tracks! Video:", videoTracks.length, "Audio:", audioTracks.length);
+            }
+        } else if (!isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            console.log("[MediaRecorder] isRecording is false, stopping recorder...");
+            mediaRecorderRef.current.stop();
+        }
+    }, [isRecording, audioStream]); // Added audioStream to dependencies
 
     // Global console suppression for TFLite logs
     useEffect(() => {

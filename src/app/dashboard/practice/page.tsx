@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense, useCallback } from "react";
 import { UnifiedWebcamView } from "@/components/analysis/UnifiedWebcamView";
 import { useUnifiedAnalysis } from "@/hooks/useUnifiedAnalysis";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -11,18 +11,25 @@ import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 import { UnifiedFeedbackPanel } from "@/components/analysis/UnifiedFeedbackPanel";
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { analyzeSession } from "@/app/actions/analyzeSession";
+import { analyzeVocal } from "@/app/actions/analyzeVocal";
+import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePosture";
+import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { updateStreak } from "@/lib/streaks";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 // ...
 
-export default function PracticePage() {
+function PracticePageInner() {
+    const searchParams = useSearchParams();
+    const topic = searchParams.get("topic");
+
     const {
         result,
         analyzePosture,
@@ -65,6 +72,17 @@ export default function PracticePage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [newBadges, setNewBadges] = useState<string[]>([]);
 
+    // Video Recording State
+    const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+    const videoResolveRef = useRef<((blob: Blob) => void) | null>(null);
+
+    const handleVideoRecorded = useCallback((blob: Blob) => {
+        if (videoResolveRef.current) {
+            videoResolveRef.current(blob);
+            videoResolveRef.current = null;
+        }
+    }, []);
+
     // Auto-scroll transcript
     const transcriptRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -82,8 +100,38 @@ export default function PracticePage() {
             stopListening(); // Speech
             stopAudioAnalysis(); // Audio
 
+            if (audioStream) {
+                audioStream.getTracks().forEach(t => t.stop());
+                setAudioStream(null);
+            }
+
             setIsAnalyzing(true);
             try {
+                // Wait for video buffer to finish processing
+                const videoBlob = await new Promise<Blob>((resolve) => {
+                    videoResolveRef.current = resolve;
+                    // Timeout fallback in case recorder fails
+                    setTimeout(() => resolve(new Blob()), 5000);
+                });
+
+                let videoUrl = undefined;
+                if (videoBlob.size > 0) {
+                    try {
+                        const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
+                        const res = await getGCSUploadUrl(videoBlob.type, ext);
+                        if (res.success && res.uploadUrl) {
+                            await fetch(res.uploadUrl, {
+                                method: 'PUT',
+                                body: videoBlob,
+                                headers: { 'Content-Type': videoBlob.type }
+                            });
+                            videoUrl = res.fileUrl;
+                        }
+                    } catch (e) {
+                        console.error("Video Upload Failed", e);
+                    }
+                }
+
                 // Get Audio Stats & Samples
                 const audioResult = audioStats;
 
@@ -91,45 +139,82 @@ export default function PracticePage() {
                 // If it's null (no words), we pass null
                 const finalPauseStats = pauseStats;
 
-                const aiSummary = await analyzeSession({
-                    duration: data.duration,
-                    averageScore: data.averageScore,
-                    issueCounts: data.issueCounts,
-                    faceMetrics: data.faceMetrics,
-                    speechMetrics: {
-                        totalWords,
-                        fillerCounts,
-                        // @ts-ignore - pauseStats structure mismatch check
-                        pauseStats: finalPauseStats ? finalPauseStats.stats : undefined,
-                        pauseCount,
-                        wpmHistory
-                    },
-                    // @ts-ignore
-                    audioMetrics: audioResult ? audioResult.stats : undefined
-                });
+                const speechMetricsPayload = {
+                    totalWords,
+                    fillerCounts,
+                    // @ts-ignore - pauseStats structure mismatch check
+                    pauseStats: finalPauseStats ? finalPauseStats.stats : undefined,
+                    pauseCount,
+                    wpmHistory
+                };
+
+                const audioMetricsPayload = audioResult ? audioResult.stats : undefined;
+
+                const [aiSummary, vocalSummary, postureSummary] = await Promise.all([
+                    analyzeSession({
+                        duration: data.duration,
+                        averageScore: data.averageScore,
+                        issueCounts: data.issueCounts,
+                        faceMetrics: data.faceMetrics,
+                        topic: topic,
+                        transcript: transcript,
+                        speechMetrics: speechMetricsPayload,
+                        // @ts-ignore
+                        audioMetrics: audioMetricsPayload
+                    }),
+                    analyzeVocal({
+                        speechMetrics: speechMetricsPayload,
+                        // @ts-ignore
+                        audioMetrics: audioMetricsPayload
+                    }),
+                    getAIPostureAnalysis({
+                        issueCounts: data.issueCounts,
+                        faceMetrics: data.faceMetrics
+                    })
+                ]);
 
                 if ('error' in aiSummary) {
-                    console.error("Analysis Error:", aiSummary.error);
-                } else {
-                    setSessionSummary({
-                        ...aiSummary,
-                        rawMetrics: {
-                            duration: data.duration,
-                            wpm,
-                            totalWords,
-                            fillerCounts,
-                            pauseCount,
-                            wpmHistory,
-                            words, // Correctly access words from scope
-                            pauseStats: finalPauseStats,
-                            audioMetrics: audioResult ? audioResult.stats : undefined,
+                    console.error("General Analysis Error:", aiSummary.error);
+                }
+                if ('error' in vocalSummary) {
+                    console.error("Vocal Analysis Error:", vocalSummary.error);
+                }
+                if ('error' in postureSummary) {
+                    console.error("Posture Analysis Error:", postureSummary.error);
+                }
 
-                            // Pass raw samples for charts
-                            volumeSamples: volumeSamples,
-                            pitchSamples: pitchSamples,
-                            transcript: transcript // Pass transcript for report
-                        }
-                    });
+                const finalSummaryData = {
+                    ...aiSummary,
+                    vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
+                    postureSummary: 'error' in postureSummary ? null : postureSummary,
+                    videoUrl,
+                    rawMetrics: {
+                        topic: topic,
+                        duration: data.duration,
+                        wpm,
+                        totalWords,
+                        fillerCounts,
+                        issueCounts: data.issueCounts,
+                        pauseCount,
+                        wpmHistory,
+                        words, // Correctly access words from scope
+                        pauseStats: finalPauseStats,
+                        audioMetrics: audioResult ? audioResult.stats : undefined,
+
+                        // Pass raw samples for charts
+                        volumeSamples: volumeSamples,
+                        pitchSamples: pitchSamples,
+                        transcript: transcript // Pass transcript for report
+                    }
+                };
+
+                setSessionSummary(finalSummaryData);
+
+                // Save to GCS asynchronously
+                try {
+                    await saveSessionToGCS(finalSummaryData);
+                } catch (e) {
+                    console.error("Failed to save session to GCS:", e);
                 }
                 // ── Gamification (fire-and-forget) ──────────────────────
                 if (user && !('error' in aiSummary)) {
@@ -183,18 +268,21 @@ export default function PracticePage() {
         } else {
             // Start everything
             setSessionSummary(null);
-            setIsStarted(true);
-            startSession();
 
-            // Note: startListening now handles its own AudioContext/WebSocket
-            startListening();
-
-            // Start Audio Analysis (re-request stream or use if available)
+            // Wait for Audio Stream BEFORE starting the flags so MediaRecorder gets it immediately
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                setAudioStream(stream);
                 startAudioAnalysis(stream);
+
+                // Note: startListening now handles its own AudioContext/WebSocket
+                startListening();
+
+                startSession();
+                setIsStarted(true); // Trigger UI and recording
             } catch (e) {
                 console.error("Audio stream failed", e);
+                alert("Please allow microphone access to start the session.");
             }
         }
     };
@@ -213,14 +301,22 @@ export default function PracticePage() {
         <div className="flex flex-col h-screen bg-black text-white overflow-hidden p-4 gap-4">
             {/* Header */}
             <header className="flex items-center justify-between px-2">
-                <Link href="/dashboard" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+                <Link href="/dashboard/practice/topic" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
                     <ArrowLeft className="w-5 h-5" />
-                    <span className="font-medium">Back to Dashboard</span>
+                    <span className="font-medium">Change Topic</span>
                 </Link>
 
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-semibold tracking-wide">AI Practice Mode</span>
+                <div className="flex items-center gap-2">
+                    {topic && (
+                        <div className="flex items-center gap-2 bg-purple-500/10 px-4 py-1.5 rounded-full border border-purple-500/20 max-w-xs">
+                            <MessageSquareText className="w-4 h-4 text-purple-400 shrink-0" />
+                            <span className="text-sm font-medium text-purple-300 truncate">{topic}</span>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <span className="text-sm font-semibold tracking-wide">AI Practice Mode</span>
+                    </div>
                 </div>
             </header>
 
@@ -236,6 +332,9 @@ export default function PracticePage() {
                             <UnifiedWebcamView
                                 onPoseResults={analyzePosture}
                                 onFaceResults={analyzeFace}
+                                isRecording={isStarted}
+                                audioStream={audioStream}
+                                onVideoRecorded={handleVideoRecorded}
                             />
 
                             {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}
@@ -441,5 +540,13 @@ export default function PracticePage() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function PracticePage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-black"><div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
+            <PracticePageInner />
+        </Suspense>
     );
 }
