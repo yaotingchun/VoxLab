@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useRef } from 'react';
-import type { FaceLandmarkerResult } from '@mediapipe/tasks-vision';
+import type { FaceLandmarkerResult, NormalizedLandmark } from '@mediapipe/tasks-vision';
 import { FACE_LANDMARKS, calculateDistance, calculateEAR, calculateIrisCentering } from '@/lib/face-utils';
 
 export interface FaceAnalysisMetrics {
@@ -13,6 +13,8 @@ export interface FaceAnalysisMetrics {
     hasHighBlinkRate: boolean;
     hasMouthTension: boolean;
     hasShiftyEyes: boolean;
+    // Task 2: Camera clarity / Face tracking stability
+    hasPoorCameraClarity: boolean;
 }
 
 export function useFaceAnalysis() {
@@ -25,6 +27,7 @@ export function useFaceAnalysis() {
         hasHighBlinkRate: false,
         hasMouthTension: false,
         hasShiftyEyes: false,
+        hasPoorCameraClarity: false,
     });
 
     // Refs for tracking over time
@@ -33,6 +36,9 @@ export function useFaceAnalysis() {
     const blinkCloseTimeRef = useRef(0);
     const historyRef = useRef<{ timestamp: number }[]>([]); // Store blink timestamps
     const eyeMovementHistory = useRef<{ x: number, y: number, timestamp: number }[]>([]);
+
+    // Task 2: Track global face position to detect jitter (poor camera)
+    const facePositionHistory = useRef<{ x: number, y: number, timestamp: number }[]>([]);
 
     // Scoring thresholds
     const BLINK_THRESHOLD = 0.18; // Stricter (lower) to avoid false positives
@@ -87,18 +93,67 @@ export function useFaceAnalysis() {
                 averageEngagement,
                 smilePercentage,
                 blinkRateAverage,
-                eyeContactScore
+                eyeContactScore,
+                // These are instantaneous flags, but we can pass the latest ones for now,
+                // or ideally aggregate them. For MVP of Task 2, returning the latest state is okay.
+                // A better approach is to track 'wasNervous' throughout the session.
+                hasHighBlinkRate: blinkRateAverage > NERVOUS_BLINK_RATE,
+                hasMouthTension: false, // Could track % of frames with tension
+                hasShiftyEyes: false,   // Could track % of frames with shiftiness
+                hasPoorCameraClarity: false // Needs session-level tracking
             }
         };
     }, []);
 
+    // Helper to find the main speaker (largest face bounding box width)
+    const getLargestFaceIndex = (multiFaceLandmarks: NormalizedLandmark[][]): number => {
+        if (multiFaceLandmarks.length <= 1) return 0;
+        let maxIndex = 0;
+        let maxWidth = 0;
+        for (let i = 0; i < multiFaceLandmarks.length; i++) {
+            const face = multiFaceLandmarks[i];
+            const width = calculateDistance(face[FACE_LANDMARKS.LEFT_EYE_LEFT], face[FACE_LANDMARKS.RIGHT_EYE_RIGHT]);
+            if (width > maxWidth) {
+                maxWidth = width;
+                maxIndex = i;
+            }
+        }
+        return maxIndex;
+    };
+
     const analyzeFace = useCallback((result: FaceLandmarkerResult) => {
         if (!result.faceLandmarks || result.faceLandmarks.length === 0) return;
 
-        const landmarks = result.faceLandmarks[0];
+        // Task 2: Multi-person detection - find main speaker
+        const mainSpeakerIndex = getLargestFaceIndex(result.faceLandmarks);
+        const landmarks = result.faceLandmarks[mainSpeakerIndex];
+
         const now = Date.now();
 
-        // --- 1. Nervousness Detection ---
+        // --- 1. Nervousness & Clarity Detection ---
+
+        // Face Stability (Clarity)
+        const noseTip = landmarks[4]; // Approx nose tip
+        facePositionHistory.current.push({ x: noseTip.x, y: noseTip.y, timestamp: now });
+        facePositionHistory.current = facePositionHistory.current.filter(h => now - h.timestamp < 1000); // 1 sec window
+
+        let hasPoorCameraClarity = false;
+        if (facePositionHistory.current.length > 5) {
+            // Calculate jitter: sum of absolute frame-to-frame differences
+            let jitterX = 0;
+            let jitterY = 0;
+            for (let i = 1; i < facePositionHistory.current.length; i++) {
+                jitterX += Math.abs(facePositionHistory.current[i].x - facePositionHistory.current[i - 1].x);
+                jitterY += Math.abs(facePositionHistory.current[i].y - facePositionHistory.current[i - 1].y);
+            }
+            // If the point is randomly vibrating a lot but not traveling far overall (like a smooth walk)
+            const totalTravelX = Math.abs(facePositionHistory.current[facePositionHistory.current.length - 1].x - facePositionHistory.current[0].x);
+
+            // Jitter to travel ratio - if it jitters more than it actually moves, it's noisy/flickering
+            if (jitterX > 0.05 && (jitterX / (totalTravelX + 0.001)) > 5) {
+                hasPoorCameraClarity = true;
+            }
+        }
 
         // A. Rapid Blinking (State Machine Logic)
         const leftRef = [
@@ -251,7 +306,8 @@ export function useFaceAnalysis() {
             eyeContactScore: Math.round(eyeContactScore),
             hasHighBlinkRate,
             hasMouthTension,
-            hasShiftyEyes
+            hasShiftyEyes,
+            hasPoorCameraClarity // Return tracking status
         });
 
     }, []);

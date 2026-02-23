@@ -15,9 +15,17 @@ export async function GET(request: Request) {
         const bucket = storage.bucket(BUCKET_NAME);
 
         // Strict Isolation: Only look inside the authenticated user's dedicated folder
-        const prefixPath = `users/${userId}/sessions/`;
-        const [files] = await bucket.getFiles({ prefix: prefixPath });
+        let prefixPath = `users/${userId}/sessions/`;
+        let [files] = await bucket.getFiles({ prefix: prefixPath });
         console.log(`Found ${files.length} files in GCS under: ${prefixPath}`);
+
+        // Demo Fallback: If a new user signs in and has recorded 0 sessions, 
+        // load the dummy/mock data from user '1234' so the dashboard isn't completely empty.
+        if (files.length === 0) {
+            console.log(`User ${userId} has no files. Falling back to the demo '1234' mock directory.`);
+            prefixPath = `users/1234/sessions/`;
+            [files] = await bucket.getFiles({ prefix: prefixPath });
+        }
 
         const sessionPromises = files
             .filter(file => {
@@ -29,9 +37,9 @@ export async function GET(request: Request) {
                     const [content] = await file.download();
                     const data = JSON.parse(content.toString());
 
-                    // Filter: Only process files that belong to the requested userId
-                    // If the GCS document lacks the 'userId' field in this schema version, we allow it to pass for demo purposes
-                    if (data.userId && data.userId !== userId) {
+                    // Filter: Only process files that belong to the requested userId,
+                    // UNLESS we are explicitly serving the '1234' fallback demo data.
+                    if (data.userId && data.userId !== userId && prefixPath !== `users/1234/sessions/`) {
                         return null;
                     }
 

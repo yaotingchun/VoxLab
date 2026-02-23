@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       allowedOrigins: ["192.168.0.77:3000", "localhost:3000"],
     },
   },
+  serverExternalPackages: ["pdf-parse"],
 };
 
 export default nextConfig;

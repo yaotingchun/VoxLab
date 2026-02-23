@@ -36,6 +36,7 @@ export function usePostureAnalysis() {
 
     const [isSessionActive, setIsSessionActive] = useState(false);
     const sessionStartTime = useRef<number | null>(null);
+    const lastFrameTime = useRef<number | null>(null);
     const sessionStats = useRef({
         totalScore: 0,
         frameCount: 0,
@@ -46,6 +47,7 @@ export function usePostureAnalysis() {
     const startSession = useCallback(() => {
         setIsSessionActive(true);
         sessionStartTime.current = Date.now();
+        lastFrameTime.current = null;
         sessionStats.current = {
             totalScore: 0,
             frameCount: 0,
@@ -56,7 +58,11 @@ export function usePostureAnalysis() {
 
     const endSession = useCallback(() => {
         setIsSessionActive(false);
-        const duration = sessionStartTime.current ? (Date.now() - sessionStartTime.current) / 1000 : 0;
+        // If we processed video frames with exact timestamps, use the last frame time
+        // fallback to wall clock duration if no frames or live mode
+        const duration = sessionStartTime.current
+            ? ((lastFrameTime.current || Date.now()) - sessionStartTime.current) / 1000
+            : 0;
 
         const averageScore = sessionStats.current.frameCount > 0
             ? sessionStats.current.totalScore / sessionStats.current.frameCount
@@ -72,8 +78,19 @@ export function usePostureAnalysis() {
     // History for stability analysis (filtering jitter)
     const historyRef = useRef<any[]>([]);
 
-    const analyze = useCallback((results: PoseLandmarkerResult) => {
+    const analyze = useCallback((results: PoseLandmarkerResult, timestampMs?: number) => {
         if (!results.landmarks || results.landmarks.length === 0) return;
+
+        const now = timestampMs !== undefined ? timestampMs : Date.now();
+
+        // At the start of a manual timestamp session, set the anchor
+        if (timestampMs !== undefined && sessionStartTime.current === null) {
+            sessionStartTime.current = timestampMs;
+        }
+
+        if (timestampMs !== undefined) {
+            lastFrameTime.current = timestampMs;
+        }
 
         const landmarks = results.landmarks[0];
         const issues: PostureIssue[] = [];
@@ -147,7 +164,6 @@ export function usePostureAnalysis() {
             sessionStats.current.frameCount++;
             sessionStats.current.totalScore += currentScore;
 
-            const now = Date.now();
             issues.forEach(issue => {
                 const lastSeen = sessionStats.current.lastSeenTime[issue.type] || 0;
                 // If it's been more than 2 seconds since we last saw this issue, count it as a new distinct occurrence

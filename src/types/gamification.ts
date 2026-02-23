@@ -59,5 +59,9 @@ export interface PracticeSession {
     transcript?: string;
     pauseStats?: { stats: PauseStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
     audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean };
+    vocalSummary?: { summary: string; tips: string[]; score?: number } | null;
+    postureSummary?: { summary: string; tips: string[]; score?: number } | null;
+    videoUrl?: string | null;
+    issueCounts?: Record<string, number>;
 }
 

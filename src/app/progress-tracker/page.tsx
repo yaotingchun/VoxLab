@@ -12,7 +12,8 @@ import { ArchetypeCard } from "@/components/ui/ArchetypeCard";
 import { SessionReplay } from "@/components/ui/SessionReplay";
 import { calculateArchetype, ArchetypeInsight } from "@/lib/archetypes";
 import { analyzeEmotionMatch } from "@/lib/emotionAnalysis";
-import { Sparkles, Trophy, Loader2, LogOut } from "lucide-react";
+import { Sparkles, Trophy, Loader2, LogOut, ArrowLeft, Lock } from "lucide-react";
+import Link from "next/link";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -29,8 +30,8 @@ export default function ProgressTrackerPage() {
     const [archetypeData, setArchetypeData] = useState<ArchetypeInsight | null>(null);
     const [chartWeekOffset, setChartWeekOffset] = useState<number>(0);
 
+    const [selectedDayData, setSelectedDayData] = useState<ChartDataPoint | null>(null);
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-    const [selectedVideoUrl, setSelectedVideoUrl] = useState<string | null>(null);
 
     // Transforming data for Recharts, grouped actively by the selected 7-day offset
     const currentWeeklyData = useMemo(() => {
@@ -69,8 +70,23 @@ export default function ProgressTrackerPage() {
 
     // Compute Emotion Congruence explicitly for the "Inclusivity" Coaching Tip
     const emotionTip = useMemo(() => {
-        if (!apiData?.sessions || apiData.sessions.length === 0) return null;
+        if (!apiData?.sessions || apiData.sessions.length === 0) return "LOCKED";
         const latest = apiData.sessions[apiData.sessions.length - 1];
+
+        // Check if the latest session was recorded today
+        if (latest.savedAt) {
+            const latestDate = new Date(latest.savedAt);
+            const today = new Date();
+            const isToday = latestDate.getDate() === today.getDate() &&
+                latestDate.getMonth() === today.getMonth() &&
+                latestDate.getFullYear() === today.getFullYear();
+
+            if (!isToday) {
+                return "LOCKED";
+            }
+        } else {
+            return "LOCKED";
+        }
 
         // Dynamically mock vocal/facial string classifiers based on raw score thresholds
         const vocalStr = latest.vocalScore > 60 ? "energetic and positive" : "nervous";
@@ -78,6 +94,66 @@ export default function ProgressTrackerPage() {
 
         return analyzeEmotionMatch(vocalStr, facialStr);
     }, [apiData]);
+
+    // Available sessions mapping for the Time-Machine dropdown selector
+    const availableSessions = useMemo(() => {
+        // If a specific day was clicked on the graph, load its constituent sessions
+        if (selectedDayData && selectedDayData.sessionIds) {
+            const mapped = selectedDayData.sessionIds.map((id, idx) => {
+                const apiSession = apiData?.sessions?.find((s: any) => s.id === id);
+                return {
+                    id,
+                    videoUrl: selectedDayData.videoUrls?.[idx] || null,
+                    jsonUrl: selectedDayData.jsonUrls?.[idx] || null,
+                    savedAt: apiSession?.savedAt || null
+                };
+            });
+
+            // Sort chronologically ascending
+            return mapped.sort((a, b) => {
+                const tA = a.savedAt ? new Date(a.savedAt).getTime() : 0;
+                const tB = b.savedAt ? new Date(b.savedAt).getTime() : 0;
+                return tA - tB;
+            });
+        }
+
+        // Fallback: If no day selected, load all sessions from the *latest* day automatically
+        if (apiData?.sessions && apiData.sessions.length > 0) {
+            const latestSession = apiData.sessions[apiData.sessions.length - 1];
+            // Locate the exact day block containing that ID
+            const latestDayData = currentWeeklyData?.data?.find(d => d.sessionIds?.includes(latestSession.id));
+
+            if (latestDayData && latestDayData.sessionIds) {
+                const mapped = latestDayData.sessionIds.map((id, idx) => {
+                    const apiSession = apiData?.sessions?.find((s: any) => s.id === id);
+                    return {
+                        id,
+                        videoUrl: latestDayData.videoUrls?.[idx] || null,
+                        jsonUrl: latestDayData.jsonUrls?.[idx] || null,
+                        savedAt: apiSession?.savedAt || null
+                    };
+                });
+
+                return mapped.sort((a, b) => {
+                    const tA = a.savedAt ? new Date(a.savedAt).getTime() : 0;
+                    const tB = b.savedAt ? new Date(b.savedAt).getTime() : 0;
+                    return tA - tB;
+                });
+            }
+
+            // Absolute fallback edge case
+            return [{ id: latestSession.id, videoUrl: latestSession.videoUrl, jsonUrl: latestSession.jsonUrl, savedAt: latestSession.savedAt }];
+        }
+
+        return [];
+    }, [selectedDayData, apiData, currentWeeklyData]);
+
+    const activeSession = useMemo(() => {
+        if (selectedSessionId) {
+            return availableSessions.find(s => s.id === selectedSessionId) || availableSessions[0];
+        }
+        return availableSessions[0];
+    }, [selectedSessionId, availableSessions]);
 
     // Sync Streak silently when new valid data loads
     useEffect(() => {
@@ -119,26 +195,34 @@ export default function ProgressTrackerPage() {
 
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
-                    <div className="flex items-center gap-3">
-                        <Trophy className="text-yellow-500" size={32} />
-                        <h1 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                            Performance Analytics Dashboard
-                        </h1>
+                    <div className="flex flex-col gap-2">
+                        <Link href="/dashboard" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors w-fit group">
+                            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                            <span className="text-sm font-medium">Back to Dashboard</span>
+                        </Link>
+                        <div className="flex items-center gap-3">
+                            <Trophy className="text-yellow-500" size={32} />
+                            <h1 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                                Performance Analytics
+                            </h1>
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-4 bg-slate-900/50 p-2 pr-4 rounded-full border border-slate-800">
-                        {user?.photoURL ? (
-                            <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-slate-700" />
-                        ) : (
-                            <div className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center">
-                                <span className="text-slate-400 font-bold">{user?.email?.charAt(0).toUpperCase() || "U"}</span>
+                        <Link href="/dashboard/profile" className="flex items-center gap-3 hover:bg-slate-800/50 p-1 pr-3 rounded-full transition-colors cursor-pointer">
+                            {user?.photoURL ? (
+                                <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-slate-700" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center">
+                                    <span className="text-slate-400 font-bold">{user?.email?.charAt(0).toUpperCase() || "U"}</span>
+                                </div>
+                            )}
+                            <div className="flex flex-col items-start hidden sm:flex">
+                                <span className="text-slate-300 font-bold text-sm leading-tight hover:text-white transition-colors">{user?.displayName || "VoxLab User"}</span>
+                                <span className="text-slate-500 text-xs leading-tight">{user?.email}</span>
                             </div>
-                        )}
-                        <div className="flex flex-col items-start hidden sm:flex">
-                            <span className="text-slate-300 font-bold text-sm leading-tight">{user?.displayName || "VoxLab User"}</span>
-                            <span className="text-slate-500 text-xs leading-tight">{user?.email}</span>
-                        </div>
-                        <div className="w-px h-8 bg-slate-800 mx-2" />
+                        </Link>
+                        <div className="w-px h-8 bg-slate-800 mx-1" />
                         <button onClick={() => logout()} className="text-slate-400 hover:text-red-400 hover:bg-slate-800 p-2 rounded-full transition-colors" title="Sign Out">
                             <LogOut size={18} />
                         </button>
@@ -164,24 +248,28 @@ export default function ProgressTrackerPage() {
                             onPrev={() => setChartWeekOffset(prev => prev - 1)}
                             onNext={() => setChartWeekOffset(prev => prev + 1)}
                             canGoNext={chartWeekOffset < 0}
-                            onNodeClick={(sessionId, videoUrl) => {
-                                setSelectedSessionId(sessionId);
-                                setSelectedVideoUrl(videoUrl);
+                            onNodeClick={(point) => {
+                                setSelectedDayData(point);
+                                setSelectedSessionId(point.sessionIds?.[0] || null);
                             }}
                         />
 
                         {/* AI Coaching Tip Text Area */}
-                        <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 p-6 rounded-2xl shadow-lg relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 blur-3xl rounded-full pointer-events-none" />
+                        <div className={`border p-6 rounded-2xl shadow-lg relative overflow-hidden transition-all duration-300 ${emotionTip === 'LOCKED' ? 'bg-slate-900/50 border-slate-700/50' : 'bg-gradient-to-r from-blue-900/40 to-purple-900/40 border-blue-500/30'}`}>
+                            {emotionTip !== 'LOCKED' && <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 blur-3xl rounded-full pointer-events-none" />}
 
                             <div className="flex gap-4 items-start relative z-10">
-                                <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400 border border-blue-500/30 shrink-0">
-                                    <Sparkles size={24} />
+                                <div className={`p-3 rounded-xl shrink-0 border ${emotionTip === 'LOCKED' ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-blue-500/20 border-blue-500/30 text-blue-400'}`}>
+                                    {emotionTip === 'LOCKED' ? <Lock size={24} /> : <Sparkles size={24} />}
                                 </div>
-                                <div>
-                                    <h4 className="text-blue-300 font-bold mb-2">Emotion Congruence Insight</h4>
-                                    <p className="text-slate-300 leading-relaxed text-sm md:text-base">
-                                        {emotionTip || "Your Posture has improved significantly this month, but your Eye Contact is still inconsistent. Focus on the camera in your next session!"}
+                                <div className="flex flex-col justify-center h-full">
+                                    <h4 className={`font-bold mb-1 md:mb-2 ${emotionTip === 'LOCKED' ? 'text-slate-400' : 'text-blue-300'}`}>
+                                        {emotionTip === 'LOCKED' ? 'Daily Insight Locked' : 'Emotion Congruence Insight'}
+                                    </h4>
+                                    <p className={`leading-relaxed text-sm md:text-base ${emotionTip === 'LOCKED' ? 'text-slate-500' : 'text-slate-300'}`}>
+                                        {emotionTip === 'LOCKED'
+                                            ? "Record a practice session today to unlock your personalized AI coaching feedback!"
+                                            : (emotionTip || "Your Posture has improved significantly this month, but your Eye Contact is still inconsistent. Focus on the camera in your next session!")}
                                     </p>
                                 </div>
                             </div>
@@ -189,8 +277,11 @@ export default function ProgressTrackerPage() {
 
                         {/* Session Replay Hub (Time Machine Feature) */}
                         <SessionReplay
-                            sessionId={selectedSessionId || apiData?.sessions?.[apiData.sessions.length - 1]?.id || null}
-                            videoUrl={selectedVideoUrl || apiData?.sessions?.[apiData.sessions.length - 1]?.videoUrl || null}
+                            sessionId={activeSession?.id || null}
+                            videoUrl={activeSession?.videoUrl || null}
+                            jsonUrl={activeSession?.jsonUrl || null}
+                            availableSessions={availableSessions}
+                            onSessionSelect={(id) => setSelectedSessionId(id)}
                         />
 
                     </div>

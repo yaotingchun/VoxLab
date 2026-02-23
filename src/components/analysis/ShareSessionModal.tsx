@@ -17,7 +17,7 @@ interface ShareSessionModalProps {
         score?: number;
         vocalSummary?: { summary: string; tips: string[], score?: number } | null;
         postureSummary?: { summary: string; tips: string[], score?: number } | null;
-        videoUrl?: string;
+        videoUrl?: string | null;
         rawMetrics?: {
             duration: number;
             wpm: number;

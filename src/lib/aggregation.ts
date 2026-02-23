@@ -6,7 +6,8 @@ export interface SessionData {
     postureScore: number;
     facialScore: number;
     contentScore: number;
-    videoUrl?: string | null;
+    videoUrl?: string;
+    jsonUrl?: string;
 }
 
 export interface WeeklyAggregatedData {
@@ -17,6 +18,19 @@ export interface WeeklyAggregatedData {
     content: number;
     overall: number;
     sessionCount: number;
+}
+
+export interface ChartDataPoint {
+    dateStr: string;
+    day: string;
+    Voice: number | null;
+    "Posture & Facial": number | null;
+    Content: number | null;
+    Overall: number | null;
+    count: number;
+    sessionIds: string[];
+    videoUrls: string[];
+    jsonUrls: string[];
 }
 
 /**
@@ -96,8 +110,8 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
     const monday = getMonday(today);
     monday.setDate(monday.getDate() + (weekOffset * 7));
 
-    // Determine the 7 days
-    const weekDays = [];
+    // Determine the 7 days (Timezone safe using local dates instead of raw ISO slicing)
+    const weekDays: Date[] = [];
     for (let i = 0; i < 7; i++) {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
@@ -105,9 +119,15 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
     }
 
     // Initialize 7 days with 0/null data
-    const chartData = weekDays.map(date => {
+    const chartData: ChartDataPoint[] = weekDays.map(date => {
+        // Generate a local YYYY-MM-DD string that avoids UTC drift backwards/forwards
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const dayNum = String(date.getDate()).padStart(2, '0');
+        const localDateStr = `${year}-${month}-${dayNum}`;
+
         return {
-            dateStr: date.toISOString().split('T')[0],
+            dateStr: localDateStr,
             day: date.toLocaleDateString("en-US", { weekday: "short" }), // "Mon", "Tue"
             Voice: 0,
             "Posture & Facial": 0,
@@ -115,32 +135,40 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
             Overall: 0,
             count: 0,
             sessionIds: [] as string[],
-            videoUrls: [] as (string | null)[]
+            videoUrls: [] as string[],
+            jsonUrls: [] as string[]
         };
     });
 
     // Populate data
     sessions.forEach(session => {
-        const sessionDate = new Date(session.savedAt).toISOString().split('T')[0];
-        const dayMatch = chartData.find(d => d.dateStr === sessionDate);
+        // Parse the session time dynamically to match local bounds instead of UTC string split
+        const sDate = new Date(session.savedAt);
+        const year = sDate.getFullYear();
+        const month = String(sDate.getMonth() + 1).padStart(2, '0');
+        const dayNum = String(sDate.getDate()).padStart(2, '0');
+        const localSessionDateStr = `${year}-${month}-${dayNum}`;
+
+        const dayMatch = chartData.find(d => d.dateStr === localSessionDateStr);
         if (dayMatch) {
-            dayMatch.Voice += session.vocalScore;
-            dayMatch["Posture & Facial"] += ((session.postureScore + session.facialScore) / 2);
-            dayMatch.Content += session.contentScore;
-            dayMatch.Overall += session.score;
+            dayMatch.Voice = (dayMatch.Voice || 0) + session.vocalScore;
+            dayMatch["Posture & Facial"] = (dayMatch["Posture & Facial"] || 0) + ((session.postureScore + session.facialScore) / 2);
+            dayMatch.Content = (dayMatch.Content || 0) + session.contentScore;
+            dayMatch.Overall = (dayMatch.Overall || 0) + session.score;
             dayMatch.count += 1;
             dayMatch.sessionIds.push(session.id);
             if (session.videoUrl) dayMatch.videoUrls.push(session.videoUrl);
+            if (session.jsonUrl) dayMatch.jsonUrls.push(session.jsonUrl);
         }
     });
 
     // Average the populated metrics
     chartData.forEach(d => {
         if (d.count > 0) {
-            d.Voice = Math.round(d.Voice / d.count);
-            d["Posture & Facial"] = Math.round(d["Posture & Facial"] / d.count);
-            d.Content = Math.round(d.Content / d.count);
-            d.Overall = Math.round(d.Overall / d.count);
+            d.Voice = Math.round((d.Voice || 0) / d.count);
+            d["Posture & Facial"] = Math.round((d["Posture & Facial"] || 0) / d.count);
+            d.Content = Math.round((d.Content || 0) / d.count);
+            d.Overall = Math.round((d.Overall || 0) / d.count);
         } else {
             // Nullify or keep 0? Keeping null ensures the line graph skips empty days cleanly.
             // But recharts expects numbers. 0 is fine, or we can use null.

@@ -65,10 +65,15 @@ export default function SessionReportPage() {
         );
     }
 
-    // Reconstruct the data shape expected by DetailedSessionReport
     const reportData = {
         summary: session.aiSummary ?? "No AI summary available for this session.",
         tips: session.tips ?? [],
+        score: session.score,
+        vocalSummary: session.vocalSummary,
+        postureSummary: session.postureSummary,
+        complianceReport: (session as any).complianceReport,
+        rubric: (session as any).rubric,
+        videoUrl: session.videoUrl,
         rawMetrics: {
             duration: session.duration ?? 0,
             wpm: session.wpm ?? 0,

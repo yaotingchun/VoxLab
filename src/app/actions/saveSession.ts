@@ -1,7 +1,6 @@
 "use server";
 
 import { Storage } from "@google-cloud/storage";
-import { randomUUID } from "crypto";
 
 // Initialize GCS client
 // It will automatically pick up the credentials from GOOGLE_APPLICATION_CREDENTIALS
@@ -11,7 +10,7 @@ const storage = new Storage();
 // Replace with your actual bucket name. The user can configure this in .env.local
 const BUCKET_NAME = process.env.GCS_SESSIONS_BUCKET_NAME || "voxlab-storage";
 
-export async function saveSessionToGCS(sessionData: any): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function saveSessionToGCS(sessionData: any, userId: string, fileId: string): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
         if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
             console.warn("GOOGLE_APPLICATION_CREDENTIALS is not set. Saving to GCS might fail if not in a GCP environment.");
@@ -19,9 +18,8 @@ export async function saveSessionToGCS(sessionData: any): Promise<{ success: boo
 
         const bucket = storage.bucket(BUCKET_NAME);
 
-        // Generate a unique filename based on the current timestamp + UUID
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `sessions/${timestamp}-${randomUUID()}.json`;
+        // Strict Isolation: Save into the user's explicit folder with the provided linked fileId
+        const filename = `users/${userId}/sessions/${fileId}.json`;
 
         const file = bucket.file(filename);
 
@@ -59,12 +57,12 @@ export async function saveSessionToGCS(sessionData: any): Promise<{ success: boo
     }
 }
 
-export async function getGCSUploadUrl(contentType: string, extension: string): Promise<{ success: boolean; uploadUrl?: string; fileUrl?: string; error?: string }> {
+export async function getGCSUploadUrl(contentType: string, extension: string, userId: string, fileId: string): Promise<{ success: boolean; uploadUrl?: string; fileUrl?: string; error?: string }> {
     try {
         const bucket = storage.bucket(BUCKET_NAME);
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `sessions/videos/${timestamp}-${randomUUID()}.${extension}`;
+        // Strict Isolation: Generate a signed upload URL into the user's explicit folder matching the JSON
+        const filename = `users/${userId}/sessions/${fileId}.${extension}`;
         const file = bucket.file(filename);
 
         // Generate a 15-minute signed URL for PUT

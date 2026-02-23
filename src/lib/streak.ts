@@ -3,6 +3,7 @@ import { db } from "./firebase";
 
 export interface StreakData {
     currentStreak: number;
+    longestStreak: number;
     lastPracticeDate: string; // ISO format: YYYY-MM-DD
     practiceHistory: string[]; // Array of ISO string dates
 }
@@ -26,12 +27,14 @@ export async function getUserStreak(userId: string): Promise<StreakData | null> 
             const data = docSnap.data();
             return {
                 currentStreak: data.currentStreak || 0,
+                longestStreak: data.longestStreak || 0,
                 lastPracticeDate: data.lastPracticeDate || "",
                 practiceHistory: data.practiceHistory || [],
             };
         } else {
             return {
                 currentStreak: 0,
+                longestStreak: 0,
                 lastPracticeDate: "",
                 practiceHistory: [],
             };
@@ -86,8 +89,39 @@ export async function syncStreakFromHistory(userId: string, rawDates: string[]):
         }
     }
 
+    // Also calculate the absolute longest streak ever achieved in the `uniqueHistory`
+    let maxHistoricalStreak = 0;
+    if (uniqueHistory.length > 0) {
+        let currentRun = 1;
+        maxHistoricalStreak = 1;
+        for (let i = 0; i < uniqueHistory.length - 1; i++) {
+            const currDate = new Date(uniqueHistory[i]);
+            const nextDate = new Date(uniqueHistory[i + 1]);
+            // If they are exactly 1 day apart, streak continues
+            const diffDays = Math.round((currDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays === 1) {
+                currentRun++;
+                maxHistoricalStreak = Math.max(maxHistoricalStreak, currentRun);
+            } else {
+                currentRun = 1; // broken streak
+            }
+        }
+    }
+
+    // Safety check against existing firestore data so we never shrink longestStreak
+    let firestoreLongest = 0;
+    try {
+        const docSnap = await getDoc(doc(db, "users", userId));
+        if (docSnap.exists()) {
+            firestoreLongest = docSnap.data().longestStreak || 0;
+        }
+    } catch (e) { }
+
+    const finalLongestStreak = Math.max(maxHistoricalStreak, calculatedStreak, firestoreLongest);
+
     const freshData: StreakData = {
         currentStreak: calculatedStreak,
+        longestStreak: finalLongestStreak,
         lastPracticeDate: uniqueHistory.length > 0 ? uniqueHistory[0] : "",
         practiceHistory: uniqueHistory, // Entire normalized history for the UI grid
     };

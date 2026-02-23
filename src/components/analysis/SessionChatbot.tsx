@@ -16,9 +16,9 @@ export function SessionChatbot({ reportData }: SessionChatbotProps) {
     const [input, setInput] = useState("");
 
     const { messages, status, sendMessage } = useChat({
-        api: "/api/ai/session-chat", // Note: The old version might ignore this if it defaults to /api/chat. Let's send to /api/ai/session-chat
-        onError: (error) => console.error("Chat error:", error)
-    });
+        api: "/api/ai/session-chat",
+        onError: (error: Error) => console.error("Chat error:", error)
+    } as any);
 
     const isLoading = status === 'submitted' || status === 'streaming';
 

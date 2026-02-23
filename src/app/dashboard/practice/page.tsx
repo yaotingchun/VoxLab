@@ -22,7 +22,7 @@ import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePos
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
-import { updateStreak } from "@/lib/streaks";
+import { getUserStreak, getLocalDateString } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 // ...
 
@@ -107,6 +107,10 @@ function PracticePageInner() {
 
             setIsAnalyzing(true);
             try {
+                // Generate synchronized ID for strict isolation routing
+                const finalUserId = user?.uid || "anonymous";
+                const fileId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${window.crypto.randomUUID()}`;
+
                 // Wait for video buffer to finish processing
                 const videoBlob = await new Promise<Blob>((resolve) => {
                     videoResolveRef.current = resolve;
@@ -118,7 +122,7 @@ function PracticePageInner() {
                 if (videoBlob.size > 0) {
                     try {
                         const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
-                        const res = await getGCSUploadUrl(videoBlob.type, ext);
+                        const res = await getGCSUploadUrl(videoBlob.type, ext, finalUserId, fileId);
                         if (res.success && res.uploadUrl) {
                             await fetch(res.uploadUrl, {
                                 method: 'PUT',
@@ -201,7 +205,8 @@ function PracticePageInner() {
                         // Pass raw samples for charts
                         volumeSamples: volumeSamples,
                         pitchSamples: pitchSamples,
-                        transcript: transcript // Pass transcript for report
+                        transcript: transcript, // Pass transcript for report
+                        events: data.events || [] // NEW: Timestamped bookmarks for Time-Machine Replay
                     }
                 };
 
@@ -209,7 +214,7 @@ function PracticePageInner() {
 
                 // Save to GCS asynchronously
                 try {
-                    await saveSessionToGCS(finalSummaryData);
+                    await saveSessionToGCS(finalSummaryData, finalUserId, fileId);
                 } catch (e) {
                     console.error("Failed to save session to GCS:", e);
                 }
@@ -233,7 +238,11 @@ function PracticePageInner() {
                                 pauseStats: finalPauseStats ?? null,
                                 audioMetrics: audioResult?.stats ?? undefined,
                             });
-                            const newStreak = await updateStreak(user.uid);
+                            const streakData = await getUserStreak(user.uid);
+                            const today = getLocalDateString(new Date());
+                            const newStreak = (streakData?.lastPracticeDate !== today)
+                                ? (streakData?.currentStreak || 0) + 1
+                                : (streakData?.currentStreak || 0);
                             const sessionStats = await getSessionStats(user.uid);
 
                             const awarded = await checkAndAwardBadges(user.uid, {
