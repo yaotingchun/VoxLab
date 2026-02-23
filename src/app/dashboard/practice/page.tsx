@@ -156,6 +156,8 @@ function PracticePageInner() {
                         averageScore: data.averageScore,
                         issueCounts: data.issueCounts,
                         faceMetrics: data.faceMetrics,
+                        topic: topic,
+                        transcript: transcript,
                         speechMetrics: speechMetricsPayload,
                         // @ts-ignore
                         audioMetrics: audioMetricsPayload
@@ -187,6 +189,7 @@ function PracticePageInner() {
                     postureSummary: 'error' in postureSummary ? null : postureSummary,
                     videoUrl,
                     rawMetrics: {
+                        topic: topic,
                         duration: data.duration,
                         wpm,
                         totalWords,

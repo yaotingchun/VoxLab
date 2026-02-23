@@ -21,10 +21,17 @@ interface DetailedSessionReportProps {
         summary: string;
         tips: string[];
         score?: number;
+        topicAnalysis?: {
+            relevanceScore: number;
+            coveredPoints: string[];
+            missedAngles: string[];
+            contentSuggestions: string[];
+        } | null;
         vocalSummary?: { summary: string; tips: string[], score?: number } | null;
         postureSummary?: { summary: string; tips: string[], score?: number } | null;
         videoUrl?: string; // Newly added video URL from GCS
         rawMetrics?: {
+            topic?: string | null;
             duration: number;
             wpm: number;
             totalWords: number;
@@ -173,7 +180,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
     const { messages: contentMessages, status: contentStatus, sendMessage: sendContentMessage } = useChat({
         api: "/api/chat",
         id: "content-coach"
-    });
+    } as any);
 
     const isContentLoading = contentStatus === 'submitted' || contentStatus === 'streaming';
     const [hasTriggeredContent, setHasTriggeredContent] = useState(false);
@@ -184,14 +191,18 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
             setHasTriggeredContent(true);
             setIsAnalyzingContent(true);
 
+            const topicContext = metrics.topic
+                ? `The speaker was practicing on the topic: "${metrics.topic}". Evaluate how well their speech addresses this topic, what key points they covered, and what important angles or arguments they missed.\n\n`
+                : '';
+
             sendContentMessage({
                 role: 'user',
-                content: `Please analyze this speech script, giving me feedback and structural tips:\n\n${metrics.transcript}`
+                content: `${topicContext}Please analyze this speech script, giving me feedback and structural tips:\n\n${metrics.transcript}`
             } as any).finally(() => {
                 setIsAnalyzingContent(false);
             });
         }
-    }, [metrics.transcript, sendContentMessage, hasTriggeredContent]);
+    }, [metrics.transcript, sendContentMessage, hasTriggeredContent, metrics.topic]);
 
     // Derive the final content analysis text from the AI assistant message
     const streamedContentAnalysis = contentMessages
@@ -1087,7 +1098,101 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     Content Analysis
                                 </h1>
                                 <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
+                                {metrics.topic && (
+                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mt-2">
+                                        <span className="text-emerald-400 text-xs font-medium">Topic:</span>
+                                        <span className="text-white text-sm font-semibold">{metrics.topic}</span>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Topic Relevance Analysis — Only shown when a topic was selected */}
+                            {data.topicAnalysis && (
+                                <div className="space-y-6">
+                                    {/* Relevance Score + Summary */}
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-emerald-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-3">
+                                            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                                                🎯 Topic Relevance
+                                            </h3>
+                                            <p className="text-slate-300 text-sm leading-relaxed">
+                                                {data.topicAnalysis.relevanceScore >= 80
+                                                    ? "Your speech strongly addressed the topic with relevant points and arguments."
+                                                    : data.topicAnalysis.relevanceScore >= 50
+                                                        ? "Your speech partially covered the topic but missed some important angles."
+                                                        : "Your speech needs more focus on the assigned topic. Consider restructuring around key arguments."}
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={data.topicAnalysis.relevanceScore}
+                                                label="Relevance"
+                                                color="text-emerald-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Covered Points & Missed Angles */}
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        {/* Covered Points */}
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ✅ Points Covered
+                                            </h3>
+                                            {data.topicAnalysis.coveredPoints.length > 0 ? (
+                                                <ul className="space-y-3">
+                                                    {data.topicAnalysis.coveredPoints.map((point, i) => (
+                                                        <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
+                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                            <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-slate-500 italic text-sm">No specific topic points were identified in your speech.</p>
+                                            )}
+                                        </div>
+
+                                        {/* Missed Angles */}
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ⚠️ Missed Angles
+                                            </h3>
+                                            {data.topicAnalysis.missedAngles.length > 0 ? (
+                                                <ul className="space-y-3">
+                                                    {data.topicAnalysis.missedAngles.map((angle, i) => (
+                                                        <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                            <p className="text-sm text-slate-200 leading-snug">{angle}</p>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-slate-500 italic text-sm">Great coverage — no major angles were missed!</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Content Suggestions */}
+                                    {data.topicAnalysis.contentSuggestions.length > 0 && (
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                💡 Suggested Additions
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.topicAnalysis.contentSuggestions.map((suggestion, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-cyan-500/5 rounded-xl border border-cyan-500/10">
+                                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-cyan-500/10 text-cyan-500 flex items-center justify-center font-bold text-xs border border-cyan-500/20">
+                                                            {i + 1}
+                                                        </span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{suggestion}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-6">
 
