@@ -13,8 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
     Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff,
-    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight
+    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search
 } from "lucide-react";
+import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import { UserSearchModal } from "@/components/profile/UserSearchModal";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
@@ -74,10 +77,13 @@ type Tab = "overview" | "history" | "friends" | "forum";
 export default function ProfilePage() {
     const { user, loading, logout } = useAuth();
     const { followersCount, followingCount, followers, following, loadMyFollowData } = useFollow();
+    const { profile: firestoreProfile } = useUserProfile();
     const router = useRouter();
 
     const [activeTab, setActiveTab] = useState<Tab>("overview");
     const [modal, setModal] = useState<"followers" | "following" | null>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showSearchModal, setShowSearchModal] = useState(false);
 
     // Gamification data
     const [streakCount, setStreakCount] = useState(0);
@@ -225,6 +231,8 @@ export default function ProfilePage() {
         <>
             {modal === "followers" && <FollowListModal title={`Followers (${followersCount})`} list={followers} onClose={() => setModal(null)} onNavigate={uid => router.push(`/dashboard/profile/${uid}`)} />}
             {modal === "following" && <FollowListModal title={`Following (${followingCount})`} list={following} onClose={() => setModal(null)} onNavigate={uid => router.push(`/dashboard/profile/${uid}`)} />}
+            {showEditModal && firestoreProfile && <EditProfileModal profile={firestoreProfile} onClose={() => setShowEditModal(false)} />}
+            {showSearchModal && <UserSearchModal onClose={() => setShowSearchModal(false)} />}
 
             <div className="min-h-screen bg-background p-6 md:p-10">
                 <div className="max-w-5xl mx-auto space-y-6">
@@ -235,7 +243,15 @@ export default function ProfilePage() {
                             <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
                             <p className="text-muted-foreground">Your journey, achievements, and community.</p>
                         </div>
-                        <Button variant="outline" onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setShowSearchModal(true)} className="gap-2">
+                                <Search className="w-4 h-4" />Find Friends
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)} className="gap-2">
+                                <Pencil className="w-4 h-4" />Edit Profile
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+                        </div>
                     </div>
 
                     {/* Profile Hero Card */}
@@ -251,7 +267,15 @@ export default function ProfilePage() {
 
                                 <div className="flex-1 text-center md:text-left">
                                     <h2 className="text-2xl font-bold">{user.displayName || "VoxLab User"}</h2>
+                                    {firestoreProfile?.username && (
+                                        <p className="text-xs text-primary/70 font-mono mt-0.5">@{firestoreProfile.username}</p>
+                                    )}
                                     <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    {firestoreProfile?.bio && (
+                                        <p className="text-sm italic text-muted-foreground/80 mt-2 max-w-sm border-l-2 border-primary/30 pl-3 leading-relaxed">
+                                            {firestoreProfile.bio}
+                                        </p>
+                                    )}
 
                                     {/* Streak Banner */}
                                     {streakCount > 0 && (
