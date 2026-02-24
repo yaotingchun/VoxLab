@@ -433,19 +433,23 @@ function PresentationPageInner() {
 
             setSessionSummary(finalSummaryData);
 
-            // Save to GCS asynchronously
+            // Save to GCS
+            let reportUrl = undefined;
             try {
-                await saveSessionToGCS(finalSummaryData);
+                const gcsRes = await saveSessionToGCS(finalSummaryData);
+                if (gcsRes.success) reportUrl = gcsRes.url;
             } catch (e) {
                 console.error("Failed to save session to GCS:", e);
             }
-            // ── Gamification (fire-and-forget) ──────────────────────
+
+            // ── Gamification & Firestore Saving ──────────────────────
             if (user && !('error' in aiSummary)) {
                 (async () => {
                     try {
                         const topics = Object.keys(data.issueCounts ?? {});
                         await saveSession(user.uid, {
                             duration: data.duration,
+                            mode: 'presentation',
                             score: Math.round(data.averageScore),
                             topics,
                             wpm,
@@ -456,9 +460,10 @@ function PresentationPageInner() {
                             pauseCount,
                             wpmHistory,
                             transcript: reportTranscript ?? "",
+                            reportUrl, // Store the GCS full report URL
+                            videoUrl, // Store the video URL for the history badge
                             pauseStats: presentationSnapshot ? presentationSnapshot.pauseStats : (finalPauseStats ?? null),
                             audioMetrics: (presentationSnapshot && presentationSnapshot.audioStats) ? presentationSnapshot.audioStats.stats : (audioResult?.stats ?? undefined),
-                            // Save extra metrics as custom data if needed, or update DB schema later
                         });
                         const newStreak = await updateStreak(user.uid);
                         const sessionStats = await getSessionStats(user.uid);

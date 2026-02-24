@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,9 +43,18 @@ const difficultyColors: Record<string, string> = {
     advanced: "text-rose-400 bg-rose-500/10 border-rose-500/20",
 };
 
-export default function TopicSelectionPage() {
+function TopicSelectionInner() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [step, setStep] = useState<Step>("mode");
+
+    // Handle initial mode from query params
+    useEffect(() => {
+        const mode = searchParams.get("mode");
+        if (mode === "lecture") {
+            setStep("lecture");
+        }
+    }, [searchParams]);
     const [customTopic, setCustomTopic] = useState("");
     const [categories, setCategories] = useState<Category[]>([]);
     const [topics, setTopics] = useState<Topic[]>([]);
@@ -178,9 +187,29 @@ export default function TopicSelectionPage() {
             }
             const { text, title } = data;
 
+            // Store PDF as base64 for the slide viewer in practice room
+            try {
+                const reader = new FileReader();
+                const base64Promise = new Promise<string>((resolve) => {
+                    reader.onload = () => {
+                        const result = reader.result as string;
+                        // Remove the data:application/pdf;base64, prefix
+                        const base64 = result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.readAsDataURL(lectureFile);
+                });
+
+                const base64 = await base64Promise;
+                sessionStorage.setItem("lecture_slide_b64", base64);
+                sessionStorage.setItem("lecture_slide_name", lectureFile.name);
+                sessionStorage.setItem("lecture_slide_type", lectureFile.type);
+            } catch (e) {
+                console.error("Failed to store slide for preview:", e);
+                // Non-blocking for the session itself
+            }
+
             // Navigate to practice room with the extracted material
-            // We'll pass the extracted text as a base64 or via a temporary storage if too long, 
-            // but for now let's use session storage as it's cleaner for large strings.
             sessionStorage.setItem("lecture_material", text);
             router.push(`/dashboard/practice?topic=${encodeURIComponent(title || lectureFile.name)}&mode=lecture`);
         } catch (e: any) {
@@ -211,7 +240,7 @@ export default function TopicSelectionPage() {
 
             {/* Header */}
             <header className="relative z-10 flex items-center justify-between px-6 py-4">
-                {step === "mode" ? (
+                {(step === "mode" || (step === "lecture" && searchParams.get("mode") === "lecture")) ? (
                     <Link href="/dashboard" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
                         <ArrowLeft className="w-5 h-5" />
                         <span className="font-medium">Dashboard</span>
@@ -306,29 +335,6 @@ export default function TopicSelectionPage() {
                                         </div>
                                         <div className="flex items-center gap-1 text-xs text-purple-400 font-medium">
                                             Explore options <ChevronRight className="w-3 h-3" />
-                                        </div>
-                                    </div>
-                                </motion.button>
-
-                                {/* Lecture Mode */}
-                                <motion.button
-                                    variants={item}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => setStep("lecture")}
-                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-emerald-500/30 hover:bg-emerald-500/[0.05] overflow-hidden"
-                                >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative space-y-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                                            <BookOpen className="w-7 h-7 text-emerald-400" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-semibold mb-1">Lecture Mode</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Upload teaching materials and get AI feedback on your explanation.</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
-                                            Upload material <ChevronRight className="w-3 h-3" />
                                         </div>
                                     </div>
                                 </motion.button>
@@ -606,5 +612,13 @@ export default function TopicSelectionPage() {
                 </AnimatePresence>
             </div>
         </div >
+    );
+}
+
+export default function TopicSelectionPage() {
+    return (
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-black"><Loader2 className="w-8 h-8 text-purple-500 animate-spin" /></div>}>
+            <TopicSelectionInner />
+        </Suspense>
     );
 }

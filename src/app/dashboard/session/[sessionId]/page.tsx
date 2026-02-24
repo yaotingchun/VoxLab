@@ -19,6 +19,8 @@ export default function SessionReportPage() {
     const [session, setSession] = useState<PracticeSession | null>(null);
     const [fetching, setFetching] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [gcsReport, setGcsReport] = useState<any | null>(null);
+    const [fetchingGcs, setFetchingGcs] = useState(false);
 
     // Auth guard
     useEffect(() => {
@@ -34,7 +36,24 @@ export default function SessionReportPage() {
                 if (!snap.exists()) {
                     setNotFound(true);
                 } else {
-                    setSession({ id: snap.id, ...snap.data() } as PracticeSession);
+                    const data = { id: snap.id, ...snap.data() } as PracticeSession;
+                    setSession(data);
+
+                    // If there's a GCS report URL, fetch the full rich data
+                    if (data.reportUrl) {
+                        setFetchingGcs(true);
+                        try {
+                            const res = await fetch(data.reportUrl);
+                            if (res.ok) {
+                                const fullData = await res.json();
+                                setGcsReport(fullData);
+                            }
+                        } catch (err) {
+                            console.error("Failed to fetch GCS report:", err);
+                        } finally {
+                            setFetchingGcs(false);
+                        }
+                    }
                 }
             } catch (e) {
                 console.error(e);
@@ -45,11 +64,13 @@ export default function SessionReportPage() {
         })();
     }, [user, sessionId]);
 
-    if (loading || fetching) {
+    if (loading || fetching || fetchingGcs) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
                 <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-blue-300 text-sm animate-pulse">Loading report…</p>
+                <p className="text-blue-300 text-sm animate-pulse">
+                    {fetchingGcs ? "Fetching full analysis..." : "Loading report…"}
+                </p>
             </div>
         );
     }
@@ -65,8 +86,8 @@ export default function SessionReportPage() {
         );
     }
 
-    // Reconstruct the data shape expected by DetailedSessionReport
-    const reportData = {
+    // Use GCS report if available, otherwise reconstruct from Firestore
+    const reportData = gcsReport || {
         summary: session.aiSummary ?? "No AI summary available for this session.",
         tips: session.tips ?? [],
         score: session.score,
@@ -92,7 +113,7 @@ export default function SessionReportPage() {
                     isTooQuiet: session.audioMetrics.isTooQuiet,
                 }
                 : undefined,
-            // volumeSamples / pitchSamples / words not stored (too large)
+            // volumeSamples / pitchSamples / words not stored in Firestore (too large)
             volumeSamples: undefined,
             pitchSamples: undefined,
             transcript: session.transcript ?? "",

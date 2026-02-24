@@ -43,6 +43,12 @@ function countWords(text: string): number {
 }
 
 import { speakText, stopSpeaking } from "@/lib/tts-client";
+import { useAuth } from "@/contexts/AuthContext";
+import { saveSession, getSessionStats } from "@/lib/sessions";
+import { saveSessionToGCS } from "@/app/actions/saveSession";
+import { updateStreak } from "@/lib/streaks";
+import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
+import { Timestamp } from "firebase/firestore";
 
 // ── PDF Reader Utility ───────────────────────────────────────────────────────
 export async function readFileAsText(file: File): Promise<string> {
@@ -67,6 +73,7 @@ export async function readFileAsText(file: File): Promise<string> {
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 export function useInterview() {
+    const { user } = useAuth();
     const [phase, setPhase] = useState<InterviewPhase>("setup");
     const [resumeText, setResumeText] = useState("");
     const [jobDescriptionText, setJobDescriptionText] = useState("");
@@ -150,6 +157,8 @@ export function useInterview() {
                     if (last) {
                         last.followUpAnswer = answerText;
                         last.followUpDuration = duration;
+                        last.followUpWordCount = wc;
+                        last.followUpFillerCount = fillers;
                     }
                     return updated;
                 });
@@ -253,8 +262,81 @@ export function useInterview() {
             }
             setEvaluation(result);
             setPhase("results");
+
+            // ── Session Saving & Gamification ──────────────────────
+            if (user && result) {
+                (async () => {
+                    try {
+                        const totalDuration = answersToEvaluate.reduce((acc, a) => acc + (a.duration || 0) + (a.followUpDuration || 0), 0);
+                        const totalWords = answersToEvaluate.reduce((acc, a) => acc + (a.wordCount || 0) + (a.followUpWordCount || 0), 0);
+                        const totalFillers = answersToEvaluate.reduce((acc, a) => acc + (a.fillerWordCount || 0) + (a.followUpFillerCount || 0), 0);
+                        const avgWpm = totalDuration > 0 ? Math.round((totalWords / totalDuration) * 60) : 0;
+
+                        const reportData = {
+                            summary: result.overallFeedback,
+                            tips: [...result.topStrengths, ...result.topImprovements],
+                            score: result.overallScore,
+                            qnaSummary: result.questionEvaluations.map(qe => ({
+                                question: qe.question,
+                                userAnswer: qe.answer,
+                                idealAnswer: qe.idealAnswer,
+                                relevanceScore: qe.relevanceScore,
+                            })),
+                            rawMetrics: {
+                                duration: totalDuration,
+                                wpm: avgWpm,
+                                totalWords: totalWords,
+                                fillerCounts: { "total": totalFillers },
+                                transcript: answersToEvaluate.map(a => `Q: ${a.question}\nA: ${a.answer}${a.followUpQuestion ? `\nFollow-up Q: ${a.followUpQuestion}\nFollow-up A: ${a.followUpAnswer}` : ""}`).join("\n\n"),
+                                wpmHistory: [], // Not yet tracked per-interval in interview
+                                pauseCount: 0,
+                            }
+                        };
+
+                        let reportUrl = undefined;
+                        try {
+                            const gcsRes = await saveSessionToGCS(reportData);
+                            if (gcsRes.success) reportUrl = gcsRes.url;
+                        } catch (e) {
+                            console.error("Failed to save interview report to GCS:", e);
+                        }
+
+                        await saveSession(user.uid, {
+                            duration: totalDuration,
+                            mode: 'interview',
+                            score: result.overallScore,
+                            topics: ["Interview"],
+                            wpm: avgWpm,
+                            totalWords: totalWords,
+                            aiSummary: result.overallFeedback,
+                            tips: [...result.topStrengths, ...result.topImprovements],
+                            fillerCounts: { "total": totalFillers },
+                            reportUrl,
+                            transcript: reportData.rawMetrics.transcript,
+                        });
+
+                        const newStreak = await updateStreak(user.uid);
+                        const sessionStats = await getSessionStats(user.uid);
+
+                        await checkAndAwardBadges(user.uid, {
+                            sessionsCount: sessionStats.sessionsCount,
+                            streakCount: newStreak,
+                            longestStreak: newStreak,
+                            averageScore: result.overallScore,
+                            postsCount: 0,
+                            likesReceived: 0,
+                            followersCount: 0,
+                            sessionDuration: totalDuration,
+                            totalPracticeSeconds: sessionStats.totalPracticeSeconds,
+                            bestScore: sessionStats.bestScore
+                        });
+                    } catch (e) {
+                        console.error("Interview gamification error:", e);
+                    }
+                })();
+            }
         },
-        [resumeText, jobDescriptionText]
+        [resumeText, jobDescriptionText, user]
     );
 
     const runEvaluation = useCallback(() => {

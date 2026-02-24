@@ -45,6 +45,7 @@ export interface PracticeSession {
     id?: string;
     uid: string;
     createdAt: Timestamp;
+    mode?: 'practice' | 'presentation' | 'interview' | 'lecture';
     duration: number;           // seconds
     score: number;
     topics: string[];           // issue labels detected
@@ -60,6 +61,7 @@ export interface PracticeSession {
     pauseStats?: { stats: PauseStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
     audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean };
     videoUrl?: string; // Newly added video URL from GCS
+    reportUrl?: string; // Newly added full report JSON URL from GCS
     lectureAnalysis?: {
         teachingScore: number;
         clarityFeedback: string;

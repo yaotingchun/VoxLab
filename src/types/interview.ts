@@ -24,6 +24,8 @@ export interface InterviewAnswer {
     followUpQuestion?: string;
     followUpAnswer?: string;
     followUpDuration?: number;
+    followUpWordCount?: number;
+    followUpFillerCount?: number;
 }
 
 export interface QuestionEvaluation {

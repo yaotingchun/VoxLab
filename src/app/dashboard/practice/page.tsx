@@ -11,7 +11,7 @@ import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 import { UnifiedFeedbackPanel } from "@/components/analysis/UnifiedFeedbackPanel";
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText } from "lucide-react";
+import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText, FileText, Maximize2, Minimize2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -24,7 +24,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { updateStreak } from "@/lib/streaks";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
-// ...
 
 function PracticePageInner() {
     const searchParams = useSearchParams();
@@ -72,6 +71,11 @@ function PracticePageInner() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [newBadges, setNewBadges] = useState<string[]>([]);
 
+    // Lecture specific state for slide viewer
+    const [isSlidesExpanded, setIsSlidesExpanded] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [slideFile, setSlideFile] = useState<{ name: string, type: string } | null>(null);
+
     // Video Recording State
     const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
     const videoResolveRef = useRef<((blob: Blob) => void) | null>(null);
@@ -82,6 +86,44 @@ function PracticePageInner() {
             videoResolveRef.current = null;
         }
     }, []);
+
+    // Load lecture material/slides from sessionStorage
+    useEffect(() => {
+        const mode = searchParams.get("mode");
+        if (mode !== "lecture") return;
+
+        let objectUrl: string | null = null;
+        const storedSlideB64 = sessionStorage.getItem("lecture_slide_b64");
+        const storedSlideType = sessionStorage.getItem("lecture_slide_type");
+        const storedSlideName = sessionStorage.getItem("lecture_slide_name");
+
+        if (storedSlideB64) {
+            setSlideFile({
+                name: storedSlideName || "slides.pdf",
+                type: storedSlideType || "application/pdf"
+            });
+
+            if (storedSlideType === "application/pdf" || storedSlideName?.toLowerCase().endsWith(".pdf")) {
+                try {
+                    const byteCharacters = atob(storedSlideB64);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: "application/pdf" });
+                    objectUrl = URL.createObjectURL(blob);
+                    setPdfUrl(objectUrl);
+                } catch (e) {
+                    console.error("Failed to create PDF blob URL", e);
+                }
+            }
+        }
+
+        return () => {
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [searchParams]);
 
     // Auto-scroll transcript
     const transcriptRef = useRef<HTMLDivElement>(null);
@@ -217,19 +259,23 @@ function PracticePageInner() {
 
                 setSessionSummary(finalSummaryData);
 
-                // Save to GCS asynchronously
+                // Save to GCS
+                let reportUrl = undefined;
                 try {
-                    await saveSessionToGCS(finalSummaryData);
+                    const gcsRes = await saveSessionToGCS(finalSummaryData);
+                    if (gcsRes.success) reportUrl = gcsRes.url;
                 } catch (e) {
                     console.error("Failed to save session to GCS:", e);
                 }
-                // ── Gamification (fire-and-forget) ──────────────────────
+
+                // ── Gamification & Firestore Saving ──────────────────────
                 if (user && !('error' in aiSummary)) {
                     (async () => {
                         try {
                             const topics = Object.keys(data.issueCounts ?? {});
                             await saveSession(user.uid, {
                                 duration: data.duration,
+                                mode: (searchParams.get("mode") as any) || 'practice',
                                 score: Math.round(data.averageScore),
                                 topics,
                                 wpm,
@@ -240,6 +286,7 @@ function PracticePageInner() {
                                 pauseCount,
                                 wpmHistory,
                                 videoUrl: videoUrl,
+                                reportUrl, // Store the GCS full report URL
                                 transcript: transcript ?? "",
                                 pauseStats: finalPauseStats ?? null,
                                 audioMetrics: audioResult?.stats ?? undefined,
@@ -304,8 +351,6 @@ function PracticePageInner() {
     };
 
 
-    const [isCoachHovered, setIsCoachHovered] = useState(false);
-
     return (
         <div className="flex flex-col h-screen bg-black text-white overflow-hidden p-4 gap-4">
             {/* Header */}
@@ -335,9 +380,22 @@ function PracticePageInner() {
                 {/* LEFT PANEL: Video & Transcript */}
                 <div className="flex-1 flex flex-col gap-6 min-h-0">
 
-                    {/* Top: Webcam & Coach Widget (Full Width, Fixed Aspect Ratio) */}
-                    <div className="w-full aspect-video relative bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col flex-none">
-                        <div className="relative flex-1 bg-black">
+                    {/* Top Container: Webcam & Slides Area */}
+                    <div className={`w-full relative bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col flex-none transition-all duration-500 ease-in-out ${isSlidesExpanded ? 'h-[65vh]' : 'aspect-video'}`}>
+
+                        {/* Slide Webview Layer */}
+                        {isSlidesExpanded && pdfUrl && (
+                            <div className="absolute inset-0 z-0 bg-slate-900 flex items-center justify-center">
+                                <iframe
+                                    src={`${pdfUrl}#toolbar=0&navpanes=0`}
+                                    className="w-full h-full border-none"
+                                    title="Lecture Slides"
+                                />
+                            </div>
+                        )}
+
+                        {/* Webcam Layer (Shrinks into PiP when expanded) */}
+                        <div className={`bg-black transition-all duration-500 ease-in-out ${isSlidesExpanded ? 'absolute bottom-3 right-4 w-56 aspect-video z-50 rounded-2xl shadow-2xl border-2 border-slate-700/80 overflow-hidden' : 'relative flex-1'}`}>
                             <UnifiedWebcamView
                                 onPoseResults={analyzePosture}
                                 onFaceResults={analyzeFace}
@@ -348,96 +406,107 @@ function PracticePageInner() {
 
                             {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}
                             {isStarted && (
-                                <>
-                                    <FeedbackOverlay
-                                        isNervous={result.isNervous}
-                                        isDistracted={result.isDistracted}
-                                        emotionState={result.emotionState}
-                                        postureMessages={[]} // User requested to remove specific posture alerts
-                                    />
-                                    {/* End Session Button */}
-                                    <div className="absolute top-4 right-4 z-[60]">
-                                        <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={handleToggleSession}
-                                            className="rounded-full shadow-lg flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white border-none"
-                                        >
-                                            <Square className="w-4 h-4 fill-current" />
-                                            End Session
-                                        </Button>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Speech Coach Widget - Floating Bottom Overlay (Reveal on Hover) */}
-                            {isStarted && (
-                                <div
-                                    className="absolute bottom-0 left-0 right-0 h-32 z-[60] flex items-end justify-center pb-6 transition-all"
-                                    onMouseEnter={() => setIsCoachHovered(true)}
-                                    onMouseLeave={() => setIsCoachHovered(false)}
-                                >
-                                    <AnimatePresence>
-                                        {isCoachHovered && (
-                                            <motion.div
-                                                key="coach-widget"
-                                                initial={{ opacity: 0, y: 20 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                exit={{ opacity: 0, y: 20 }}
-                                                transition={{ duration: 0.2 }}
-                                                className="pointer-events-auto"
-                                            >
-                                                <SpeechCoachWidget
-                                                    isListening={isListening}
-                                                    wpm={wpm}
-                                                    elapsedTime={elapsedTime}
-                                                    transcript={transcript}
-                                                    onToggleListening={isListening ? stopListening : startListening}
-                                                    onReset={handleReset}
-                                                />
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            )}
-
-                            {/* Start Overlay */}
-                            {!isStarted && (
-                                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-4">
-                                    <motion.div
-                                        initial={{ scale: 0.9, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        className="text-center space-y-6 max-w-md w-full"
-                                    >
-                                        <div className="flex justify-center gap-4 mb-2">
-                                            <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
-                                                <Video className="w-6 h-6 text-blue-400" />
-                                            </div>
-                                            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center border border-purple-500/30">
-                                                <Mic className="w-6 h-6 text-purple-400" />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">Practice Session</h1>
-                                            <p className="text-sm text-gray-400 max-w-xs mx-auto">
-                                                Real-time analysis of your posture, expression, and speech pacing.
-                                            </p>
-                                        </div>
-
-                                        <div className="pt-2 flex justify-center">
-                                            <Button
-                                                size="lg"
-                                                onClick={handleToggleSession}
-                                                className="w-full max-w-[200px] text-base h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/20 hover:scale-[1.02] transition-all"
-                                            >
-                                                Start Practice
-                                            </Button>
-                                        </div>
-                                    </motion.div>
-                                </div>
+                                <FeedbackOverlay
+                                    isNervous={result.isNervous}
+                                    isDistracted={result.isDistracted}
+                                    emotionState={result.emotionState}
+                                    postureMessages={[]}
+                                />
                             )}
                         </div>
+
+                        {/* Controls Overlay (Always on top of video or slides) */}
+                        {isStarted && (
+                            <div className="absolute top-4 right-4 z-[60] flex items-center gap-3">
+                                {pdfUrl && (
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => setIsSlidesExpanded(!isSlidesExpanded)}
+                                        className="rounded-full shadow-lg flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-600/50 backdrop-blur-md transition-all"
+                                    >
+                                        {isSlidesExpanded ? (
+                                            <>
+                                                <Minimize2 className="w-4 h-4" />
+                                                Hide Slides
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Maximize2 className="w-4 h-4" />
+                                                View Slides
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={handleToggleSession}
+                                    className="rounded-full shadow-lg flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white border-none"
+                                >
+                                    <Square className="w-4 h-4 fill-current" />
+                                    End Session
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Speech Coach Widget - Floating Bottom Overlay */}
+                        {isStarted && (
+                            <div className="absolute bottom-6 left-0 right-0 z-[60] flex items-end justify-center pointer-events-none">
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="pointer-events-auto"
+                                >
+                                    <SpeechCoachWidget
+                                        isListening={isListening}
+                                        wpm={wpm}
+                                        elapsedTime={elapsedTime}
+                                        transcript={transcript}
+                                        onToggleListening={isListening ? stopListening : startListening}
+                                        onReset={handleReset}
+                                    />
+                                </motion.div>
+                            </div>
+                        )}
+
+                        {/* Start Overlay */}
+                        {!isStarted && (
+                            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-4">
+                                <motion.div
+                                    initial={{ scale: 0.9, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="text-center space-y-6 max-w-md w-full"
+                                >
+                                    <div className="flex justify-center gap-4 mb-2">
+                                        <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
+                                            <Video className="w-6 h-6 text-blue-400" />
+                                        </div>
+                                        <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center border border-purple-500/30">
+                                            <Mic className="w-6 h-6 text-purple-400" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">Practice Session</h1>
+                                        <p className="text-sm text-gray-400 max-w-xs mx-auto">
+                                            Real-time analysis of your posture, expression, and speech pacing.
+                                        </p>
+                                    </div>
+
+                                    <div className="pt-2 flex justify-center">
+                                        <Button
+                                            size="lg"
+                                            onClick={handleToggleSession}
+                                            className="w-full max-w-[200px] text-base h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/20 hover:scale-[1.02] transition-all"
+                                        >
+                                            Start Practice
+                                        </Button>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Bottom: Transcript (35% Height) */}

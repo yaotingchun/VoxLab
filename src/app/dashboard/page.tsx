@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mic, Sparkles, Video, Briefcase } from "lucide-react";
+import { Loader2, Mic, Sparkles, Video, Briefcase, BookOpen } from "lucide-react";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -95,6 +95,18 @@ export default function DashboardPage() {
                         </h3>
                         <p className="text-sm text-muted-foreground mt-2">
                             Upload your slides and rubric first, then practice your full presentation.
+                        </p>
+                    </div>
+                    <div className="group relative rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-6" onClick={() => router.push('/dashboard/practice/topic?mode=lecture')}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <BookOpen className="w-12 h-12" />
+                        </div>
+                        <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                            <BookOpen className="w-4 h-4 text-amber-400" />
+                            Lecture Mode
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Upload teaching materials and get AI feedback on your explanation clarity and suggested analogies.
                         </p>
                     </div>
                     <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => router.push('/dashboard/profile')}>

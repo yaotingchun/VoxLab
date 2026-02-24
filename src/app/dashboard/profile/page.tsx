@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
     Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff, Video,
-    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search
+    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search, Target
 } from "lucide-react";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { UserSearchModal } from "@/components/profile/UserSearchModal";
@@ -500,14 +500,35 @@ export default function ProfilePage() {
                                             >
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-semibold">Practice Session</span>
+                                                        <div className={`p-1.5 rounded-md ${s.mode === 'interview' ? 'bg-purple-500/10 text-purple-500' :
+                                                            s.mode === 'presentation' ? 'bg-blue-500/10 text-blue-500' :
+                                                                s.mode === 'lecture' ? 'bg-amber-500/10 text-amber-500' :
+                                                                    'bg-green-500/10 text-green-500'}`}>
+                                                            {s.mode === 'interview' ? <Mic className="w-3.5 h-3.5" /> :
+                                                                s.mode === 'presentation' ? <Video className="w-3.5 h-3.5" /> :
+                                                                    s.mode === 'lecture' ? <FileText className="w-3.5 h-3.5" /> :
+                                                                        <Target className="w-3.5 h-3.5" />}
+                                                        </div>
+                                                        <span className="font-semibold">
+                                                            {s.mode === 'interview' ? 'Interview' :
+                                                                s.mode === 'presentation' ? 'Presentation' :
+                                                                    s.mode === 'lecture' ? 'Lecture Practice' :
+                                                                        'Practice'} Session
+                                                        </span>
                                                         <Badge variant="outline" className="text-xs font-normal">
-                                                            {Math.round((s.duration ?? 0) / 60)}m {(s.duration ?? 0) % 60}s
+                                                            {Math.floor((s.duration ?? 0) / 60)}m {Math.floor((s.duration ?? 0) % 60)}s
                                                         </Badge>
                                                     </div>
                                                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                                                         <Calendar className="w-3 h-3" />
-                                                        {(s.createdAt as any)?.toDate?.()?.toLocaleDateString() ?? "—"}
+                                                        {(() => {
+                                                            const endTime = (s.createdAt as any)?.toDate?.();
+                                                            if (!endTime) return "—";
+                                                            const duration = s.duration ?? 0;
+                                                            const startTime = new Date(endTime.getTime() - duration * 1000);
+                                                            const formatLocalTime = (date: Date) => date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                                                            return `${formatDate(endTime)} • ${formatLocalTime(startTime)} - ${formatLocalTime(endTime)}`;
+                                                        })()}
                                                     </p>
                                                     <div className="flex flex-wrap gap-1 mt-1">
                                                         {(s.topics ?? []).slice(0, 3).map(t => (

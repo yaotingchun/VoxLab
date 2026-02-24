@@ -331,21 +331,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 }`}
                         >
                             <BarChart3 className={`w-4 h-4 ${currentReportIndex === 3 ? "text-green-400" : "text-slate-500"}`} />
-                            <span className="text-sm font-bold">{data.qnaSummary ? "Q&A Analysis" : "Content"}</span>
+                            <span className="text-sm font-bold">{data.lectureAnalysis ? "Lecture Analysis" : (data.qnaSummary ? "Q&A Analysis" : "Content")}</span>
                         </button>
-
-                        {data.lectureAnalysis && (
-                            <button
-                                onClick={() => setCurrentReportIndex(4)}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 4
-                                    ? "bg-slate-700 text-amber-400 shadow-lg"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
-                                    }`}
-                            >
-                                <Sparkles className={`w-4 h-4 ${currentReportIndex === 4 ? "text-amber-400" : "text-slate-500"}`} />
-                                <span className="text-sm font-bold">Lecture</span>
-                            </button>
-                        )}
                     </div>
                     <div className="flex items-center gap-4">
                         <Button
@@ -1161,10 +1148,10 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {/* 1. Header */}
                             <div className="text-center space-y-2 pb-6 border-b border-slate-800">
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-400 bg-clip-text text-transparent">
-                                    Content Analysis
+                                <h1 className={`text-3xl font-bold bg-clip-text text-transparent ${data.lectureAnalysis ? "bg-gradient-to-r from-amber-400 to-orange-400" : "bg-gradient-to-r from-green-400 to-teal-400"}`}>
+                                    {data.lectureAnalysis ? "Lecture Analysis" : "Content Analysis"}
                                 </h1>
-                                <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
+                                <p className="text-slate-400 text-sm">{data.lectureAnalysis ? "Specialized feedback for teaching and instruction" : "Review and analyze your speech script"}</p>
                                 {metrics.topic && (
                                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mt-2">
                                         <span className="text-emerald-400 text-xs font-medium">Topic:</span>
@@ -1172,6 +1159,64 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                 )}
                             </div>
+
+                            {/* Lecture-Specific Insights (Moved to top of combined tab) */}
+                            {data.lectureAnalysis && (
+                                <div className="space-y-8">
+                                    {/* Teaching Score & Overall Clarity */}
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-amber-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-4">
+                                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4" /> Instructional Clarity
+                                            </h3>
+                                            <p className="text-slate-200 leading-relaxed text-lg italic">
+                                                "{data.lectureAnalysis.clarityFeedback}"
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={data.lectureAnalysis.teachingScore}
+                                                label="Clarity Score"
+                                                color="text-amber-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        {/* Potential Confusions */}
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ⚠️ Student Blindspots
+                                            </h3>
+                                            <p className="text-xs text-slate-400 mb-4">Areas that might be confusing for someone new to the material.</p>
+                                            <ul className="space-y-3">
+                                                {data.lectureAnalysis.potentialConfusion.map((item, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                        <p className="text-sm text-slate-200">{item}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        {/* Analogy Suggestions */}
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                💡 Power Analogies
+                                            </h3>
+                                            <p className="text-xs text-slate-400 mb-4">AI-suggested comparisons to make complex parts stick.</p>
+                                            <ul className="space-y-3">
+                                                {data.lectureAnalysis.analogies.map((analogy, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">?</span>
+                                                        <p className="text-sm text-slate-200 italic">{analogy}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Topic Relevance Analysis — Only shown when a topic was selected */}
                             {data.topicAnalysis && (
@@ -1498,70 +1543,6 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                         </div>
                     )}
 
-                    {currentReportIndex === 4 && data.lectureAnalysis && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* 1. Header */}
-                            <div className="text-center space-y-2 pb-6 border-b border-slate-800">
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
-                                    Lecture Mode Analysis
-                                </h1>
-                                <p className="text-slate-400 text-sm">Specialized feedback for teaching and instruction</p>
-                            </div>
-
-                            {/* Teaching Score & Overall Clarity */}
-                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-amber-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                <div className="flex-1 space-y-4">
-                                    <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles className="w-4 h-4" /> Instructional Clarity
-                                    </h3>
-                                    <p className="text-slate-200 leading-relaxed text-lg italic">
-                                        "{data.lectureAnalysis.clarityFeedback}"
-                                    </p>
-                                </div>
-                                <div className="flex-shrink-0">
-                                    <CircularScoreChart
-                                        score={data.lectureAnalysis.teachingScore}
-                                        label="Clarity Score"
-                                        color="text-amber-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid md:grid-cols-2 gap-6">
-                                {/* Potential Confusions */}
-                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                    <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        ⚠️ Student Blindspots
-                                    </h3>
-                                    <p className="text-xs text-slate-400 mb-4">Areas that might be confusing for someone new to the material.</p>
-                                    <ul className="space-y-3">
-                                        {data.lectureAnalysis.potentialConfusion.map((item, i) => (
-                                            <li key={i} className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
-                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-xs font-bold">!</span>
-                                                <p className="text-sm text-slate-200">{item}</p>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-
-                                {/* Analogy Suggestions */}
-                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        💡 Power Analogies
-                                    </h3>
-                                    <p className="text-xs text-slate-400 mb-4">AI-suggested comparisons to make complex parts stick.</p>
-                                    <ul className="space-y-3">
-                                        {data.lectureAnalysis.analogies.map((analogy, i) => (
-                                            <li key={i} className="flex items-start gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
-                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">?</span>
-                                                <p className="text-sm text-slate-200 italic">{analogy}</p>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div >
 
                 {/* Session Context Chatbot */}
