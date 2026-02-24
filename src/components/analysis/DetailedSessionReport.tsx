@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2, FileCheck2, CheckCircle2, XCircle, Search } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2, FileCheck2, CheckCircle2, XCircle, Search, Sparkles, FileText, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -21,11 +21,41 @@ interface DetailedSessionReportProps {
         summary: string;
         tips: string[];
         score?: number;
-        vocalSummary?: { summary: string; tips: string[]; score?: number } | null;
-        postureSummary?: { summary: string; tips: string[]; score?: number } | null;
-        createdAt?: any;
-        videoUrl?: string | null; // Newly added video URL from GCS
+        topicAnalysis?: {
+            relevanceScore: number;
+            coveredPoints: string[];
+            missedAngles: string[];
+            contentSuggestions: string[];
+        } | null;
+        lectureAnalysis?: {
+            teachingScore: number;
+            clarityFeedback: string;
+            potentialConfusion: string[];
+            analogies: string[];
+        } | null;
+        vocalSummary?: { summary: string; tips: string[], score?: number } | null;
+        postureSummary?: { summary: string; tips: string[], score?: number } | null;
+        slideAnalysis?: {
+            coveredPoints: string[];
+            missedPoints: string[];
+            alignmentScore: number;
+            feedback: string;
+        } | null;
+        rubricAnalysis?: {
+            rubricScore: number;
+            strengths: string[];
+            weaknesses: string[];
+            feedback: string;
+        } | null;
+        qnaSummary?: {
+            question: string;
+            userAnswer: string;
+            idealAnswer: string;
+            relevanceScore: number;
+        }[] | null;
+        videoUrl?: string; // Newly added video URL from GCS
         rawMetrics?: {
+            topic?: string | null;
             duration: number;
             wpm: number;
             totalWords: number;
@@ -216,26 +246,37 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
 
     const { messages: contentMessages, status: contentStatus, sendMessage: sendContentMessage } = useChat({
         id: "content-coach"
-    });
+    } as any);
 
     const isContentLoading = contentStatus === 'submitted' || contentStatus === 'streaming';
     const [hasTriggeredContent, setHasTriggeredContent] = useState(false);
 
     // Auto-analyze transcript when report opens
-    // DISABLED: Triggers a TypeError during hydration in this environment.
-    // useEffect(() => {
-    //     if (!hasTriggeredContent && metrics.transcript && sendContentMessage) {
-    //         setHasTriggeredContent(true);
-    //         setIsAnalyzingContent(true);
-    //
-    //         sendContentMessage({
-    //             role: 'user',
-    //             content: `Please analyze this speech script, giving me feedback and structural tips:\n\n${metrics.transcript}`
-    //         } as any).finally(() => {
-    //             setIsAnalyzingContent(false);
-    //         });
-    //     }
-    // }, [metrics.transcript, sendContentMessage, hasTriggeredContent]);
+    useEffect(() => {
+        if (!hasTriggeredContent && metrics.transcript && sendContentMessage && !data.qnaSummary) {
+            setHasTriggeredContent(true);
+            setIsAnalyzingContent(true);
+
+            const topicContext = metrics.topic
+                ? `The speaker was practicing on the topic: "${metrics.topic}". Evaluate how well their speech addresses this topic, what key points they covered, and what important angles or arguments they missed.\n\n`
+                : '';
+
+            const slideContext = data.slideAnalysis
+                ? `\n\n[SLIDES CONTEXT]: An initial analysis compared the speech to the speaker's uploaded slides. It found: "${data.slideAnalysis.feedback}". The speaker covered points like [${data.slideAnalysis.coveredPoints.join(", ")}] but MISSED points like [${data.slideAnalysis.missedPoints.join(", ")}]. Provide actionable advice on how to incorporate the missed visual points into their verbal delivery.`
+                : '';
+
+            const rubricContext = data.rubricAnalysis
+                ? `\n\n[RUBRIC CONTEXT]: An initial analysis graded the speech against a rubric, scoring it ${data.rubricAnalysis.rubricScore}/100. Strengths: [${data.rubricAnalysis.strengths.join(", ")}]. Weaknesses: [${data.rubricAnalysis.weaknesses.join(", ")}]. Integrate this feedback into your coaching naturally.`
+                : '';
+
+            sendContentMessage({
+                role: 'user',
+                content: `${topicContext}Please analyze this speech script, giving me feedback and structural tips:\n\n${metrics.transcript}${slideContext}${rubricContext}`
+            } as any).finally(() => {
+                setIsAnalyzingContent(false);
+            });
+        }
+    }, [metrics.transcript, sendContentMessage, hasTriggeredContent, metrics.topic, data.slideAnalysis, data.rubricAnalysis, data.qnaSummary]);
 
     // Derive the final content analysis text from the AI assistant message
     const streamedContentAnalysis = contentMessages
@@ -290,29 +331,63 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
             >
                 {/* Header / Controls */}
                 <div className="sticky top-0 z-50 flex justify-between items-center p-6 bg-slate-900/95 backdrop-blur-md border-b border-slate-800">
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setCurrentReportIndex((prev) => (prev > 0 ? prev - 1 : maxTabIndex))}
-                            className="text-slate-400 hover:text-white"
+                    <div className="flex bg-slate-800/50 p-1 rounded-xl border border-slate-700/50">
+                        <button
+                            onClick={() => setCurrentReportIndex(0)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 0
+                                ? "bg-slate-700 text-purple-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
                         >
-                            <ChevronLeft className="w-5 h-5" />
-                        </Button>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2 min-w-[140px] justify-center">
-                            {currentReportIndex === 0 && <><span className="text-purple-400">⚡</span> General</>}
-                            {currentReportIndex === 1 && <><Mic className="w-5 h-5 text-pink-400" /> Vocal</>}
-                            {currentReportIndex === 2 && <><Activity className="w-5 h-5 text-blue-400" /> Posture</>}
-                            {currentReportIndex === 3 && <><BarChart3 className="w-5 h-5 text-green-400" /> Content</>}
-                        </h2>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setCurrentReportIndex((prev) => (prev < maxTabIndex ? prev + 1 : 0))}
-                            className="text-slate-400 hover:text-white"
+                            <Sparkles className={`w-4 h-4 ${currentReportIndex === 0 ? "text-purple-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">General</span>
+                        </button>
+
+                        <button
+                            onClick={() => setCurrentReportIndex(1)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 1
+                                ? "bg-slate-700 text-pink-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
                         >
-                            <ChevronRight className="w-5 h-5" />
-                        </Button>
+                            <Mic className={`w-4 h-4 ${currentReportIndex === 1 ? "text-pink-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">Vocal</span>
+                        </button>
+
+                        <button
+                            onClick={() => setCurrentReportIndex(2)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 2
+                                ? "bg-slate-700 text-blue-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
+                        >
+                            <Activity className={`w-4 h-4 ${currentReportIndex === 2 ? "text-blue-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">Posture</span>
+                        </button>
+
+                        <button
+                            onClick={() => setCurrentReportIndex(3)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 3
+                                ? "bg-slate-700 text-green-400 shadow-lg"
+                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                }`}
+                        >
+                            <BarChart3 className={`w-4 h-4 ${currentReportIndex === 3 ? "text-green-400" : "text-slate-500"}`} />
+                            <span className="text-sm font-bold">{data.qnaSummary ? "Q&A Analysis" : "Content"}</span>
+                        </button>
+
+                        {data.lectureAnalysis && (
+                            <button
+                                onClick={() => setCurrentReportIndex(4)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 4
+                                    ? "bg-slate-700 text-amber-400 shadow-lg"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 ${currentReportIndex === 4 ? "text-amber-400" : "text-slate-500"}`} />
+                                <span className="text-sm font-bold">Lecture</span>
+                            </button>
+                        )}
                     </div>
                     <div className="flex items-center gap-4">
                         <Button
@@ -402,14 +477,15 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </div >
 
                                 {/* Total Words */}
-                                < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
+                                <div className="p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
                                     <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                        <Type className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
+                                        <TrendingUp className="w-5 h-5 text-indigo-400" /> <span className="text-xs font-bold uppercase">Words</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.totalWords}</div>
-                                    <div className="text-xs text-slate-400">Duration: {Math.floor(metrics.duration / 60)}m {metrics.duration % 60}s</div>
-                                </div >
-
+                                    <div className="text-sm text-slate-500">
+                                        {Math.floor(metrics.duration / 60)}m {(metrics.duration % 60).toFixed(2)}s
+                                    </div>
+                                </div>
                                 {/* Filler Words */}
                                 < div className={`p-5 rounded-2xl border bg-slate-800/30 ${fillerTotal > 5 ? 'border-red-500/30' : 'border-green-500/30'}`
                                 }>
@@ -1141,6 +1217,12 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     Content Analysis
                                 </h1>
                                 <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
+                                {metrics.topic && (
+                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mt-2">
+                                        <span className="text-emerald-400 text-xs font-medium">Topic:</span>
+                                        <span className="text-white text-sm font-semibold">{metrics.topic}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {metrics.rubricFeedback && (
@@ -1155,172 +1237,479 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                             <p className="text-orange-200/70 text-sm leading-relaxed italic">
                                                 "{metrics.rubricFeedback.overallAssessment}"
-                                            </p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <CircularScoreChart
-                                                score={metrics.rubricFeedback.score}
-                                                label="Rubric Score"
-                                                color="text-orange-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Detailed Criteria Breakdown */}
-                                    <div className="grid grid-cols-1 gap-4">
-                                        {metrics.rubricFeedback.criteriaBreakdown.map((item, i) => (
-                                            <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
-                                                            item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                                                                'bg-red-500/10 border-red-500/20 text-red-400'
-                                                            }`}>
-                                                            {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
-                                                                item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
-                                                                    <XCircle className="w-4 h-4" />}
-                                                        </div>
-                                                        <div>
-                                                            <h5 className="font-bold text-slate-100">{item.criterion}</h5>
-                                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
-                                                                item.fulfillment === 'partial' ? 'text-amber-400' :
-                                                                    'text-red-400'
-                                                                }`}>
-                                                                {item.fulfillment} fulfillment
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-3">
-                                                    <p className="text-sm text-slate-300 leading-relaxed">
-                                                        {item.feedback}
-                                                    </p>
-                                                    {item.evidence && (
-                                                        <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <Search className="w-3 h-3 text-slate-500" />
-                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
+                                                {/* Topic Relevance Analysis — Only shown when a topic was selected */}
+                                                {data.topicAnalysis && (
+                                                    <div className="space-y-6">
+                                                        {/* Relevance Score + Summary */}
+                                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-emerald-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                                            <div className="flex-1 space-y-3">
+                                                                <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                                                                    🎯 Topic Relevance
+                                                                </h3>
+                                                                <p className="text-slate-300 text-sm leading-relaxed">
+                                                                    {data.topicAnalysis.relevanceScore >= 80
+                                                                        ? "Your speech strongly addressed the topic with relevant points and arguments."
+                                                                        : data.topicAnalysis.relevanceScore >= 50
+                                                                            ? "Your speech partially covered the topic but missed some important angles."
+                                                                            : "Your speech needs more focus on the assigned topic. Consider restructuring around key arguments."}
+                                                                </p>
                                                             </div>
-                                                            <p className="text-xs text-slate-400 italic">
-                                                                "{item.evidence}"
-                                                            </p>
+                                                            <div className="flex-shrink-0">
+                                                                <CircularScoreChart
+                                                                    score={metrics.rubricFeedback.score}
+                                                                    label="Rubric Score"
+                                                                    color="text-orange-500"
+                                                                    score={data.topicAnalysis.relevanceScore}
+                                                                    label="Relevance"
+                                                                    color="text-emerald-500"
+                                                                />
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+
+                                                        {/* Detailed Criteria Breakdown */}
+                                                        <div className="grid grid-cols-1 gap-4">
+                                                            {metrics.rubricFeedback.criteriaBreakdown.map((item, i) => (
+                                                                <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
+                                                                    <div className="flex items-start justify-between mb-3">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                                                                item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                                                                                    'bg-red-500/10 border-red-500/20 text-red-400'
+                                                                                }`}>
+                                                                                {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
+                                                                                    item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
+                                                                                        <XCircle className="w-4 h-4" />}
+                                                                            </div>
+                                                                            <div>
+                                                                                <h5 className="font-bold text-slate-100">{item.criterion}</h5>
+                                                                                <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
+                                                                                    item.fulfillment === 'partial' ? 'text-amber-400' :
+                                                                                        'text-red-400'
+                                                                                    }`}>
+                                                                                    {item.fulfillment} fulfillment
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-3">
+                                                                        <p className="text-sm text-slate-300 leading-relaxed">
+                                                                            {item.feedback}
+                                                                        </p>
+                                                                        {item.evidence && (
+                                                                            <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
+                                                                                <div className="flex items-center gap-2 mb-1">
+                                                                                    <Search className="w-3 h-3 text-slate-500" />
+                                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
+                                                                                </div>
+                                                                                <p className="text-xs text-slate-400 italic">
+                                                                                    "{item.evidence}"
+                                                                                </p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {/* Covered Points & Missed Angles */}
+                                                            <div className="grid md:grid-cols-2 gap-6">
+                                                                {/* Covered Points */}
+                                                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                    <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                        ✅ Points Covered
+                                                                    </h3>
+                                                                    {data.topicAnalysis.coveredPoints.length > 0 ? (
+                                                                        <ul className="space-y-3">
+                                                                            {data.topicAnalysis.coveredPoints.map((point, i) => (
+                                                                                <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
+                                                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                                                    <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : (
+                                                                        <p className="text-slate-500 italic text-sm">No specific topic points were identified in your speech.</p>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Missed Angles */}
+                                                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                    <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                        ⚠️ Missed Angles
+                                                                    </h3>
+                                                                    {data.topicAnalysis.missedAngles.length > 0 ? (
+                                                                        <ul className="space-y-3">
+                                                                            {data.topicAnalysis.missedAngles.map((angle, i) => (
+                                                                                <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                                                    <p className="text-sm text-slate-200 leading-snug">{angle}</p>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : (
+                                                                        <p className="text-slate-500 italic text-sm">Great coverage — no major angles were missed!</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Content Suggestions */}
+                                                            {data.topicAnalysis.contentSuggestions.length > 0 && (
+                                                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                    <h3 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                        💡 Suggested Additions
+                                                                    </h3>
+                                                                    <ul className="space-y-3">
+                                                                        {data.topicAnalysis.contentSuggestions.map((suggestion, i) => (
+                                                                            <li key={i} className="flex items-start gap-3 p-3 bg-cyan-500/5 rounded-xl border border-cyan-500/10">
+                                                                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-cyan-500/10 text-cyan-500 flex items-center justify-center font-bold text-xs border border-cyan-500/20">
+                                                                                    {i + 1}
+                                                                                </span>
+                                                                                <p className="text-sm text-slate-200 leading-snug">{suggestion}</p>
+                                                                            </li>
+                                                                        ))}
+                                                                    </ul>
+                                                                </div>
+                                                            )}
+                                                        </div>
                             )}
 
-                            <div className="flex flex-col gap-6">
+                                                        {/* Slide Alignment Analysis */}
+                                                        {data.slideAnalysis && (
+                                                            <div className="space-y-6">
+                                                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-blue-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                                                    <div className="flex-1 space-y-3">
+                                                                        <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                                                            <FileText className="w-4 h-4" /> Slide Alignment
+                                                                        </h3>
+                                                                        <p className="text-slate-300 text-sm leading-relaxed">
+                                                                            {data.slideAnalysis.feedback}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex-shrink-0">
+                                                                        <CircularScoreChart
+                                                                            score={data.slideAnalysis.alignmentScore}
+                                                                            label="Alignment"
+                                                                            color="text-blue-500"
+                                                                        />
+                                                                    </div>
+                                                                </div>
 
-                                {/* Content Summary & Score Header */}
-                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
-                                    <div className="flex-1 space-y-4">
-                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Activity className="w-4 h-4" /> Content Heuristic Score
-                                        </h3>
-                                        <p className="text-slate-200 leading-relaxed text-sm">
-                                            This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
-                                        </p>
-                                    </div>
-                                    <div className="flex-shrink-0">
-                                        <CircularScoreChart
-                                            score={localContentScore}
-                                            label="Content Score"
-                                            color="text-green-500"
+                                                                <div className="grid md:grid-cols-2 gap-6">
+                                                                    <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                            ✅ Points Covered
+                                                                        </h3>
+                                                                        <ul className="space-y-3">
+                                                                            {data.slideAnalysis.coveredPoints.map((point, i) => (
+                                                                                <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
+                                                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                                                    <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+
+                                                                    <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                        <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                            ⚠️ Missed Points
+                                                                        </h3>
+                                                                        <ul className="space-y-3">
+                                                                            {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
+                                                                                <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                                                    <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                                                </li>
+                                                                            )) : <p className="text-slate-500 italic text-sm">All key points were covered!</p>}
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Rubric Analysis */}
+                                                        {data.rubricAnalysis && (
+                                                            <div className="space-y-6">
+                                                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-purple-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                                                    <div className="flex-1 space-y-3">
+                                                                        <h3 className="text-sm font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                                                                            <AlertCircle className="w-4 h-4" /> Rubric Evaluation
+                                                                        </h3>
+                                                                        <p className="text-slate-300 text-sm leading-relaxed">
+                                                                            {data.rubricAnalysis.feedback}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex-shrink-0">
+                                                                        <CircularScoreChart
+                                                                            score={data.rubricAnalysis.rubricScore}
+                                                                            label="Rubric Score"
+                                                                            color="text-purple-500"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="grid md:grid-cols-2 gap-6">
+                                                                    <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                        <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                            🌟 Key Strengths
+                                                                        </h3>
+                                                                        <ul className="space-y-3">
+                                                                            {data.rubricAnalysis.strengths.map((str, i) => (
+                                                                                <li key={i} className="flex items-start gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                                                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                                                    <p className="text-sm text-slate-200 leading-snug">{str}</p>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+
+                                                                    <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                        <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                            📉 Areas to Improve
+                                                                        </h3>
+                                                                        <ul className="space-y-3">
+                                                                            {data.rubricAnalysis.weaknesses.map((weakness, i) => (
+                                                                                <li key={i} className="flex items-start gap-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
+                                                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs font-bold">↓</span>
+                                                                                    <p className="text-sm text-slate-200 leading-snug">{weakness}</p>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex flex-col gap-6">
+
+                                                            {/* Content Summary & Score Header */}
+                                                            {!data.qnaSummary && (
+                                                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
+                                                                    <div className="flex-1 space-y-4">
+                                                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
+                                                                            <Activity className="w-4 h-4" /> Content Heuristic Score
+                                                                        </h3>
+                                                                        <p className="text-slate-200 leading-relaxed text-sm">
+                                                                            This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex-shrink-0">
+                                                                        <CircularScoreChart
+                                                                            score={localContentScore}
+                                                                            label="Content Score"
+                                                                            color="text-green-500"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
+                                                                <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                    <Mic className="w-4 h-4" /> Live Transcript
+                                                                </h3>
+                                                                <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                                                    {metrics.transcript || "No transcript recorded for this session."}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Q&A Breakdown */}
+                                                            {data.qnaSummary && (
+                                                                <div className="space-y-6">
+                                                                    {/* Average Relevance Score */}
+                                                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                                                        <div className="flex-1 space-y-3">
+                                                                            <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                                                <Target className="w-4 h-4" /> Average Relevance
+                                                                            </h3>
+                                                                            <p className="text-slate-300 text-sm leading-relaxed">
+                                                                                This score represents how well your answers addressed the specific questions asked during the Q&A session.
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className="flex-shrink-0">
+                                                                            <CircularScoreChart
+                                                                                score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
+                                                                                label="Avg Score"
+                                                                                color="text-teal-500"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Questions Breakdown */}
+                                                                    <div className="space-y-6">
+                                                                        {data.qnaSummary.map((qna, idx) => (
+                                                                            <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+                                                                                <div className="flex items-start justify-between gap-4">
+                                                                                    <div className="space-y-1">
+                                                                                        <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
+                                                                                        <p className="text-slate-300 font-medium">{qna.question}</p>
+                                                                                    </div>
+                                                                                    <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
+                                                                                        <span className="text-xs font-bold text-slate-400">Score</span>
+                                                                                        <span className={`text-sm font-bold ${qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                                                            {qna.relevanceScore}%
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                <div className="grid md:grid-cols-2 gap-4 mt-4">
+                                                                                    <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                                                                                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                                            <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
+                                                                                        </div>
+                                                                                        <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
+                                                                                    </div>
+                                                                                    <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
+                                                                                        <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                                            <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
+                                                                                        </div>
+                                                                                        <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* AI Analysis Column */}
+                                                            {!data.qnaSummary && (
+                                                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
+                                                                    <div className="flex justify-between items-center mb-4">
+                                                                        <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                                            <Activity className="w-4 h-4" /> AI Content Coach
+                                                                        </h3>
+                                                                        {!contentAnalysis && isAnalyzingContent && (
+                                                                            <div className="flex items-center gap-2 text-teal-400 text-sm">
+                                                                                <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                                                                                Analyzing...
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+
+                                                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                                                        {isContentLoading && !streamedContentAnalysis && (
+                                                                            <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
+                                                                                <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                                                                <p>Analyzing script flow and impact...</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {streamedContentAnalysis && (
+                                                                            <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
+                                                                                <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
+                                                                                {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
+                                                                            </div>
+                                                                        )}
+                                                                        {!isContentLoading && !streamedContentAnalysis && (
+                                                                            <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
+                                                                                {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {currentReportIndex === 4 && data.lectureAnalysis && (
+                                                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                                        {/* 1. Header */}
+                                                        <div className="text-center space-y-2 pb-6 border-b border-slate-800">
+                                                            <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+                                                                Lecture Mode Analysis
+                                                            </h1>
+                                                            <p className="text-slate-400 text-sm">Specialized feedback for teaching and instruction</p>
+                                                        </div>
+
+                                                        {/* Teaching Score & Overall Clarity */}
+                                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-amber-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                                            <div className="flex-1 space-y-4">
+                                                                <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                                                    <Sparkles className="w-4 h-4" /> Instructional Clarity
+                                                                </h3>
+                                                                <p className="text-slate-200 leading-relaxed text-lg italic">
+                                                                    "{data.lectureAnalysis.clarityFeedback}"
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex-shrink-0">
+                                                                <CircularScoreChart
+                                                                    score={data.lectureAnalysis.teachingScore}
+                                                                    label="Clarity Score"
+                                                                    color="text-amber-500"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid md:grid-cols-2 gap-6">
+                                                            {/* Potential Confusions */}
+                                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                    ⚠️ Student Blindspots
+                                                                </h3>
+                                                                <p className="text-xs text-slate-400 mb-4">Areas that might be confusing for someone new to the material.</p>
+                                                                <ul className="space-y-3">
+                                                                    {data.lectureAnalysis.potentialConfusion.map((item, i) => (
+                                                                        <li key={i} className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
+                                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                                            <p className="text-sm text-slate-200">{item}</p>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+
+                                                            {/* Analogy Suggestions */}
+                                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                                <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                                    💡 Power Analogies
+                                                                </h3>
+                                                                <p className="text-xs text-slate-400 mb-4">AI-suggested comparisons to make complex parts stick.</p>
+                                                                <ul className="space-y-3">
+                                                                    {data.lectureAnalysis.analogies.map((analogy, i) => (
+                                                                        <li key={i} className="flex items-start gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">?</span>
+                                                                            <p className="text-sm text-slate-200 italic">{analogy}</p>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+
+                                        </div >
+
+                                        {/* Session Context Chatbot */}
+                                        <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
+
+                                        {/* Share to Forum Modal */}
+                                        <ShareSessionModal
+                                            isOpen={isSharing}
+                                            onClose={() => setIsSharing(false)}
+                                            sessionData={{
+                                                ...data,
+                                                summary: data.summary,
+                                                tips: data.tips,
+                                                score: data.score,
+                                                vocalSummary: data.vocalSummary,
+                                                postureSummary: data.postureSummary,
+                                                videoUrl: data.videoUrl,
+                                                rawMetrics: {
+                                                    duration: metrics.duration,
+                                                    wpm: metrics.wpm,
+                                                    transcript: metrics.transcript
+                                                }
+                                            }}
                                         />
-                                    </div>
-                                </div>
 
-                                {/* Transcript Column */}
-                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Mic className="w-4 h-4" /> Live Transcript
-                                        </h3>
-                                    </div>
-                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                        {metrics.transcript || "No transcript recorded for this session."}
-                                    </div>
-                                </div>
-
-                                {/* AI Analysis Column */}
-                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Activity className="w-4 h-4" /> AI Content Coach
-                                        </h3>
-                                        {!contentAnalysis && isAnalyzingContent && (
-                                            <div className="flex items-center gap-2 text-teal-400 text-sm">
-                                                <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                                                Analyzing...
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                        {isContentLoading && !streamedContentAnalysis && (
-                                            <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                                                <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                                                <p>Analyzing script flow and impact...</p>
-                                            </div>
-                                        )}
-                                        {streamedContentAnalysis && (
-                                            <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
-                                                <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
-                                                {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
-                                            </div>
-                                        )}
-                                        {!isContentLoading && !streamedContentAnalysis && (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
-                                                {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-
-                </div >
-
-                {/* Session Context Chatbot */}
-                <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
-
-                {/* Share to Forum Modal */}
-                <ShareSessionModal
-                    isOpen={isSharing}
-                    onClose={() => setIsSharing(false)}
-                    sessionData={{
-                        ...data,
-                        summary: data.summary,
-                        tips: data.tips,
-                        score: data.score,
-                        vocalSummary: data.vocalSummary,
-                        postureSummary: data.postureSummary,
-                        videoUrl: data.videoUrl,
-                        rawMetrics: {
-                            duration: metrics.duration,
-                            wpm: metrics.wpm,
-                            transcript: metrics.transcript
-                        }
-                    }}
-                />
-
-            </motion.div>
-        </>
-    );
+                                    </motion.div>
+                                </>
+                            );
 }
 
-function TypeIcon({ className }: { className?: string }) {
+                            function TypeIcon({className}: {className ?: string}) {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <polyline points="4 7 4 4 20 4 20 7" />
-            <line x1="9" x2="15" y1="20" y2="20" />
-            <line x1="12" x2="12" y1="4" y2="20" />
-        </svg>
-    )
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                                <polyline points="4 7 4 4 20 4 20 7" />
+                                <line x1="9" x2="15" y1="20" y2="20" />
+                                <line x1="12" x2="12" y1="4" y2="20" />
+                            </svg>
+                            )
 }

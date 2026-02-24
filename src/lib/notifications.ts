@@ -29,11 +29,11 @@ export const sendNotification = async ({
         await addDoc(collection(db, "users", recipientId, "notifications"), {
             type,
             message,
-            link,
+            link: link || null,
             read: false,
             createdAt: serverTimestamp(),
             sender: {
-                id: senderId,
+                id: senderId || null,
                 name: senderName || "Anonymous",
                 avatar: senderAvatar || null
             }

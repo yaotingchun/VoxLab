@@ -1,10 +1,18 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, setDoc, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { updateProfile as updateFirebaseAuthProfile } from 'firebase/auth';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserProfile } from '@/types/forum';
+
+export interface UpdateProfileFields {
+    displayName?: string;
+    photoURL?: string;
+    bio?: string;
+    username?: string;
+}
 
 export function useUserProfile() {
     const { user } = useAuth();
@@ -25,7 +33,6 @@ export function useUserProfile() {
                 setProfile(docSnap.data() as UserProfile);
 
                 // Keep Firestore in sync with the latest Firebase Auth profile data.
-                // This fixes stale/missing displayName and photoURL shown on public profiles.
                 if (user.displayName || user.photoURL) {
                     updateDoc(userRef, {
                         ...(user.displayName && { displayName: user.displayName }),
@@ -33,7 +40,7 @@ export function useUserProfile() {
                     }).catch(err => console.error("Error syncing profile:", err));
                 }
             } else {
-                // Create profile if not exists
+                // Create profile if it doesn't exist yet
                 const newProfile: UserProfile = {
                     uid: user.uid,
                     displayName: user.displayName || 'Anonymous',
@@ -47,7 +54,7 @@ export function useUserProfile() {
                     },
                     followersCount: 0,
                     followingCount: 0,
-                    lastActiveAt: serverTimestamp() as any, // Typed as any to avoid client/server timestamp mismatch issues initially
+                    lastActiveAt: serverTimestamp() as any,
                     isOnline: true
                 };
 
@@ -66,5 +73,27 @@ export function useUserProfile() {
         return () => unsubscribe();
     }, [user]);
 
-    return { profile, loading };
+    /** Update editable profile fields in Firestore (and Firebase Auth where applicable). */
+    const updateProfile = async (fields: UpdateProfileFields) => {
+        if (!user) throw new Error("Not authenticated");
+        const userRef = doc(db, 'users', user.uid);
+
+        const toSave = {
+            ...fields,
+            // Always store username lowercased
+            ...(fields.username !== undefined && { username: fields.username.toLowerCase() }),
+        };
+
+        await updateDoc(userRef, toSave);
+
+        // Keep Firebase Auth displayName / photoURL in sync
+        const authUpdates: { displayName?: string; photoURL?: string } = {};
+        if (fields.displayName) authUpdates.displayName = fields.displayName;
+        if (fields.photoURL) authUpdates.photoURL = fields.photoURL;
+        if (Object.keys(authUpdates).length > 0) {
+            await updateFirebaseAuthProfile(user, authUpdates);
+        }
+    };
+
+    return { profile, loading, updateProfile };
 }

@@ -15,6 +15,9 @@ import {
     Loader2,
     ChevronRight,
     UploadCloud,
+    BookOpen,
+    Upload,
+    FileText as FileIcon
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,7 +36,7 @@ interface Topic {
     emoji?: string;
 }
 
-type Step = "mode" | "custom" | "ai-menu" | "categories" | "topics" | "random";
+type Step = "mode" | "custom" | "ai-menu" | "categories" | "topics" | "random" | "lecture";
 
 const difficultyColors: Record<string, string> = {
     beginner: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
@@ -50,6 +53,8 @@ export default function TopicSelectionPage() {
     const [randomTopic, setRandomTopic] = useState<Topic | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string>("");
     const [loading, setLoading] = useState(false);
+    const [extractingText, setExtractingText] = useState(false);
+    const [lectureFile, setLectureFile] = useState<File | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     const goToPractice = (topic: string) => {
@@ -118,10 +123,72 @@ export default function TopicSelectionPage() {
     }, []);
 
     const handleBack = () => {
-        if (step === "custom" || step === "ai-menu") setStep("mode");
+        if (step === "custom" || step === "ai-menu" || step === "lecture") setStep("mode");
         else if (step === "categories") setStep("ai-menu");
         else if (step === "topics") setStep("categories");
         else if (step === "random") setStep("ai-menu");
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== "application/pdf") {
+            setError("Please upload a PDF file. PPT support coming soon!");
+            return;
+        }
+
+        setLectureFile(file);
+        setError(null);
+    };
+
+    const startLecturePractice = async () => {
+        if (!lectureFile) return;
+
+        setExtractingText(true);
+        setError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", lectureFile);
+
+            const res = await fetch("/api/ai/analyze-material", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const responseText = await res.text();
+                let errorData;
+                try {
+                    errorData = JSON.parse(responseText);
+                } catch (e) {
+                    console.error("API Error (Non-JSON):", responseText.slice(0, 1000));
+                    throw new Error("Server returned an invalid response. Check console for details.");
+                }
+                throw new Error(errorData.error || "Failed to analyze material");
+            }
+
+            const responseText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                console.error("Parse Error (Non-JSON):", responseText.slice(0, 1000));
+                throw new Error("Failed to parse server response. Check console for details.");
+            }
+            const { text, title } = data;
+
+            // Navigate to practice room with the extracted material
+            // We'll pass the extracted text as a base64 or via a temporary storage if too long, 
+            // but for now let's use session storage as it's cleaner for large strings.
+            sessionStorage.setItem("lecture_material", text);
+            router.push(`/dashboard/practice?topic=${encodeURIComponent(title || lectureFile.name)}&mode=lecture`);
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setExtractingText(false);
+        }
     };
 
     // Animation variants
@@ -263,6 +330,29 @@ export default function TopicSelectionPage() {
                                         </div>
                                         <div className="flex items-center gap-1 text-xs text-purple-400 font-medium">
                                             Explore options <ChevronRight className="w-3 h-3" />
+                                        </div>
+                                    </div>
+                                </motion.button>
+
+                                {/* Lecture Mode */}
+                                <motion.button
+                                    variants={item}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setStep("lecture")}
+                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-emerald-500/30 hover:bg-emerald-500/[0.05] overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative space-y-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                                            <BookOpen className="w-7 h-7 text-emerald-400" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-semibold mb-1">Lecture Mode</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed">Upload teaching materials and get AI feedback on your explanation.</p>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs text-emerald-400 font-medium">
+                                            Upload material <ChevronRight className="w-3 h-3" />
                                         </div>
                                     </div>
                                 </motion.button>
@@ -457,8 +547,88 @@ export default function TopicSelectionPage() {
                             </motion.div>
                         </motion.div>
                     )}
+
+                    {/* ========== LECTURE MODE ========== */}
+                    {step === "lecture" && (
+                        <motion.div key="lecture" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-lg space-y-6">
+                            <motion.div variants={item} className="text-center space-y-2">
+                                <h2 className="text-2xl font-bold">Lecture Support</h2>
+                                <p className="text-white/40 text-sm">Upload your PDF teaching materials for AI analysis.</p>
+                            </motion.div>
+
+                            <motion.div variants={item} className="space-y-4">
+                                <div
+                                    className={`relative group h-48 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-4 cursor-pointer
+                                        ${lectureFile ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/10 hover:border-primary/50 hover:bg-white/[0.02]'}`}
+                                    onClick={() => document.getElementById('file-upload')?.click()}
+                                >
+                                    <input
+                                        id="file-upload"
+                                        type="file"
+                                        className="hidden"
+                                        accept=".pdf"
+                                        onChange={handleFileUpload}
+                                    />
+
+                                    {lectureFile ? (
+                                        <>
+                                            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                                <FileIcon className="w-6 h-6 text-emerald-400" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="font-medium text-emerald-400">{lectureFile.name}</p>
+                                                <p className="text-xs text-white/40">{(lectureFile.size / 1024 / 1024).toFixed(2)} MB • Ready to analyze</p>
+                                            </div>
+                                            <button
+                                                className="text-white/40 hover:text-rose-400 text-xs underline transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setLectureFile(null);
+                                                }}
+                                            >
+                                                Choose a different file
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 group-hover:scale-110 transition-all">
+                                                <Upload className="w-6 h-6 text-white/40 group-hover:text-primary transition-colors" />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="font-medium text-white/70">Click or drag to upload</p>
+                                                <p className="text-xs text-white/30 mt-1">Accepts PDF files up to 10MB</p>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+
+                                <Button
+                                    size="lg"
+                                    disabled={!lectureFile || extractingText}
+                                    onClick={startLecturePractice}
+                                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-emerald-600 to-primary hover:from-emerald-500 hover:to-primary/80 shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all disabled:opacity-30"
+                                >
+                                    {extractingText ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                                            AI is studying your material...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Start Lecture Practice
+                                            <ArrowRight className="w-5 h-5 ml-2" />
+                                        </>
+                                    )}
+                                </Button>
+
+                                <p className="text-[10px] text-center text-white/20 px-8">
+                                    The AI will analyze your speech against this material to suggest analogies and identify complex parts.
+                                </p>
+                            </motion.div>
+                        </motion.div>
+                    )}
                 </AnimatePresence>
             </div>
-        </div>
+        </div >
     );
 }

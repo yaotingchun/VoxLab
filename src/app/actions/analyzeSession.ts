@@ -9,6 +9,9 @@ interface SessionData {
     duration: number; // in seconds
     averageScore: number;
     issueCounts: Record<string, number>; // e.g., { HEAD_TILT: 5, SLOUCHING: 2 }
+    topic?: string | null; // The speaking topic chosen before the session
+    transcript?: string | null; // The full speech transcript
+    materialContext?: string; // New field for Lecture Mode
     // New Face Metrics
     faceMetrics: {
         averageEngagement: number;
@@ -34,18 +37,53 @@ interface SessionData {
         volumeRange?: number;
     };
     rubricText?: string;
-    transcript?: string;
 }
 
 export async function analyzeSession(data: SessionData) {
     try {
+        const hasTopic = data.topic && data.topic.trim().length > 0;
+        const hasTranscript = data.transcript && data.transcript.trim().length > 0;
+        const hasMaterial = data.materialContext && data.materialContext.trim().length > 0;
+
+        const topicSection = hasTopic ? `
+        --- SPEAKING TOPIC ---
+        The user chose to practice speaking about: "${data.topic}"
+        ${hasMaterial ? `
+        --- TEACHING MATERIAL CONTEXT ---
+        This material was provided by the user as their guide/curriculum:
+        "${data.materialContext?.slice(0, 5000)}" // Truncate if too long
+        ` : ""}
+        ${hasTranscript ? `
+        --- FULL SPEECH TRANSCRIPT ---
+        "${data.transcript}"
+        ` : '(No transcript captured)'}
+        ` : '';
+
+        const topicInstructions = hasTopic ? `
+        4. **Topic Relevance Analysis** (CRITICAL — this is the most important part):
+           - Evaluate how well the speaker's content relates to the assigned topic: "${data.topic}".
+           - Identify specific points or arguments the speaker successfully addressed.
+           - Highlight important angles, perspectives, or sub-topics that were MISSED and could strengthen the speech.
+           - Provide a "relevanceScore" from 0 to 100 rating how well the speech content matched and covered the topic.
+           - Give 2-3 concrete "contentSuggestions" — specific points, examples, statistics, or arguments the speaker could add to make the speech more compelling and comprehensive on this topic.
+        ` : '';
+
+        const lectureInstructions = hasMaterial ? `
+        5. **Lecture & Teaching Analysis** (LECTURE MODE):
+           - Compare the transcript against the provided Teaching Material.
+           - **Concept Clarity**: How well did the speaker explain the core concepts from the material?
+           - **Student Perspective**: Identify 1-2 points in the speaker's explanation that might still be confusing for someone who hasn't read the material.
+           - **Analogies**: Suggest 1-2 powerful analogies that could help explain the most complex parts of the material more effectively. 
+           - Provide a "teachingScore" from 0 to 100 rating their clarity as an instructor.
+        ` : '';
+
         const prompt = `
-        You are an expert Presentation, Vocal, and Posture Coach.
+        You are an expert Presentation, Vocal, and Posture Coach${hasMaterial ? " and an experienced Instructional Designer" : ""}.
         Analyze the following session data:
 
         - Duration: ${data.duration} seconds
         - Overall Score: ${Math.round(data.averageScore)}/100
-        
+        ${topicSection}
         - Speech Analysis:
         - Total Words: ${data.speechMetrics?.totalWords || 0}
         - Filler Words: ${data.speechMetrics ? Object.entries(data.speechMetrics.fillerCounts).map(([k, v]) => `${k}: ${v}`).join(', ') : 'None'}
@@ -82,34 +120,44 @@ export async function analyzeSession(data: SessionData) {
         ` : ""}
         
         Provide a "Gemini AI Coach" summary.
-        1. A brief, 2-3 sentence analysis of their overall performance, encompassing their script, posture, and VOCAL delivery.
-        2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).
+        1. A brief, 2-3 sentence analysis of their overall performance, encompassing their script, posture, and VOCAL delivery.${hasTopic ? ' Specifically mention how well their content addressed the topic.' : ''}
+        2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).${hasTopic ? ' At least one tip should be about content/topic coverage.' : ''}
         3. An objective 'score' from 0 to 100 evaluating their overall performance across all these pillars. Make it tough but fair.
         
         ${data.rubricText ? `
         4. Provide a rubric-specific score (0-100) reflecting the average fulfillment of the identified criteria.
         5. Assess the "Alignment Level" (high, medium, low) based on the overall fulfillment.
         ` : ""}
+        ${topicInstructions}
+        ${lectureInstructions}
         `;
 
+        // Build schema dynamically based on whether a topic was provided
+        const baseSchema = z.object({
+            summary: z.string().describe('A brief, 2-3 sentence analysis of their performance'),
+            tips: z.array(z.string()).describe('Three specific, actionable "Quick Tips" to improve next time'),
+            score: z.number().min(0).max(100).describe('An objective score from 0 to 100 evaluating their overall performance'),
+            ...(hasTopic ? {
+                topicAnalysis: z.object({
+                    relevanceScore: z.number().min(0).max(100).describe('How well the speech content matched and covered the assigned topic (0-100)'),
+                    coveredPoints: z.array(z.string()).describe('Key points or arguments the speaker successfully addressed about the topic'),
+                    missedAngles: z.array(z.string()).describe('Important perspectives, angles, or sub-topics the speaker missed'),
+                    contentSuggestions: z.array(z.string()).describe('2-3 concrete suggestions for points, examples, or arguments to add'),
+                }).describe('Detailed analysis of how the speech content relates to the assigned topic'),
+            } : {}),
+            ...(hasMaterial ? {
+                lectureAnalysis: z.object({
+                    teachingScore: z.number().min(0).max(100).describe('Score for clarity and pedagogical effectiveness'),
+                    clarityFeedback: z.string().describe('Feedback on how well they explained material'),
+                    potentialConfusion: z.array(z.string()).describe('Specific points that might confuse students'),
+                    analogies: z.array(z.string()).describe('Suggested analogies to improve explanation of complex parts'),
+                }).describe('Analysis of teaching effectiveness relative to provided material'),
+            } : {}),
+        });
+
         const { object } = await generateObject({
-            model: vertex('gemini-2.0-flash'), // Using faster model for complex multi-pillar analysis
-            schema: z.object({
-                summary: z.string().describe('A brief, 2-3 sentence analysis of their performance'),
-                tips: z.array(z.string()).describe('Three specific, actionable "Quick Tips" to improve next time'),
-                score: z.number().min(0).max(100).describe('An objective score from 0 to 100 evaluating their overall performance'),
-                rubricFeedback: z.object({
-                    score: z.number().min(0).max(100),
-                    alignmentLevel: z.enum(["high", "medium", "low"]),
-                    overallAssessment: z.string().describe('A concise summary of how well the rubric goals were met'),
-                    criteriaBreakdown: z.array(z.object({
-                        criterion: z.string().describe('The name of the rubric criterion'),
-                        fulfillment: z.enum(["full", "partial", "none"]),
-                        feedback: z.string().describe('Detailed feedback for this specific criterion'),
-                        evidence: z.string().describe('Direct evidence from the session (transcript or metrics) supporting the fulfillment status')
-                    }))
-                }).optional().nullable()
-            }),
+            model: vertex('gemini-2.5-pro'),
+            schema: baseSchema,
             prompt: prompt,
         });
 

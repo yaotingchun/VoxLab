@@ -63,10 +63,30 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults, isRecording, a
             } else {
                 console.warn("[MediaRecorder] Missing tracks! Video:", videoTracks.length, "Audio:", audioTracks.length);
             }
-        } else if (!isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            console.log("[MediaRecorder] isRecording is false, stopping recorder...");
-            mediaRecorderRef.current.stop();
+        } else if (!isRecording && mediaRecorderRef.current) {
+            try {
+                // Double guard for state access
+                const recorder = mediaRecorderRef.current;
+                if (recorder && typeof recorder.state !== 'undefined' && recorder.state !== 'inactive') {
+                    console.log("[MediaRecorder] isRecording is false, stopping recorder...");
+                    recorder.stop();
+                }
+            } catch (e) {
+                console.warn("[MediaRecorder] Stop failed:", e);
+            }
         }
+
+        return () => {
+            const recorder = mediaRecorderRef.current;
+            if (recorder && typeof recorder.state !== 'undefined' && recorder.state !== 'inactive') {
+                console.log("[MediaRecorder] Cleanup: Stopping recorder...");
+                try {
+                    recorder.stop();
+                } catch (e) {
+                    // Silently fail on cleanup stop
+                }
+            }
+        };
     }, [isRecording, audioStream]); // Added audioStream to dependencies
 
     // Global console suppression for TFLite logs

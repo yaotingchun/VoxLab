@@ -154,15 +154,24 @@ function PracticePageInner() {
 
                 const audioMetricsPayload = audioResult ? audioResult.stats : undefined;
 
+                const mode = searchParams.get("mode");
+                let materialContext = "";
+                if (mode === "lecture") {
+                    materialContext = sessionStorage.getItem("lecture_material") || "";
+                }
+
                 const [aiSummary, vocalSummary, postureSummary] = await Promise.all([
                     analyzeSession({
                         duration: data.duration,
                         averageScore: data.averageScore,
                         issueCounts: data.issueCounts,
                         faceMetrics: data.faceMetrics,
+                        topic: topic,
+                        transcript: transcript,
                         speechMetrics: speechMetricsPayload,
                         // @ts-ignore
-                        audioMetrics: audioMetricsPayload
+                        audioMetrics: audioMetricsPayload,
+                        materialContext: materialContext // Pass the lecture material
                     }),
                     analyzeVocal({
                         speechMetrics: speechMetricsPayload,
@@ -192,6 +201,7 @@ function PracticePageInner() {
                     postureSummary: 'error' in postureSummary ? null : postureSummary,
                     videoUrl,
                     rawMetrics: {
+                        topic: topic,
                         duration: data.duration,
                         wpm,
                         totalWords,
@@ -237,10 +247,11 @@ function PracticePageInner() {
                                 wpmHistory,
                                 transcript: transcript ?? "",
                                 pauseStats: finalPauseStats ?? null,
-                                audioMetrics: audioResult?.stats ?? null,
                                 faceMetrics: data.faceMetrics,
                                 postureSummary: 'error' in postureSummary ? null : postureSummary,
                                 videoUrl: videoUrl ?? null,
+                                audioMetrics: audioResult?.stats ?? undefined,
+                                lectureAnalysis: (aiSummary as any).lectureAnalysis ?? null,
                             });
                             const streakData = await getUserStreak(user.uid);
                             const today = getLocalDateString(new Date());
@@ -381,6 +392,7 @@ function PracticePageInner() {
                                     <AnimatePresence>
                                         {isCoachHovered && (
                                             <motion.div
+                                                key="coach-widget"
                                                 initial={{ opacity: 0, y: 20 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, y: 20 }}
@@ -508,6 +520,7 @@ function PracticePageInner() {
             <AnimatePresence>
                 {newBadges.length > 0 && (
                     <motion.div
+                        key="badge-award-toast"
                         initial={{ opacity: 0, y: -60 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -60 }}
@@ -535,6 +548,7 @@ function PracticePageInner() {
             <AnimatePresence>
                 {sessionSummary && (
                     <motion.div
+                        key="session-summary-modal"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}

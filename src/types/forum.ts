@@ -48,6 +48,8 @@ export interface UserProfile {
     displayName: string;
     photoURL: string;
     role: 'user' | 'admin' | 'moderator';
+    bio?: string;
+    username?: string; // short lowercase handle e.g. "tayxinying"
     stats: {
         postsCount: number;
         commentsCount: number;

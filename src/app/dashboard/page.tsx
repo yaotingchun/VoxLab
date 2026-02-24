@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mic, Sparkles, Video } from "lucide-react";
+import { Loader2, Mic, Sparkles, Video, Briefcase } from "lucide-react";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -72,11 +72,35 @@ export default function DashboardPage() {
                             Choose a topic and start a full practice session with posture, voice, and speech analysis.
                         </p>
                     </div>
+                    <div className="group relative rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-6" onClick={() => router.push('/dashboard/interview')}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Briefcase className="w-12 h-12" />
+                        </div>
+                        <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-emerald-400" />
+                            Interview Mode
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Upload your resume & job description for a realistic AI mock interview with feedback.
+                        </p>
+                    </div>
+
+                    <div className="group relative rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden p-6" onClick={() => router.push('/dashboard/presentation/setup')}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <Video className="w-12 h-12" />
+                        </div>
+                        <h3 className="font-semibold leading-none tracking-tight flex items-center gap-2">
+                            <Video className="w-4 h-4 text-purple-400" />
+                            Presentation Setup
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Upload your slides and rubric first, then practice your full presentation.
+                        </p>
+                    </div>
                     <div className="p-6 rounded-xl border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-md transition-all" onClick={() => router.push('/dashboard/profile')}>
                         <h3 className="font-semibold leading-none tracking-tight">Recent Activity</h3>
                         <p className="text-sm text-muted-foreground mt-2">No recent activity.</p>
                     </div>
-                    {/* Add more dashboard widgets here */}
                 </div>
             </div>
         </div>
