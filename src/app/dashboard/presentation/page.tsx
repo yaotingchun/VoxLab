@@ -21,6 +21,7 @@ import { DetailedSessionReport } from "@/components/analysis/DetailedSessionRepo
 import { analyzePresentation } from "@/app/actions/analyzePresentation";
 import { generateQnA } from "@/app/actions/generateQnA";
 import { evaluateQnA } from "@/app/actions/evaluateQnA";
+import { speakText, stopSpeaking } from "@/lib/tts-client";
 import { analyzeVocal } from "@/app/actions/analyzeVocal";
 import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePosture";
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
@@ -259,22 +260,14 @@ function PresentationPageInner() {
         playPopupSound();
         resetSpeech(); // Clear transcript to cleanly record the answer
 
-        // Pause recording during TTS to prevent feedback
-        const utterance = new SpeechSynthesisUtterance(questions[0]);
-        utterance.onstart = () => {
-            // @ts-ignore - check if exists in hook
-            pauseRecording?.();
-        };
-        utterance.onend = () => {
-            // @ts-ignore - check if exists in hook
-            resumeRecording?.();
-        };
+        playPopupSound();
+        resetSpeech(); // Clear transcript to cleanly record the answer
 
-        setTimeout(() => {
-            if (window.speechSynthesis) {
-                window.speechSynthesis.speak(utterance);
-            }
-        }, 300);
+        // Use high-quality TTS from the tts-client
+        pauseRecording?.();
+        speakText(questions[0]).then(() => {
+            resumeRecording?.();
+        });
     };
 
     const handleNextQuestion = () => {
@@ -288,27 +281,17 @@ function PresentationPageInner() {
             setIsQnaExpanded(true);
             playPopupSound();
 
-            const utterance = new SpeechSynthesisUtterance(qnaQuestions[nextIdx]);
-            utterance.onstart = () => {
-                // @ts-ignore
-                pauseRecording?.();
-            };
-            utterance.onend = () => {
-                // @ts-ignore
+            pauseRecording?.();
+            speakText(qnaQuestions[nextIdx]).then(() => {
                 resumeRecording?.();
-            };
-
-            setTimeout(() => {
-                if (window.speechSynthesis) {
-                    window.speechSynthesis.speak(utterance);
-                }
-            }, 300);
+            });
         } else {
             handleFinishSession([...qnaAnswers, currentAnswer]);
         }
     };
 
     const handleFinishSession = async (finalAnswers: string[]) => {
+        stopSpeaking();
         setIsStarted(false);
         setPhase('EVALUATING');
         setIsAnalyzing(true);
@@ -509,6 +492,7 @@ function PresentationPageInner() {
     };
 
     const handleReset = () => {
+        stopSpeaking();
         setIsStarted(false);
         setPhase('SETUP');
         endSession();

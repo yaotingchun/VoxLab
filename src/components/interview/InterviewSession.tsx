@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { InterviewQuestion, InterviewAnswer } from "@/types/interview";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { speakText, stopSpeaking } from "@/hooks/useInterview";
+import { speakText, stopSpeaking } from "@/lib/tts-client";
 
 interface InterviewSessionProps {
     questions: InterviewQuestion[];
@@ -423,11 +423,10 @@ export default function InterviewSession({
                                 <Button
                                     size="lg"
                                     onClick={isRecording ? handleStopRecording : handleStartRecording}
-                                    className={`rounded-full w-12 h-12 p-0 transition-all ${
-                                        isRecording
+                                    className={`rounded-full w-12 h-12 p-0 transition-all ${isRecording
                                             ? "bg-red-600 hover:bg-red-700 shadow-lg shadow-red-900/30"
                                             : "bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-900/30"
-                                    }`}
+                                        }`}
                                 >
                                     {isRecording ? (
                                         <MicOff className="w-5 h-5" />
