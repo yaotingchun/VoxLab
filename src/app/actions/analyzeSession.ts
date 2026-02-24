@@ -11,6 +11,7 @@ interface SessionData {
     issueCounts: Record<string, number>; // e.g., { HEAD_TILT: 5, SLOUCHING: 2 }
     topic?: string | null; // The speaking topic chosen before the session
     transcript?: string | null; // The full speech transcript
+    materialContext?: string; // New field for Lecture Mode
     // New Face Metrics
     faceMetrics: {
         averageEngagement: number;
@@ -41,10 +42,16 @@ export async function analyzeSession(data: SessionData) {
     try {
         const hasTopic = data.topic && data.topic.trim().length > 0;
         const hasTranscript = data.transcript && data.transcript.trim().length > 0;
+        const hasMaterial = data.materialContext && data.materialContext.trim().length > 0;
 
         const topicSection = hasTopic ? `
         --- SPEAKING TOPIC ---
         The user chose to practice speaking about: "${data.topic}"
+        ${hasMaterial ? `
+        --- TEACHING MATERIAL CONTEXT ---
+        This material was provided by the user as their guide/curriculum:
+        "${data.materialContext?.slice(0, 5000)}" // Truncate if too long
+        ` : ""}
         ${hasTranscript ? `
         --- FULL SPEECH TRANSCRIPT ---
         "${data.transcript}"
@@ -60,8 +67,17 @@ export async function analyzeSession(data: SessionData) {
            - Give 2-3 concrete "contentSuggestions" — specific points, examples, statistics, or arguments the speaker could add to make the speech more compelling and comprehensive on this topic.
         ` : '';
 
+        const lectureInstructions = hasMaterial ? `
+        5. **Lecture & Teaching Analysis** (LECTURE MODE):
+           - Compare the transcript against the provided Teaching Material.
+           - **Concept Clarity**: How well did the speaker explain the core concepts from the material?
+           - **Student Perspective**: Identify 1-2 points in the speaker's explanation that might still be confusing for someone who hasn't read the material.
+           - **Analogies**: Suggest 1-2 powerful analogies that could help explain the most complex parts of the material more effectively. 
+           - Provide a "teachingScore" from 0 to 100 rating their clarity as an instructor.
+        ` : '';
+
         const prompt = `
-        You are an expert Presentation, Vocal, and Posture Coach.
+        You are an expert Presentation, Vocal, and Posture Coach${hasMaterial ? " and an experienced Instructional Designer" : ""}.
         Analyze the following session data:
 
         - Duration: ${data.duration} seconds
@@ -94,6 +110,7 @@ export async function analyzeSession(data: SessionData) {
         2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).${hasTopic ? ' At least one tip should be about content/topic coverage.' : ''}
         3. An objective 'score' from 0 to 100 evaluating their overall performance across all these pillars. Make it tough but fair.
         ${topicInstructions}
+        ${lectureInstructions}
         `;
 
         // Build schema dynamically based on whether a topic was provided
@@ -108,6 +125,14 @@ export async function analyzeSession(data: SessionData) {
                     missedAngles: z.array(z.string()).describe('Important perspectives, angles, or sub-topics the speaker missed'),
                     contentSuggestions: z.array(z.string()).describe('2-3 concrete suggestions for points, examples, or arguments to add'),
                 }).describe('Detailed analysis of how the speech content relates to the assigned topic'),
+            } : {}),
+            ...(hasMaterial ? {
+                lectureAnalysis: z.object({
+                    teachingScore: z.number().min(0).max(100).describe('Score for clarity and pedagogical effectiveness'),
+                    clarityFeedback: z.string().describe('Feedback on how well they explained material'),
+                    potentialConfusion: z.array(z.string()).describe('Specific points that might confuse students'),
+                    analogies: z.array(z.string()).describe('Suggested analogies to improve explanation of complex parts'),
+                }).describe('Analysis of teaching effectiveness relative to provided material'),
             } : {}),
         });
 

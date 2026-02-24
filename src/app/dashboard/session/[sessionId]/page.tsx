@@ -69,7 +69,14 @@ export default function SessionReportPage() {
     const reportData = {
         summary: session.aiSummary ?? "No AI summary available for this session.",
         tips: session.tips ?? [],
+        score: session.score,
+        topicAnalysis: (session as any).topicAnalysis,
+        lectureAnalysis: session.lectureAnalysis,
+        vocalSummary: (session as any).vocalSummary,
+        postureSummary: (session as any).postureSummary,
+        videoUrl: session.videoUrl, // Moved to top level
         rawMetrics: {
+            topic: (session as any).topic,
             duration: session.duration ?? 0,
             wpm: session.wpm ?? 0,
             totalWords: session.totalWords ?? 0,

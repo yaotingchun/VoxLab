@@ -3,7 +3,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { doc, getDoc, setDoc, collection, collectionGroup, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
-    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff,
+    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff, Video,
     MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search
 } from "lucide-react";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
@@ -104,6 +105,8 @@ export default function ProfilePage() {
     const [commentedPosts, setCommentedPosts] = useState<(Post & { userComment: string })[]>([]);
     const [commentedLoading, setCommentedLoading] = useState(false);
     const [commentedLoaded, setCommentedLoaded] = useState(false);
+    const [showBadgeHover, setShowBadgeHover] = useState(false);
+    const badgeRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!loading && !user) router.push("/");
@@ -295,9 +298,44 @@ export default function ProfilePage() {
                                             <span className="text-xl font-bold group-hover:text-primary transition-colors">{followingCount}</span>
                                             <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Following</span>
                                         </button>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-xl font-bold">{earnedBadges.length}</span>
+                                        <div
+                                            className="flex flex-col items-center cursor-default relative"
+                                            onMouseEnter={() => setShowBadgeHover(true)}
+                                            onMouseLeave={() => setShowBadgeHover(false)}
+                                            ref={badgeRef}
+                                        >
+                                            <span className="text-xl font-bold hover:text-primary transition-colors">{earnedBadges.length}</span>
                                             <span className="text-xs text-muted-foreground">Badges</span>
+
+                                            <AnimatePresence>
+                                                {showBadgeHover && earnedBadges.length > 0 && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                        className="absolute top-full mt-2 z-50 p-4 bg-card/90 backdrop-blur-md border rounded-xl shadow-2xl min-w-[240px]"
+                                                    >
+                                                        <p className="text-[10px] font-bold text-muted-foreground mb-3 tracking-widest uppercase">Earned Badges</p>
+                                                        <div className="grid grid-cols-4 gap-2">
+                                                            {earnedBadges.map(b => (
+                                                                <div key={b.id} className="flex flex-col items-center gap-1 group/item">
+                                                                    <div
+                                                                        className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm border border-white/5"
+                                                                        style={{ background: b.color || '#6366f1' }}
+                                                                    >
+                                                                        {b.icon}
+                                                                    </div>
+                                                                    <span className="text-[9px] text-center font-medium truncate w-full">{b.name}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center">
+                                                            <span className="text-[10px] text-muted-foreground">Total Earned</span>
+                                                            <span className="text-xs font-bold text-primary">{earnedBadges.length} / {badges.length}</span>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
                                     </div>
                                 </div>
@@ -475,6 +513,11 @@ export default function ProfilePage() {
                                                         {(s.topics ?? []).slice(0, 3).map(t => (
                                                             <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
                                                         ))}
+                                                        {s.videoUrl && (
+                                                            <Badge variant="outline" className="text-xs gap-1 border-blue-500/30 text-blue-500">
+                                                                <Video className="w-3 h-3" /> Video
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3 mt-3 sm:mt-0">

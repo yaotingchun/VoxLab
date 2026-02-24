@@ -27,6 +27,12 @@ interface DetailedSessionReportProps {
             missedAngles: string[];
             contentSuggestions: string[];
         } | null;
+        lectureAnalysis?: {
+            teachingScore: number;
+            clarityFeedback: string;
+            potentialConfusion: string[];
+            analogies: string[];
+        } | null;
         vocalSummary?: { summary: string; tips: string[], score?: number } | null;
         postureSummary?: { summary: string; tips: string[], score?: number } | null;
         videoUrl?: string; // Newly added video URL from GCS
@@ -83,7 +89,7 @@ function getWpmZoneColor(wpm: number): string {
 export function DetailedSessionReport({ data, onClose }: DetailedSessionReportProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
-    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0); // 0: General, 1: Vocal, 2: Posture, 3: Content
+    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0); // 0: General, 1: Vocal, 2: Posture, 3: Content, 4: Lecture
 
     // Content Analysis State
     const [contentAnalysis, setContentAnalysis] = useState<string>("");
@@ -301,6 +307,19 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                             <BarChart3 className={`w-4 h-4 ${currentReportIndex === 3 ? "text-green-400" : "text-slate-500"}`} />
                             <span className="text-sm font-bold">Content</span>
                         </button>
+
+                        {data.lectureAnalysis && (
+                            <button
+                                onClick={() => setCurrentReportIndex(4)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 4
+                                    ? "bg-slate-700 text-amber-400 shadow-lg"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 ${currentReportIndex === 4 ? "text-amber-400" : "text-slate-500"}`} />
+                                <span className="text-sm font-bold">Lecture</span>
+                            </button>
+                        )}
                     </div>
                     <div className="flex items-center gap-4">
                         <Button
@@ -1216,8 +1235,6 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                             )}
 
                             <div className="flex flex-col gap-6">
-
-                                {/* Content Summary & Score Header */}
                                 <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
                                     <div className="flex-1 space-y-4">
                                         <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
@@ -1236,51 +1253,95 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                 </div>
 
-                                {/* Transcript Column */}
                                 <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Mic className="w-4 h-4" /> Live Transcript
-                                        </h3>
-                                    </div>
-                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                    <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <Mic className="w-4 h-4" /> Live Transcript
+                                    </h3>
+                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
                                         {metrics.transcript || "No transcript recorded for this session."}
                                     </div>
                                 </div>
 
-                                {/* AI Analysis Column */}
                                 <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Activity className="w-4 h-4" /> AI Content Coach
-                                        </h3>
-                                        {!contentAnalysis && isAnalyzingContent && (
-                                            <div className="flex items-center gap-2 text-teal-400 text-sm">
-                                                <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                                                Analyzing...
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                        {isContentLoading && !streamedContentAnalysis && (
-                                            <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                                                <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                                                <p>Analyzing script flow and impact...</p>
-                                            </div>
-                                        )}
-                                        {streamedContentAnalysis && (
-                                            <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
+                                    <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <Activity className="w-4 h-4" /> AI Content Coach
+                                    </h3>
+                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                        {streamedContentAnalysis ? (
+                                            <div className="prose prose-invert prose-sm max-w-none">
                                                 <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
-                                                {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
                                             </div>
-                                        )}
-                                        {!isContentLoading && !streamedContentAnalysis && (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
-                                                {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
+                                        ) : (
+                                            <div className="flex items-center justify-center h-40 text-slate-500 italic text-sm">
+                                                {isAnalyzingContent ? "Analyzing..." : "No analysis available."}
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {currentReportIndex === 4 && data.lectureAnalysis && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* 1. Header */}
+                            <div className="text-center space-y-2 pb-6 border-b border-slate-800">
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+                                    Lecture Mode Analysis
+                                </h1>
+                                <p className="text-slate-400 text-sm">Specialized feedback for teaching and instruction</p>
+                            </div>
+
+                            {/* Teaching Score & Overall Clarity */}
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-amber-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                <div className="flex-1 space-y-4">
+                                    <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4" /> Instructional Clarity
+                                    </h3>
+                                    <p className="text-slate-200 leading-relaxed text-lg italic">
+                                        "{data.lectureAnalysis.clarityFeedback}"
+                                    </p>
+                                </div>
+                                <div className="flex-shrink-0">
+                                    <CircularScoreChart
+                                        score={data.lectureAnalysis.teachingScore}
+                                        label="Clarity Score"
+                                        color="text-amber-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* Potential Confusions */}
+                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                    <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        ⚠️ Student Blindspots
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mb-4">Areas that might be confusing for someone new to the material.</p>
+                                    <ul className="space-y-3">
+                                        {data.lectureAnalysis.potentialConfusion.map((item, i) => (
+                                            <li key={i} className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
+                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                <p className="text-sm text-slate-200">{item}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+
+                                {/* Analogy Suggestions */}
+                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        💡 Power Analogies
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mb-4">AI-suggested comparisons to make complex parts stick.</p>
+                                    <ul className="space-y-3">
+                                        {data.lectureAnalysis.analogies.map((analogy, i) => (
+                                            <li key={i} className="flex items-start gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">?</span>
+                                                <p className="text-sm text-slate-200 italic">{analogy}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             </div>
                         </div>

@@ -59,5 +59,12 @@ export interface PracticeSession {
     transcript?: string;
     pauseStats?: { stats: PauseStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
     audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean };
+    videoUrl?: string; // Newly added video URL from GCS
+    lectureAnalysis?: {
+        teachingScore: number;
+        clarityFeedback: string;
+        potentialConfusion: string[];
+        analogies: string[];
+    } | null;
 }
 

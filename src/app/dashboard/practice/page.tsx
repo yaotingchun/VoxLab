@@ -150,6 +150,12 @@ function PracticePageInner() {
 
                 const audioMetricsPayload = audioResult ? audioResult.stats : undefined;
 
+                const mode = searchParams.get("mode");
+                let materialContext = "";
+                if (mode === "lecture") {
+                    materialContext = sessionStorage.getItem("lecture_material") || "";
+                }
+
                 const [aiSummary, vocalSummary, postureSummary] = await Promise.all([
                     analyzeSession({
                         duration: data.duration,
@@ -160,7 +166,8 @@ function PracticePageInner() {
                         transcript: transcript,
                         speechMetrics: speechMetricsPayload,
                         // @ts-ignore
-                        audioMetrics: audioMetricsPayload
+                        audioMetrics: audioMetricsPayload,
+                        materialContext: materialContext // Pass the lecture material
                     }),
                     analyzeVocal({
                         speechMetrics: speechMetricsPayload,
@@ -232,9 +239,11 @@ function PracticePageInner() {
                                 fillerCounts,
                                 pauseCount,
                                 wpmHistory,
+                                videoUrl: videoUrl,
                                 transcript: transcript ?? "",
                                 pauseStats: finalPauseStats ?? null,
                                 audioMetrics: audioResult?.stats ?? undefined,
+                                lectureAnalysis: (aiSummary as any).lectureAnalysis ?? null,
                             });
                             const newStreak = await updateStreak(user.uid);
                             const sessionStats = await getSessionStats(user.uid);
@@ -371,6 +380,7 @@ function PracticePageInner() {
                                     <AnimatePresence>
                                         {isCoachHovered && (
                                             <motion.div
+                                                key="coach-widget"
                                                 initial={{ opacity: 0, y: 20 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 exit={{ opacity: 0, y: 20 }}
@@ -498,6 +508,7 @@ function PracticePageInner() {
             <AnimatePresence>
                 {newBadges.length > 0 && (
                     <motion.div
+                        key="badge-award-toast"
                         initial={{ opacity: 0, y: -60 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -60 }}
@@ -525,6 +536,7 @@ function PracticePageInner() {
             <AnimatePresence>
                 {sessionSummary && (
                     <motion.div
+                        key="session-summary-modal"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}

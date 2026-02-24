@@ -29,6 +29,7 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                 {/* 1. INTERACTIVE PROMPT: Only show when Nervous + Prompt state */}
                 {interventionState === 'prompt' && (
                     <motion.div
+                        key="nervous-prompt"
                         initial={{ opacity: 0, scale: 0.9, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
@@ -60,6 +61,7 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                 {/* 2. BREATHING GUIDE: Only show if user said YES ('active') */}
                 {interventionState === 'active' && (
                     <motion.div
+                        key="breathing-guide"
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{
                             opacity: 1,
@@ -91,6 +93,7 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                 {/* Distraction: Eye Contact Target */}
                 {isDistracted && (
                     <motion.div
+                        key="distraction-alert"
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0 }}
@@ -107,6 +110,7 @@ export function FeedbackOverlay({ isNervous, isDistracted, emotionState, posture
                 {/* Smile Prompt (If stable but low engagement) */}
                 {emotionState === 'neutral' && !isNervous && !isDistracted && (
                     <motion.div
+                        key="smile-prompt"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 0.7 }}
                         exit={{ opacity: 0 }}
