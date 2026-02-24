@@ -14,6 +14,7 @@ import {
     RefreshCw,
     Loader2,
     ChevronRight,
+    UploadCloud,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -196,7 +197,30 @@ export default function TopicSelectionPage() {
                                 <p className="text-white/50 max-w-md mx-auto">Choose your own topic or let AI surprise you with something interesting.</p>
                             </motion.div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                {/* Upload Video */}
+                                <motion.button
+                                    variants={item}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => router.push("/dashboard/practice/upload")}
+                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-orange-500/30 hover:bg-orange-500/[0.05] overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative space-y-4">
+                                        <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 group-hover:bg-orange-500/20 transition-colors">
+                                            <UploadCloud className="w-7 h-7 text-orange-400" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-semibold mb-1">Upload Video</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed">Upload a pre-recorded video for AI analysis and coaching.</p>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs text-orange-400 font-medium">
+                                            Select file <ChevronRight className="w-3 h-3" />
+                                        </div>
+                                    </div>
+                                </motion.button>
+
                                 {/* Custom Topic */}
                                 <motion.button
                                     variants={item}

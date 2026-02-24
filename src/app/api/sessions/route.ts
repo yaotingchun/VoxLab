@@ -14,32 +14,35 @@ export async function GET(request: Request) {
 
         const bucket = storage.bucket(BUCKET_NAME);
 
-        // Strict Isolation: Only look inside the authenticated user's dedicated folder
-        let prefixPath = `users/${userId}/sessions/`;
+        // Flat Organization: Look inside the global uploads folder with user prefix
+        let prefixPath = `uploads/${userId}_`;
         let [files] = await bucket.getFiles({ prefix: prefixPath });
-        console.log(`Found ${files.length} files in GCS under: ${prefixPath}`);
+        console.log(`Found ${files.length} files in GCS for user ${userId} under: ${prefixPath}`);
+
+        let userFiles = files;
 
         // Demo Fallback: If a new user signs in and has recorded 0 sessions, 
-        // load the dummy/mock data from user '1234' so the dashboard isn't completely empty.
-        if (files.length === 0) {
+        // load the dummy/mock data from user '1234'
+        if (userFiles.length === 0) {
             console.log(`User ${userId} has no files. Falling back to the demo '1234' mock directory.`);
-            prefixPath = `users/1234/sessions/`;
-            [files] = await bucket.getFiles({ prefix: prefixPath });
+            userFiles = files.filter(f => f.name.startsWith(`uploads/1234_`));
         }
 
-        const sessionPromises = files
-            .filter(file => {
+        const sessionPromises = userFiles
+            .filter((file: any) => {
                 console.log(`Checking file: ${file.name}`);
                 return file.name.endsWith('.json');
             })
-            .map(async (file) => {
+            .map(async (file: any) => {
                 try {
                     const [content] = await file.download();
                     const data = JSON.parse(content.toString());
 
                     // Filter: Only process files that belong to the requested userId,
                     // UNLESS we are explicitly serving the '1234' fallback demo data.
-                    if (data.userId && data.userId !== userId && prefixPath !== `users/1234/sessions/`) {
+                    // (Double check for safety based on JSON content)
+                    const isDemo = file.name.includes('/1234_');
+                    if (data.userId && data.userId !== userId && !isDemo) {
                         return null;
                     }
 

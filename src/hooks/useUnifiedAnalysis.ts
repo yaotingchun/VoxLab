@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { usePostureAnalysis, type PostureAnalysisResult } from '@/hooks/usePostureAnalysis';
 import { useFaceAnalysis, type FaceAnalysisMetrics } from '@/hooks/useFaceAnalysis';
 
@@ -202,8 +202,10 @@ export function useUnifiedAnalysis() {
         };
     }, [posture, face, isDistractedBuffered]);
 
+    const result = useMemo(() => calculateUnifiedScore(), [calculateUnifiedScore]);
+
     return {
-        result: calculateUnifiedScore(),
+        result,
         analyzePosture,
         analyzeFace,
         startSession: startUnifiedSession,

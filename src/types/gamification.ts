@@ -58,10 +58,32 @@ export interface PracticeSession {
     wpmHistory?: number[];
     transcript?: string;
     pauseStats?: { stats: PauseStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
-    audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean };
+    audioMetrics?: { averageVolume: number; pitchRange: number; isMonotone: boolean; isTooQuiet: boolean } | null;
     vocalSummary?: { summary: string; tips: string[]; score?: number } | null;
-    postureSummary?: { summary: string; tips: string[]; score?: number } | null;
+    postureSummary?: { summary: string; tips: string[]; score?: number; gestureEnergy?: number } | null;
     videoUrl?: string | null;
     issueCounts?: Record<string, number>;
+    faceMetrics?: {
+        averageEngagement: number;
+        smilePercentage: number;
+        blinkRateAverage: number;
+        eyeContactScore: number;
+        hasHighBlinkRate: boolean;
+        hasMouthTension: boolean;
+        hasShiftyEyes: boolean;
+        hasPoorCameraClarity: boolean;
+    } | null;
+    rubricText?: string | null;
+    rubricFeedback?: {
+        score: number;
+        alignmentLevel: "high" | "medium" | "low";
+        overallAssessment: string;
+        criteriaBreakdown: {
+            criterion: string;
+            fulfillment: "full" | "partial" | "none";
+            feedback: string;
+            evidence: string;
+        }[];
+    } | null;
 }
 

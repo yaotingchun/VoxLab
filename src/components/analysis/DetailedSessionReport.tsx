@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2, FileCheck2 } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2, FileCheck2, CheckCircle2, XCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -23,9 +23,8 @@ interface DetailedSessionReportProps {
         score?: number;
         vocalSummary?: { summary: string; tips: string[]; score?: number } | null;
         postureSummary?: { summary: string; tips: string[]; score?: number } | null;
+        createdAt?: any;
         videoUrl?: string | null; // Newly added video URL from GCS
-        complianceReport?: any;
-        rubric?: any;
         rawMetrics?: {
             duration: number;
             wpm: number;
@@ -56,7 +55,28 @@ interface DetailedSessionReportProps {
             volumeSamples?: number[];
             pitchSamples?: number[];
             transcript?: string; // Added transcript
+            faceMetrics?: {
+                averageEngagement: number;
+                smilePercentage: number;
+                blinkRateAverage: number;
+                eyeContactScore: number;
+                hasHighBlinkRate: boolean;
+                hasMouthTension: boolean;
+                hasShiftyEyes: boolean;
+                hasPoorCameraClarity: boolean;
+            };
         };
+        rubricFeedback?: {
+            score: number;
+            alignmentLevel: "high" | "medium" | "low";
+            overallAssessment: string;
+            criteriaBreakdown: {
+                criterion: string;
+                fulfillment: "full" | "partial" | "none";
+                feedback: string;
+                evidence: string;
+            }[];
+        } | null;
     };
     onClose: () => void;
 }
@@ -79,12 +99,10 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
 
-    // Calculate max tabs based on availability of Compliance Report data
-    const hasComplianceData = !!data.complianceReport || !!data.rubric;
-    const maxTabIndex = hasComplianceData ? 4 : 3;
+    const maxTabIndex = 3;
 
     const [currentReportIndex, setCurrentReportIndex] = useState<number>(0);
-    // 0: General, 1: Vocal, 2: Posture, 3: Content, 4: Compliance (optional)
+    // 0: General, 1: Vocal, 2: Posture, 3: Content
 
     // Content Analysis State
     const [contentAnalysis, setContentAnalysis] = useState<string>("");
@@ -163,19 +181,37 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
         }
     };
 
-    const metrics = data.rawMetrics || {
-        duration: 0,
-        wpm: 0,
-        totalWords: 0,
-        fillerCounts: {},
-        issueCounts: {},
-        pauseCount: 0,
-        wpmHistory: [],
-        pauseStats: undefined,
-        audioMetrics: undefined,
-        volumeSamples: [],
-        pitchSamples: [],
-        transcript: ""
+    const metrics: {
+        duration: number;
+        wpm: number;
+        totalWords: number;
+        fillerCounts: Record<string, number>;
+        issueCounts: Record<string, number>;
+        pauseCount: number;
+        wpmHistory: number[];
+        pauseStats?: any;
+        audioMetrics?: any;
+        volumeSamples: number[];
+        pitchSamples: number[];
+        transcript: string;
+        faceMetrics?: any;
+        words: { word: string; startTime: number; endTime: number }[];
+    } = {
+        duration: data.rawMetrics?.duration ?? (data as any).duration ?? 0,
+        wpm: data.rawMetrics?.wpm ?? (data as any).wpm ?? 0,
+        totalWords: data.rawMetrics?.totalWords ?? (data as any).totalWords ?? 0,
+        fillerCounts: data.rawMetrics?.fillerCounts ?? (data as any).fillerCounts ?? {},
+        issueCounts: data.rawMetrics?.issueCounts ?? (data as any).issueCounts ?? (data as any).combinedIssueCounts ?? {},
+        pauseCount: data.rawMetrics?.pauseCount ?? (data as any).pauses ?? (data as any).pauseCount ?? 0,
+        wpmHistory: data.rawMetrics?.wpmHistory ?? (data as any).wpmHistory ?? [],
+        pauseStats: data.rawMetrics?.pauseStats ?? (data as any).pauseStats,
+        audioMetrics: data.rawMetrics?.audioMetrics ?? (data as any).audioMetrics,
+        volumeSamples: data.rawMetrics?.volumeSamples ?? (data as any).volumeSamples ?? [],
+        pitchSamples: data.rawMetrics?.pitchSamples ?? (data as any).pitchSamples ?? [],
+        transcript: data.rawMetrics?.transcript ?? (data as any).transcript ?? "",
+        faceMetrics: data.rawMetrics?.faceMetrics ?? (data as any).faceMetrics,
+        words: data.rawMetrics?.words ?? (data as any).words ?? [],
+        rubricFeedback: data.rawMetrics?.rubricFeedback ?? (data as any).rubricFeedback
     };
 
     const { messages: contentMessages, status: contentStatus, sendMessage: sendContentMessage } = useChat({
@@ -268,7 +304,6 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                             {currentReportIndex === 1 && <><Mic className="w-5 h-5 text-pink-400" /> Vocal</>}
                             {currentReportIndex === 2 && <><Activity className="w-5 h-5 text-blue-400" /> Posture</>}
                             {currentReportIndex === 3 && <><BarChart3 className="w-5 h-5 text-green-400" /> Content</>}
-                            {currentReportIndex === 4 && <><FileCheck2 className="w-5 h-5 text-yellow-500" /> Compliance</>}
                         </h2>
                         <Button
                             variant="ghost"
@@ -322,7 +357,16 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                                     General Performance Report
                                 </h1>
-                                <p className="text-slate-400 text-sm">Generated by VoxLab AI</p>
+                                <p className="text-slate-400 text-sm flex items-center justify-center gap-2">
+                                    <Clock className="w-3 h-3" />
+                                    {data.createdAt ? (
+                                        typeof data.createdAt === 'string' ? new Date(data.createdAt).toLocaleString() :
+                                            data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() :
+                                                new Date(data.createdAt).toLocaleString()
+                                    ) : (
+                                        "Recently Recorded"
+                                    )} — Generated by VoxLab AI
+                                </p>
                             </div >
 
                             {/* 2. Executive Summary & Score */}
@@ -1011,7 +1055,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                                     Posture & Presence
                                 </h1>
-                                <p className="text-slate-400 text-sm">Body language, alignment, and eye contact</p>
+                                <p className="text-slate-400 text-sm">Body language and postural alignment</p>
                             </div>
 
                             {/* Posture Coach Summary & Score */}
@@ -1085,6 +1129,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 }
                             </div>
 
+
                         </div>
                     )}
 
@@ -1097,6 +1142,76 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </h1>
                                 <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
                             </div>
+
+                            {metrics.rubricFeedback && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                                    <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6 flex flex-col md:flex-row gap-8 items-center shadow-lg shadow-orange-950/10">
+                                        <div className="flex-1 space-y-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                                                    {metrics.rubricFeedback.alignmentLevel} alignment
+                                                </div>
+                                                <h4 className="text-xl font-bold text-white">Target Rubric Review</h4>
+                                            </div>
+                                            <p className="text-orange-200/70 text-sm leading-relaxed italic">
+                                                "{metrics.rubricFeedback.overallAssessment}"
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={metrics.rubricFeedback.score}
+                                                label="Rubric Score"
+                                                color="text-orange-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Detailed Criteria Breakdown */}
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {metrics.rubricFeedback.criteriaBreakdown.map((item, i) => (
+                                            <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                                            item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                                                                'bg-red-500/10 border-red-500/20 text-red-400'
+                                                            }`}>
+                                                            {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
+                                                                item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
+                                                                    <XCircle className="w-4 h-4" />}
+                                                        </div>
+                                                        <div>
+                                                            <h5 className="font-bold text-slate-100">{item.criterion}</h5>
+                                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
+                                                                item.fulfillment === 'partial' ? 'text-amber-400' :
+                                                                    'text-red-400'
+                                                                }`}>
+                                                                {item.fulfillment} fulfillment
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                                        {item.feedback}
+                                                    </p>
+                                                    {item.evidence && (
+                                                        <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <Search className="w-3 h-3 text-slate-500" />
+                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-400 italic">
+                                                                "{item.evidence}"
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex flex-col gap-6">
 
@@ -1169,129 +1284,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                         </div>
                     )}
 
-                    {currentReportIndex === 4 && hasComplianceData && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Header */}
-                            <div className="text-center space-y-2 pb-6 border-b border-slate-800">
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
-                                    Rubric Compliance
-                                </h1>
-                                <p className="text-slate-400 text-sm">Evaluation against your uploaded grading criteria</p>
-                            </div>
 
-                            {data.complianceReport && (
-                                <>
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
-                                        <div className="flex-1 space-y-4">
-                                            <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-widest flex items-center gap-2">
-                                                <FileCheck2 className="w-4 h-4" /> Compliance Overview
-                                            </h3>
-                                            <p className="text-slate-200 leading-relaxed text-lg">
-                                                Based on your transcript and physical delivery, the AI has evaluated how closely you followed the rubric.
-                                            </p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <CircularScoreChart
-                                                score={data.complianceReport.overallComplianceScore}
-                                                label="Compliance Score"
-                                                color="text-yellow-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Evaluation Criteria Grid */}
-                                    <div className="space-y-4">
-                                        <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                                            <Activity className="w-4 h-4 text-blue-400" /> Criteria Breakdown
-                                        </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {/* Topic Alignment */}
-                                            {data.complianceReport.topicAlignment && (
-                                                <div className={`p-5 rounded-2xl border bg-slate-800/30 ${data.complianceReport.topicAlignment.score >= 70 ? 'border-green-500/30' : 'border-amber-500/30'}`}>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <div className="flex items-center gap-2 text-slate-400">
-                                                            <Type className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Topic Alignment</span>
-                                                        </div>
-                                                        <span className={`text-sm font-bold ${data.complianceReport.topicAlignment.score >= 70 ? 'text-green-400' : 'text-amber-400'}`}>{data.complianceReport.topicAlignment.score}/100</span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-300">{data.complianceReport.topicAlignment.feedback}</p>
-                                                </div>
-                                            )}
-
-                                            {/* Emotional Congruence */}
-                                            {data.complianceReport.emotionalCongruence && (
-                                                <div className={`p-5 rounded-2xl border bg-slate-800/30 ${data.complianceReport.emotionalCongruence.isCongruent ? 'border-green-500/30' : 'border-red-500/30'}`}>
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <div className="flex items-center gap-2 text-slate-400">
-                                                            <Activity className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Emotional Congruence</span>
-                                                        </div>
-                                                        <span className={`text-sm font-bold ${data.complianceReport.emotionalCongruence.isCongruent ? 'text-green-400' : 'text-red-400'}`}>
-                                                            {data.complianceReport.emotionalCongruence.isCongruent ? 'Congruent' : 'Mismatch'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-300">{data.complianceReport.emotionalCongruence.feedback}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Specific Rubric Points */}
-                                    {data.complianceReport.rubricEvaluation && data.complianceReport.rubricEvaluation.length > 0 && (
-                                        <div className="space-y-4 pt-4">
-                                            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                                                <BarChart3 className="w-4 h-4 text-purple-400" /> Rubric Requirements
-                                            </h3>
-                                            <div className="grid grid-cols-1 gap-4">
-                                                {data.complianceReport.rubricEvaluation.map((evalItem: any, i: number) => (
-                                                    <div key={i} className="flex gap-4 p-4 rounded-xl border border-slate-700/50 bg-slate-800/40">
-                                                        <div className="shrink-0 mt-1">
-                                                            {evalItem.followed ? (
-                                                                <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center">✅</div>
-                                                            ) : (
-                                                                <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center">❌</div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex-1 space-y-1">
-                                                            <div className="flex justify-between items-start">
-                                                                <h4 className="font-semibold text-white">{evalItem.criterion}</h4>
-                                                                <span className="text-sm font-bold text-slate-400">{evalItem.score}/100</span>
-                                                            </div>
-                                                            <p className="text-sm text-slate-300">{evalItem.feedback}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Improvement Tips */}
-                                    {data.complianceReport.improvementTips && data.complianceReport.improvementTips.length > 0 && (
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50 flex flex-col mt-6">
-                                            <h3 className="text-sm font-bold text-yellow-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                <span>💡</span> Compliance Recommendations
-                                            </h3>
-                                            <ul className="space-y-4">
-                                                {data.complianceReport.improvementTips.map((tip: string, index: number) => (
-                                                    <li key={index} className="flex items-start gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/10 text-yellow-500 flex items-center justify-center font-bold text-xs border border-yellow-500/20">
-                                                            {index + 1}
-                                                        </span>
-                                                        <p className="text-sm text-slate-200 leading-snug pt-0.5">{tip}</p>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-
-                            {!data.complianceReport && data.rubric && (
-                                <div className="p-8 text-center text-slate-400 bg-slate-800/30 rounded-2xl border border-slate-700/50">
-                                    A rubric was provided, but the compliance report is still generating or failed to generate.
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div >
 
                 {/* Session Context Chatbot */}

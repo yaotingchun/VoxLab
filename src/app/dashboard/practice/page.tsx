@@ -186,6 +186,7 @@ function PracticePageInner() {
                 }
 
                 const finalSummaryData = {
+                    sessionId: fileId,
                     ...aiSummary,
                     vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
                     postureSummary: 'error' in postureSummary ? null : postureSummary,
@@ -236,7 +237,10 @@ function PracticePageInner() {
                                 wpmHistory,
                                 transcript: transcript ?? "",
                                 pauseStats: finalPauseStats ?? null,
-                                audioMetrics: audioResult?.stats ?? undefined,
+                                audioMetrics: audioResult?.stats ?? null,
+                                faceMetrics: data.faceMetrics,
+                                postureSummary: 'error' in postureSummary ? null : postureSummary,
+                                videoUrl: videoUrl ?? null,
                             });
                             const streakData = await getUserStreak(user.uid);
                             const today = getLocalDateString(new Date());

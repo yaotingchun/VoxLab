@@ -33,6 +33,8 @@ interface SessionData {
         avgPitch?: number;
         volumeRange?: number;
     };
+    rubricText?: string;
+    transcript?: string;
 }
 
 export async function analyzeSession(data: SessionData) {
@@ -49,6 +51,7 @@ export async function analyzeSession(data: SessionData) {
         - Filler Words: ${data.speechMetrics ? Object.entries(data.speechMetrics.fillerCounts).map(([k, v]) => `${k}: ${v}`).join(', ') : 'None'}
         - Pauses Detected: ${data.speechMetrics?.pauseCount || 0}
         - Pace Stability: ${data.speechMetrics?.wpmHistory.length ? 'Varied' : 'Stable'} (History: ${data.speechMetrics?.wpmHistory.slice(0, 10).join(', ')}...)
+        - Transcript: "${data.transcript || 'N/A'}"
 
         - Posture Issues:
         ${Object.entries(data.issueCounts).map(([k, v]) => `  - ${k}: ${v} detected`).join('\n')}
@@ -66,18 +69,46 @@ export async function analyzeSession(data: SessionData) {
         - Monotone: ${data.audioMetrics?.isMonotone ? 'Yes' : 'No'}
         - Too Quiet: ${data.audioMetrics?.isTooQuiet ? 'Yes' : 'No'}
 
+        ${data.rubricText ? `
+        CRITICAL: EVALUATE BASED ON THIS RUBRIC:
+        "${data.rubricText}"
+        
+        INSTRUCTIONS FOR RUBRIC EVALUATION:
+        1. Parse the rubric text above to identify distinct evaluation criteria (e.g., "Clarity", "Body Language", "Structure").
+        2. Evaluate each criterion based on the transcript and performance metrics provided.
+        3. Assign a fulfillment status to each: "full", "partial", or "none".
+        4. Provide specific feedback for each criterion, citing evidence from the session (e.g., quotes from transcript or specific posture metrics).
+        5. Provide an overall assessment of how well the user met the rubric's goals.
+        ` : ""}
+        
         Provide a "Gemini AI Coach" summary.
         1. A brief, 2-3 sentence analysis of their overall performance, encompassing their script, posture, and VOCAL delivery.
         2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).
         3. An objective 'score' from 0 to 100 evaluating their overall performance across all these pillars. Make it tough but fair.
+        
+        ${data.rubricText ? `
+        4. Provide a rubric-specific score (0-100) reflecting the average fulfillment of the identified criteria.
+        5. Assess the "Alignment Level" (high, medium, low) based on the overall fulfillment.
+        ` : ""}
         `;
 
         const { object } = await generateObject({
-            model: vertex('gemini-2.5-pro'),
+            model: vertex('gemini-2.0-flash'), // Using faster model for complex multi-pillar analysis
             schema: z.object({
                 summary: z.string().describe('A brief, 2-3 sentence analysis of their performance'),
                 tips: z.array(z.string()).describe('Three specific, actionable "Quick Tips" to improve next time'),
                 score: z.number().min(0).max(100).describe('An objective score from 0 to 100 evaluating their overall performance'),
+                rubricFeedback: z.object({
+                    score: z.number().min(0).max(100),
+                    alignmentLevel: z.enum(["high", "medium", "low"]),
+                    overallAssessment: z.string().describe('A concise summary of how well the rubric goals were met'),
+                    criteriaBreakdown: z.array(z.object({
+                        criterion: z.string().describe('The name of the rubric criterion'),
+                        fulfillment: z.enum(["full", "partial", "none"]),
+                        feedback: z.string().describe('Detailed feedback for this specific criterion'),
+                        evidence: z.string().describe('Direct evidence from the session (transcript or metrics) supporting the fulfillment status')
+                    }))
+                }).optional().nullable()
             }),
             prompt: prompt,
         });

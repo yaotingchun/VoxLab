@@ -62,9 +62,9 @@ export function useFaceAnalysis() {
         eyeContactSum: 0
     });
 
-    const startSession = useCallback(() => {
+    const startSession = useCallback((timestampMs?: number) => {
         isSessionActiveRef.current = true;
-        sessionStartTimeRef.current = Date.now();
+        sessionStartTimeRef.current = timestampMs !== undefined ? timestampMs : Date.now();
         sessionDataRef.current = {
             frameCount: 0,
             smileFrameCount: 0,
@@ -76,9 +76,10 @@ export function useFaceAnalysis() {
         // Reset metrics visuals if needed
     }, []);
 
-    const endSession = useCallback(() => {
+    const endSession = useCallback((timestampMs?: number) => {
         isSessionActiveRef.current = false;
-        const durationSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
+        const now = timestampMs !== undefined ? timestampMs : Date.now();
+        const durationSeconds = (now - sessionStartTimeRef.current) / 1000;
         const data = sessionDataRef.current;
 
         // Calculate Averages
@@ -121,14 +122,14 @@ export function useFaceAnalysis() {
         return maxIndex;
     };
 
-    const analyzeFace = useCallback((result: FaceLandmarkerResult) => {
+    const analyzeFace = useCallback((result: FaceLandmarkerResult, timestampMs?: number) => {
         if (!result.faceLandmarks || result.faceLandmarks.length === 0) return;
 
         // Task 2: Multi-person detection - find main speaker
         const mainSpeakerIndex = getLargestFaceIndex(result.faceLandmarks);
         const landmarks = result.faceLandmarks[mainSpeakerIndex];
 
-        const now = Date.now();
+        const now = timestampMs !== undefined ? timestampMs : Date.now();
 
         // --- 1. Nervousness & Clarity Detection ---
 

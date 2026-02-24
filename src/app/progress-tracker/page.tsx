@@ -103,8 +103,8 @@ export default function ProgressTrackerPage() {
                 const apiSession = apiData?.sessions?.find((s: any) => s.id === id);
                 return {
                     id,
-                    videoUrl: selectedDayData.videoUrls?.[idx] || null,
-                    jsonUrl: selectedDayData.jsonUrls?.[idx] || null,
+                    videoUrl: apiSession?.videoUrl || null,
+                    jsonUrl: apiSession?.jsonUrl || null,
                     savedAt: apiSession?.savedAt || null
                 };
             });
@@ -128,8 +128,8 @@ export default function ProgressTrackerPage() {
                     const apiSession = apiData?.sessions?.find((s: any) => s.id === id);
                     return {
                         id,
-                        videoUrl: latestDayData.videoUrls?.[idx] || null,
-                        jsonUrl: latestDayData.jsonUrls?.[idx] || null,
+                        videoUrl: apiSession?.videoUrl || null,
+                        jsonUrl: apiSession?.jsonUrl || null,
                         savedAt: apiSession?.savedAt || null
                     };
                 });

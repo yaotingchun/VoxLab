@@ -157,8 +157,8 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
             dayMatch.Overall = (dayMatch.Overall || 0) + session.score;
             dayMatch.count += 1;
             dayMatch.sessionIds.push(session.id);
-            if (session.videoUrl) dayMatch.videoUrls.push(session.videoUrl);
-            if (session.jsonUrl) dayMatch.jsonUrls.push(session.jsonUrl);
+            dayMatch.videoUrls.push(session.videoUrl || "");
+            dayMatch.jsonUrls.push(session.jsonUrl || "");
         }
     });
 

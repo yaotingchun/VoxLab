@@ -8,7 +8,7 @@ import { Storage } from "@google-cloud/storage";
 const storage = new Storage();
 
 // Replace with your actual bucket name. The user can configure this in .env.local
-const BUCKET_NAME = process.env.GCS_SESSIONS_BUCKET_NAME || "voxlab-storage";
+const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "voxlab-storage";
 
 export async function saveSessionToGCS(sessionData: any, userId: string, fileId: string): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
@@ -18,8 +18,8 @@ export async function saveSessionToGCS(sessionData: any, userId: string, fileId:
 
         const bucket = storage.bucket(BUCKET_NAME);
 
-        // Strict Isolation: Save into the user's explicit folder with the provided linked fileId
-        const filename = `users/${userId}/sessions/${fileId}.json`;
+        // Flat Organization: Save into a shared uploads folder with userId prefix
+        const filename = `uploads/${userId}_${fileId}.json`;
 
         const file = bucket.file(filename);
 
@@ -61,8 +61,8 @@ export async function getGCSUploadUrl(contentType: string, extension: string, us
     try {
         const bucket = storage.bucket(BUCKET_NAME);
 
-        // Strict Isolation: Generate a signed upload URL into the user's explicit folder matching the JSON
-        const filename = `users/${userId}/sessions/${fileId}.${extension}`;
+        // Flat Organization: Generate a signed upload URL into the shared uploads folder
+        const filename = `uploads/${userId}_${fileId}.${extension}`;
         const file = bucket.file(filename);
 
         // Generate a 15-minute signed URL for PUT

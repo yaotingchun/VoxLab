@@ -1,30 +1,81 @@
 import { db } from "./firebase";
 import {
     collection,
-    addDoc,
-    getDocs,
-    serverTimestamp,
     query,
     orderBy,
     limit,
+    getDocs,
     getDoc,
-    doc
+    doc,
+    runTransaction,
+    serverTimestamp
 } from "firebase/firestore";
 import { PracticeSession } from "@/types/gamification";
+import { getLocalDateString } from "./streak";
 
 /**
  * Save a completed session to Firestore under users/{uid}/sessions
+ * Uses a Firestore Transaction to atomically increment currentStreak 
+ * and attach the session into history to prevent sync issues.
  */
 export const saveSession = async (
     uid: string,
     data: Omit<PracticeSession, "id" | "uid" | "createdAt">
 ): Promise<string> => {
-    const ref = await addDoc(collection(db, "users", uid, "sessions"), {
-        uid,
-        ...data,
-        createdAt: serverTimestamp()
+
+    // We create a new doc ref manually so we know its ID during the transaction
+    const sessionsCol = collection(db, "users", uid, "sessions");
+    const newSessionRef = doc(sessionsCol);
+    const userRef = doc(db, "users", uid);
+
+    await runTransaction(db, async (transaction) => {
+        const userDoc = await transaction.get(userRef);
+
+        let currentStreak = 0;
+        let longestStreak = 0;
+        let practiceHistory: string[] = [];
+
+        if (userDoc.exists()) {
+            const ud = userDoc.data();
+            currentStreak = ud.currentStreak || 0;
+            longestStreak = ud.longestStreak || 0;
+            practiceHistory = ud.practiceHistory || [];
+        }
+
+        const todayStr = getLocalDateString(new Date());
+        let updatedStreak = currentStreak;
+
+        if (practiceHistory.length === 0 || practiceHistory[0] !== todayStr) {
+            // New day practice
+            updatedStreak += 1;
+
+            // Insert today at the beginning
+            if (practiceHistory[0] !== todayStr) {
+                practiceHistory.unshift(todayStr);
+            }
+        }
+
+        if (updatedStreak > longestStreak) {
+            longestStreak = updatedStreak;
+        }
+
+        // 1. Write the streak data
+        transaction.set(userRef, {
+            currentStreak: updatedStreak,
+            longestStreak,
+            practiceHistory,
+            lastPracticeDate: todayStr
+        }, { merge: true });
+
+        // 2. Write the session document atomically
+        transaction.set(newSessionRef, {
+            uid,
+            ...data,
+            createdAt: serverTimestamp()
+        });
     });
-    return ref.id;
+
+    return newSessionRef.id;
 };
 
 /**

@@ -71,8 +71,6 @@ export default function SessionReportPage() {
         score: session.score,
         vocalSummary: session.vocalSummary,
         postureSummary: session.postureSummary,
-        complianceReport: (session as any).complianceReport,
-        rubric: (session as any).rubric,
         videoUrl: session.videoUrl,
         rawMetrics: {
             duration: session.duration ?? 0,
