@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFParse } from "pdf-parse";
+import path from "path";
 
 export async function POST(req: NextRequest) {
     try {
@@ -9,6 +10,10 @@ export async function POST(req: NextRequest) {
         if (!file) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
+
+        // Set worker path to avoid "pdf.worker.mjs not found" error
+        const workerPath = path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs");
+        PDFParse.setWorker(workerPath);
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const parser = new PDFParse({ data: buffer });
