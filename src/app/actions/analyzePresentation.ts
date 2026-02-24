@@ -1,6 +1,6 @@
 "use server";
 
-import { generateObject, type CoreMessage } from 'ai';
+import { generateObject } from 'ai';
 import { vertex } from '@ai-sdk/google-vertex';
 import { z } from 'zod';
 import { PauseStats } from '@/lib/pause-analysis';
@@ -123,7 +123,7 @@ export async function analyzePresentation(data: SessionData) {
             });
         }
 
-        const messages: CoreMessage[] = [
+        const messages: any[] = [
             {
                 role: 'user',
                 content: userContent,

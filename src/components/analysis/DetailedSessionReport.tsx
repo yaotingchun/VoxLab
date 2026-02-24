@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles, FileText } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles, FileText, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -41,6 +41,12 @@ interface DetailedSessionReportProps {
             weaknesses: string[];
             feedback: string;
         } | null;
+        qnaSummary?: {
+            question: string;
+            userAnswer: string;
+            idealAnswer: string;
+            relevanceScore: number;
+        }[] | null;
         videoUrl?: string; // Newly added video URL from GCS
         rawMetrics?: {
             topic?: string | null;
@@ -199,7 +205,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
 
     // Auto-analyze transcript when report opens
     useEffect(() => {
-        if (!hasTriggeredContent && metrics.transcript && sendContentMessage) {
+        if (!hasTriggeredContent && metrics.transcript && sendContentMessage && !data.qnaSummary) {
             setHasTriggeredContent(true);
             setIsAnalyzingContent(true);
 
@@ -222,7 +228,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                 setIsAnalyzingContent(false);
             });
         }
-    }, [metrics.transcript, sendContentMessage, hasTriggeredContent, metrics.topic, data.slideAnalysis, data.rubricAnalysis]);
+    }, [metrics.transcript, sendContentMessage, hasTriggeredContent, metrics.topic, data.slideAnalysis, data.rubricAnalysis, data.qnaSummary]);
 
     // Derive the final content analysis text from the AI assistant message
     const streamedContentAnalysis = contentMessages
@@ -319,7 +325,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 }`}
                         >
                             <BarChart3 className={`w-4 h-4 ${currentReportIndex === 3 ? "text-green-400" : "text-slate-500"}`} />
-                            <span className="text-sm font-bold">Content</span>
+                            <span className="text-sm font-bold">{data.qnaSummary ? "Q&A Analysis" : "Content"}</span>
                         </button>
                     </div>
                     <div className="flex items-center gap-4">
@@ -1345,23 +1351,25 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                             <div className="flex flex-col gap-6">
 
                                 {/* Content Summary & Score Header */}
-                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
-                                    <div className="flex-1 space-y-4">
-                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Activity className="w-4 h-4" /> Content Heuristic Score
-                                        </h3>
-                                        <p className="text-slate-200 leading-relaxed text-sm">
-                                            This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
-                                        </p>
+                                {!data.qnaSummary && (
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-4">
+                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Activity className="w-4 h-4" /> Content Heuristic Score
+                                            </h3>
+                                            <p className="text-slate-200 leading-relaxed text-sm">
+                                                This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={localContentScore}
+                                                label="Content Score"
+                                                color="text-green-500"
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="flex-shrink-0">
-                                        <CircularScoreChart
-                                            score={localContentScore}
-                                            label="Content Score"
-                                            color="text-green-500"
-                                        />
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Transcript Column */}
                                 <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
@@ -1375,40 +1383,101 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                 </div>
 
-                                {/* AI Analysis Column */}
-                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                            <Activity className="w-4 h-4" /> AI Content Coach
-                                        </h3>
-                                        {!contentAnalysis && isAnalyzingContent && (
-                                            <div className="flex items-center gap-2 text-teal-400 text-sm">
-                                                <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                                                Analyzing...
+                                {/* Q&A Breakdown */}
+                                {data.qnaSummary && (
+                                    <div className="space-y-6">
+                                        {/* Average Relevance Score */}
+                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                            <div className="flex-1 space-y-3">
+                                                <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Target className="w-4 h-4" /> Average Relevance
+                                                </h3>
+                                                <p className="text-slate-300 text-sm leading-relaxed">
+                                                    This score represents how well your answers addressed the specific questions asked during the Q&A session.
+                                                </p>
                                             </div>
-                                        )}
-                                    </div>
+                                            <div className="flex-shrink-0">
+                                                <CircularScoreChart
+                                                    score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
+                                                    label="Avg Score"
+                                                    color="text-teal-500"
+                                                />
+                                            </div>
+                                        </div>
 
-                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                        {isContentLoading && !streamedContentAnalysis && (
-                                            <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                                                <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                                                <p>Analyzing script flow and impact...</p>
-                                            </div>
-                                        )}
-                                        {streamedContentAnalysis && (
-                                            <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
-                                                <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
-                                                {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
-                                            </div>
-                                        )}
-                                        {!isContentLoading && !streamedContentAnalysis && (
-                                            <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
-                                                {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
-                                            </div>
-                                        )}
+                                        {/* Questions Breakdown */}
+                                        <div className="space-y-6">
+                                            {data.qnaSummary.map((qna, idx) => (
+                                                <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="space-y-1">
+                                                            <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
+                                                            <p className="text-slate-300 font-medium">{qna.question}</p>
+                                                        </div>
+                                                        <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
+                                                            <span className="text-xs font-bold text-slate-400">Score</span>
+                                                            <span className={`text-sm font-bold ${qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                                {qna.relevanceScore}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid md:grid-cols-2 gap-4 mt-4">
+                                                        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                                                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
+                                                            </div>
+                                                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
+                                                        </div>
+                                                        <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
+                                                            <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
+                                                            </div>
+                                                            <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* AI Analysis Column */}
+                                {!data.qnaSummary && (
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Activity className="w-4 h-4" /> AI Content Coach
+                                            </h3>
+                                            {!contentAnalysis && isAnalyzingContent && (
+                                                <div className="flex items-center gap-2 text-teal-400 text-sm">
+                                                    <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                                                    Analyzing...
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                            {isContentLoading && !streamedContentAnalysis && (
+                                                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
+                                                    <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                                    <p>Analyzing script flow and impact...</p>
+                                                </div>
+                                            )}
+                                            {streamedContentAnalysis && (
+                                                <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
+                                                    <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
+                                                    {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
+                                                </div>
+                                            )}
+                                            {!isContentLoading && !streamedContentAnalysis && (
+                                                <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
+                                                    {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

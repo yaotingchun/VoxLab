@@ -1,5 +1,7 @@
 "use client";
 
+export const maxDuration = 60;
+
 import { useEffect, useState, useRef, Suspense, useCallback } from "react";
 import { UnifiedWebcamView } from "@/components/analysis/UnifiedWebcamView";
 import { useUnifiedAnalysis } from "@/hooks/useUnifiedAnalysis";
@@ -17,6 +19,8 @@ import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { analyzePresentation } from "@/app/actions/analyzePresentation";
+import { generateQnA } from "@/app/actions/generateQnA";
+import { evaluateQnA } from "@/app/actions/evaluateQnA";
 import { analyzeVocal } from "@/app/actions/analyzeVocal";
 import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePosture";
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
@@ -53,7 +57,9 @@ function PresentationPageInner() {
         reset: resetSpeech,
         pauseStats,
         error,
-        words
+        words,
+        pauseRecording,
+        resumeRecording
     } = useSpeechRecognition();
 
     const {
@@ -82,6 +88,42 @@ function PresentationPageInner() {
     // PiP Slide Viewer State
     const [isSlidesExpanded, setIsSlidesExpanded] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+    // Q&A State Machine
+    type PresentationPhase = 'SETUP' | 'PRESENTING' | 'GENERATING_QNA' | 'QNA_ACTIVE' | 'EVALUATING';
+    const [phase, setPhase] = useState<PresentationPhase>('SETUP');
+    const [qnaQuestions, setQnaQuestions] = useState<string[]>([]);
+    const [currentQIndex, setCurrentQIndex] = useState(0);
+    const [qnaAnswers, setQnaAnswers] = useState<string[]>([]);
+    const [isQnaExpanded, setIsQnaExpanded] = useState(false);
+    const [presentationSnapshot, setPresentationSnapshot] = useState<any>(null);
+
+    const playPopupSound = useCallback(() => {
+        try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+
+            osc.type = 'sine';
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+
+            // Google meet style "bloop" (high pitch quick drop)
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
+
+            gainNode.gain.setValueAtTime(0, ctx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+            gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.15);
+        } catch (e) {
+            console.error("Audio playback failed", e);
+        }
+    }, []);
 
     // Load from sessionStorage on mount
     useEffect(() => {
@@ -156,208 +198,319 @@ function PresentationPageInner() {
         }
     }, [transcript]);
 
-    // Toggle Session
-    const handleToggleSession = async () => {
-        if (isStarted) {
-            // Stop everything
-            setIsStarted(false);
-            const data = endSession(); // Analysis
-            stopListening(); // Speech
-            stopAudioAnalysis(); // Audio
+    // Toggle Session Flow
+    const handleStartSession = async () => {
+        setSessionSummary(null);
+        setPhase('PRESENTING');
 
-            if (audioStream) {
-                audioStream.getTracks().forEach(t => t.stop());
-                setAudioStream(null);
+        // Wait for Audio Stream BEFORE starting the flags so MediaRecorder gets it immediately
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setAudioStream(stream);
+            startAudioAnalysis(stream);
+
+            // Note: startListening now handles its own AudioContext/WebSocket
+            startListening();
+
+            startSession();
+            setIsStarted(true); // Trigger UI and recording
+        } catch (e) {
+            console.error("Audio stream failed", e);
+            alert("Please allow microphone access to start the session.");
+            setPhase('SETUP');
+        }
+    };
+
+    const handleStartQnA = async () => {
+        setPhase('GENERATING_QNA');
+        const questionsResponse = await generateQnA({
+            transcript,
+            slideData: slideBase64 ? { base64: slideBase64, type: slideFile?.type, name: slideFile?.name } : undefined
+        });
+
+        if (!questionsResponse || 'error' in questionsResponse || !Array.isArray(questionsResponse)) {
+            console.error("Failed to generate QnA", questionsResponse);
+            // Fallback to finishing session immediately if QnA fails
+            handleFinishSession([]);
+            return;
+        }
+
+        const questions = questionsResponse as string[];
+        setQnaQuestions(questions);
+        setCurrentQIndex(0);
+        setQnaAnswers([]);
+        setPhase('QNA_ACTIVE');
+
+        // Snapshot presentation metrics before clearing for Q&A
+        setPresentationSnapshot({
+            transcript,
+            totalWords,
+            fillerCounts,
+            wpmHistory,
+            pauseCount,
+            pauseStats,
+            words,
+            audioStats: { ...audioStats },
+            volumeSamples: [...volumeSamples],
+            pitchSamples: [...pitchSamples],
+            duration: elapsedTime
+        });
+
+        playPopupSound();
+        resetSpeech(); // Clear transcript to cleanly record the answer
+
+        // Pause recording during TTS to prevent feedback
+        const utterance = new SpeechSynthesisUtterance(questions[0]);
+        utterance.onstart = () => {
+            // @ts-ignore - check if exists in hook
+            pauseRecording?.();
+        };
+        utterance.onend = () => {
+            // @ts-ignore - check if exists in hook
+            resumeRecording?.();
+        };
+
+        setTimeout(() => {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.speak(utterance);
             }
+        }, 300);
+    };
 
-            setIsAnalyzing(true);
-            try {
-                // Wait for video buffer to finish processing
-                const videoBlob = await new Promise<Blob>((resolve) => {
-                    videoResolveRef.current = resolve;
-                    // Timeout fallback in case recorder fails
-                    setTimeout(() => resolve(new Blob()), 5000);
-                });
+    const handleNextQuestion = () => {
+        const currentAnswer = transcript.trim() || "(No audible answer recorded)";
+        setQnaAnswers(prev => [...prev, currentAnswer]);
 
-                let videoUrl = undefined;
-                if (videoBlob.size > 0) {
-                    try {
-                        const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
-                        const res = await getGCSUploadUrl(videoBlob.type, ext);
-                        if (res.success && res.uploadUrl) {
-                            await fetch(res.uploadUrl, {
-                                method: 'PUT',
-                                body: videoBlob,
-                                headers: { 'Content-Type': videoBlob.type }
-                            });
-                            videoUrl = res.fileUrl;
-                        }
-                    } catch (e) {
-                        console.error("Video Upload Failed", e);
-                    }
+        if (currentQIndex < qnaQuestions.length - 1) {
+            const nextIdx = currentQIndex + 1;
+            setCurrentQIndex(nextIdx);
+            resetSpeech();
+            setIsQnaExpanded(true);
+            playPopupSound();
+
+            const utterance = new SpeechSynthesisUtterance(qnaQuestions[nextIdx]);
+            utterance.onstart = () => {
+                // @ts-ignore
+                pauseRecording?.();
+            };
+            utterance.onend = () => {
+                // @ts-ignore
+                resumeRecording?.();
+            };
+
+            setTimeout(() => {
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.speak(utterance);
                 }
-
-                // Get Audio Stats & Samples
-                const audioResult = audioStats;
-
-                // Use the real pauseStats calculated in useSpeechRecognition
-                // If it's null (no words), we pass null
-                const finalPauseStats = pauseStats;
-
-                const speechMetricsPayload = {
-                    totalWords,
-                    fillerCounts,
-                    // @ts-ignore - pauseStats structure mismatch check
-                    pauseStats: finalPauseStats ? finalPauseStats.stats : undefined,
-                    pauseCount,
-                    wpmHistory
-                };
-
-                const audioMetricsPayload = audioResult ? audioResult.stats : undefined;
-
-                const [aiSummary, vocalSummary, postureSummary] = await Promise.all([
-                    analyzePresentation({
-                        duration: data.duration,
-                        averageScore: data.averageScore,
-                        issueCounts: data.issueCounts,
-                        faceMetrics: data.faceMetrics,
-                        topic: topic,
-                        transcript: transcript,
-                        speechMetrics: speechMetricsPayload,
-                        // @ts-ignore
-                        audioMetrics: audioMetricsPayload,
-                        // Presentation specific data
-                        slideData: slideBase64 ? { base64: slideBase64, type: slideFile?.type, name: slideFile?.name } : undefined,
-                        rubricData: hasRubric && rubricBase64 ? { base64: rubricBase64, type: rubricFile?.type, name: rubricFile?.name } : undefined
-                    }),
-                    analyzeVocal({
-                        speechMetrics: speechMetricsPayload,
-                        // @ts-ignore
-                        audioMetrics: audioMetricsPayload
-                    }),
-                    getAIPostureAnalysis({
-                        issueCounts: data.issueCounts,
-                        faceMetrics: data.faceMetrics
-                    })
-                ]);
-
-                if ('error' in aiSummary) {
-                    console.error("General Analysis Error:", aiSummary.error);
-                }
-                if ('error' in vocalSummary) {
-                    console.error("Vocal Analysis Error:", vocalSummary.error);
-                }
-                if ('error' in postureSummary) {
-                    console.error("Posture Analysis Error:", postureSummary.error);
-                }
-
-                const finalSummaryData = {
-                    ...aiSummary,
-                    vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
-                    postureSummary: 'error' in postureSummary ? null : postureSummary,
-                    videoUrl,
-                    rawMetrics: {
-                        topic: topic,
-                        duration: data.duration,
-                        wpm,
-                        totalWords,
-                        fillerCounts,
-                        issueCounts: data.issueCounts,
-                        pauseCount,
-                        wpmHistory,
-                        words, // Correctly access words from scope
-                        pauseStats: finalPauseStats,
-                        audioMetrics: audioResult ? audioResult.stats : undefined,
-
-                        // Pass raw samples for charts
-                        volumeSamples: volumeSamples,
-                        pitchSamples: pitchSamples,
-                        transcript: transcript // Pass transcript for report
-                    }
-                };
-
-                setSessionSummary(finalSummaryData);
-
-                // Save to GCS asynchronously
-                try {
-                    await saveSessionToGCS(finalSummaryData);
-                } catch (e) {
-                    console.error("Failed to save session to GCS:", e);
-                }
-                // ── Gamification (fire-and-forget) ──────────────────────
-                if (user && !('error' in aiSummary)) {
-                    (async () => {
-                        try {
-                            const topics = Object.keys(data.issueCounts ?? {});
-                            await saveSession(user.uid, {
-                                duration: data.duration,
-                                score: Math.round(data.averageScore),
-                                topics,
-                                wpm,
-                                totalWords,
-                                aiSummary: (aiSummary as any).summary ?? "",
-                                tips: (aiSummary as any).tips ?? [],
-                                fillerCounts,
-                                pauseCount,
-                                wpmHistory,
-                                transcript: transcript ?? "",
-                                pauseStats: finalPauseStats ?? null,
-                                audioMetrics: audioResult?.stats ?? undefined,
-                                // Save extra metrics as custom data if needed, or update DB schema later
-                            });
-                            const newStreak = await updateStreak(user.uid);
-                            const sessionStats = await getSessionStats(user.uid);
-
-                            const awarded = await checkAndAwardBadges(user.uid, {
-                                sessionsCount: sessionStats.sessionsCount,
-                                streakCount: newStreak,
-                                longestStreak: newStreak,
-                                averageScore: Math.round(data.averageScore),
-                                postsCount: 0,
-                                likesReceived: 0,
-                                followersCount: 0,
-                                sessionDuration: data.duration,
-                                totalPracticeSeconds: sessionStats.totalPracticeSeconds,
-                                bestScore: sessionStats.bestScore
-                            });
-
-                            if (awarded.length > 0) setNewBadges(awarded);
-                        } catch (e) {
-                            console.error("Gamification error:", e);
-                        }
-                    })();
-                }
-                // ─────────────────────────────────────────────────────────
-            } catch (error) {
-                console.error("Failed to analyze session:", error);
-            } finally {
-                setIsAnalyzing(false);
-            }
-
+            }, 300);
         } else {
-            // Start everything
-            setSessionSummary(null);
+            handleFinishSession([...qnaAnswers, currentAnswer]);
+        }
+    };
 
-            // Wait for Audio Stream BEFORE starting the flags so MediaRecorder gets it immediately
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                setAudioStream(stream);
-                startAudioAnalysis(stream);
+    const handleFinishSession = async (finalAnswers: string[]) => {
+        setIsStarted(false);
+        setPhase('EVALUATING');
+        setIsAnalyzing(true);
+        const data = endSession(); // Analysis
+        stopListening(); // Speech
+        stopAudioAnalysis(); // Audio
 
-                // Note: startListening now handles its own AudioContext/WebSocket
-                startListening();
+        if (audioStream) {
+            audioStream.getTracks().forEach(t => t.stop());
+            setAudioStream(null);
+        }
 
-                startSession();
-                setIsStarted(true); // Trigger UI and recording
-            } catch (e) {
-                console.error("Audio stream failed", e);
-                alert("Please allow microphone access to start the session.");
+        setIsAnalyzing(true);
+        try {
+            // Wait for video buffer to finish processing
+            const videoBlob = await new Promise<Blob>((resolve) => {
+                videoResolveRef.current = resolve;
+                // Timeout fallback in case recorder fails
+                setTimeout(() => resolve(new Blob()), 5000);
+            });
+
+            const audioResult = audioStats;
+            const finalPauseStats = pauseStats;
+
+            const speechMetricsPayload = {
+                totalWords,
+                fillerCounts,
+                // @ts-ignore - pauseStats structure mismatch check
+                pauseStats: finalPauseStats ? finalPauseStats.stats : undefined,
+                pauseCount,
+                wpmHistory
+            };
+
+            let videoUrl = undefined;
+            if (videoBlob.size > 0) {
+                try {
+                    const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
+                    const res = await getGCSUploadUrl(videoBlob.type, ext);
+                    if (res.success && res.uploadUrl) {
+                        await fetch(res.uploadUrl, {
+                            method: 'PUT',
+                            body: videoBlob,
+                            headers: { 'Content-Type': videoBlob.type }
+                        });
+                        videoUrl = res.fileUrl;
+                    }
+                } catch (e) {
+                    console.error("Video Upload Failed", e);
+                }
             }
+
+            const audioMetricsPayload = audioResult ? audioResult.stats : undefined;
+
+            // Use snapshot for the "Main" analysis if Q&A happened
+            const reportTranscript = presentationSnapshot ? presentationSnapshot.transcript : transcript;
+            const reportDuration = presentationSnapshot ? presentationSnapshot.duration : data.duration;
+            const reportSpeechMetrics = presentationSnapshot ? {
+                totalWords: presentationSnapshot.totalWords,
+                fillerCounts: presentationSnapshot.fillerCounts,
+                pauseStats: presentationSnapshot.pauseStats ? presentationSnapshot.pauseStats.stats : undefined,
+                pauseCount: presentationSnapshot.pauseCount,
+                wpmHistory: presentationSnapshot.wpmHistory
+            } : speechMetricsPayload;
+
+            const reportAudioMetrics = (presentationSnapshot && presentationSnapshot.audioStats)
+                ? presentationSnapshot.audioStats.stats
+                : audioMetricsPayload;
+
+            const qnaPairs = qnaQuestions.map((q, i) => ({
+                question: q,
+                userAnswer: finalAnswers[i] || "(No audible answer recorded)"
+            }));
+
+            const [aiSummary, vocalSummary, postureSummary, qnaEvals] = await Promise.all([
+                analyzePresentation({
+                    duration: reportDuration,
+                    averageScore: data.averageScore,
+                    issueCounts: data.issueCounts,
+                    faceMetrics: data.faceMetrics,
+                    topic: topic,
+                    transcript: reportTranscript,
+                    speechMetrics: reportSpeechMetrics,
+                    // @ts-ignore
+                    audioMetrics: reportAudioMetrics,
+                    // Presentation specific data
+                    slideData: slideBase64 ? { base64: slideBase64, type: slideFile?.type, name: slideFile?.name } : undefined,
+                    rubricData: hasRubric && rubricBase64 ? { base64: rubricBase64, type: rubricFile?.type, name: rubricFile?.name } : undefined
+                }),
+                analyzeVocal({
+                    speechMetrics: reportSpeechMetrics,
+                    // @ts-ignore
+                    audioMetrics: reportAudioMetrics
+                }),
+                getAIPostureAnalysis({
+                    issueCounts: data.issueCounts,
+                    faceMetrics: data.faceMetrics
+                }),
+                qnaPairs.length > 0 ? evaluateQnA({
+                    qnaPairs,
+                    slideData: slideBase64 ? { base64: slideBase64, type: slideFile?.type, name: slideFile?.name } : undefined
+                }) : Promise.resolve([])
+            ]);
+
+            if ('error' in aiSummary) {
+                console.error("General Analysis Error:", aiSummary.error);
+            }
+            if ('error' in vocalSummary) {
+                console.error("Vocal Analysis Error:", vocalSummary.error);
+            }
+            if ('error' in postureSummary) {
+                console.error("Posture Analysis Error:", postureSummary.error);
+            }
+
+            const finalSummaryData = {
+                ...aiSummary,
+                vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
+                postureSummary: 'error' in postureSummary ? null : postureSummary,
+                qnaSummary: Array.isArray(qnaEvals) ? qnaPairs.map((p, i) => ({ ...p, ...qnaEvals[i] })) : null,
+                videoUrl,
+                rawMetrics: {
+                    topic: topic,
+                    duration: reportDuration,
+                    wpm: presentationSnapshot ? Math.round((presentationSnapshot.totalWords / Math.max(1, presentationSnapshot.duration)) * 60) : wpm,
+                    totalWords: presentationSnapshot ? presentationSnapshot.totalWords : totalWords,
+                    fillerCounts: presentationSnapshot ? presentationSnapshot.fillerCounts : fillerCounts,
+                    issueCounts: data.issueCounts,
+                    pauseCount: presentationSnapshot ? presentationSnapshot.pauseCount : pauseCount,
+                    wpmHistory: presentationSnapshot ? presentationSnapshot.wpmHistory : wpmHistory,
+                    words: presentationSnapshot ? presentationSnapshot.words : words, // Correctly access words from scope
+                    pauseStats: presentationSnapshot ? presentationSnapshot.pauseStats : finalPauseStats,
+                    audioMetrics: reportAudioMetrics,
+
+                    // Pass raw samples for charts
+                    volumeSamples: presentationSnapshot ? presentationSnapshot.volumeSamples : volumeSamples,
+                    pitchSamples: presentationSnapshot ? presentationSnapshot.pitchSamples : pitchSamples,
+                    transcript: reportTranscript // Pass transcript for report
+                }
+            };
+
+            setSessionSummary(finalSummaryData);
+
+            // Save to GCS asynchronously
+            try {
+                await saveSessionToGCS(finalSummaryData);
+            } catch (e) {
+                console.error("Failed to save session to GCS:", e);
+            }
+            // ── Gamification (fire-and-forget) ──────────────────────
+            if (user && !('error' in aiSummary)) {
+                (async () => {
+                    try {
+                        const topics = Object.keys(data.issueCounts ?? {});
+                        await saveSession(user.uid, {
+                            duration: data.duration,
+                            score: Math.round(data.averageScore),
+                            topics,
+                            wpm,
+                            totalWords,
+                            aiSummary: (aiSummary as any).summary ?? "",
+                            tips: (aiSummary as any).tips ?? [],
+                            fillerCounts,
+                            pauseCount,
+                            wpmHistory,
+                            transcript: reportTranscript ?? "",
+                            pauseStats: presentationSnapshot ? presentationSnapshot.pauseStats : (finalPauseStats ?? null),
+                            audioMetrics: (presentationSnapshot && presentationSnapshot.audioStats) ? presentationSnapshot.audioStats.stats : (audioResult?.stats ?? undefined),
+                            // Save extra metrics as custom data if needed, or update DB schema later
+                        });
+                        const newStreak = await updateStreak(user.uid);
+                        const sessionStats = await getSessionStats(user.uid);
+
+                        const awarded = await checkAndAwardBadges(user.uid, {
+                            sessionsCount: sessionStats.sessionsCount,
+                            streakCount: newStreak,
+                            longestStreak: newStreak,
+                            averageScore: Math.round(data.averageScore),
+                            postsCount: 0,
+                            likesReceived: 0,
+                            followersCount: 0,
+                            sessionDuration: data.duration,
+                            totalPracticeSeconds: sessionStats.totalPracticeSeconds,
+                            bestScore: sessionStats.bestScore
+                        });
+
+                        if (awarded.length > 0) setNewBadges(awarded);
+                    } catch (e) {
+                        console.error("Gamification error:", e);
+                    }
+                })();
+            }
+            // ─────────────────────────────────────────────────────────
+        } catch (error) {
+            console.error("Failed to analyze session:", error);
+        } finally {
+            setIsAnalyzing(false);
+            setPhase('SETUP');
         }
     };
 
     const handleReset = () => {
         setIsStarted(false);
+        setPhase('SETUP');
         endSession();
         stopListening();
         resetSpeech();
@@ -419,18 +572,68 @@ function PresentationPageInner() {
                                 onVideoRecorded={handleVideoRecorded}
                             />
 
-                            {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}
-                            {isStarted && !isSlidesExpanded && (
+                            {/* Feedback Overlay - Facial Only */}
+                            {isStarted && !isSlidesExpanded && phase === 'PRESENTING' && (
                                 <>
                                     <FeedbackOverlay
                                         isNervous={result.isNervous}
                                         isDistracted={result.isDistracted}
                                         emotionState={result.emotionState}
-                                        postureMessages={[]} // User requested to remove specific posture alerts
+                                        postureMessages={[]}
                                     />
                                 </>
                             )}
                         </div>
+
+                        {/* Q&A Notification Bubble */}
+                        <AnimatePresence>
+                            {phase === 'QNA_ACTIVE' && qnaQuestions.length > 0 && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    className={`absolute left-4 top-4 z-[70] flex flex-col items-start max-w-sm transition-all duration-300`}
+                                >
+                                    <div
+                                        onMouseEnter={() => setIsQnaExpanded(true)}
+                                        onMouseLeave={() => setIsQnaExpanded(false)}
+                                        onClick={() => setIsQnaExpanded(!isQnaExpanded)}
+                                        className={`bg-slate-900/95 backdrop-blur-xl border-2 border-purple-500/50 rounded-2xl p-4 shadow-[0_0_40px_rgba(168,85,247,0.3)] cursor-pointer transition-all ${isQnaExpanded ? 'hover:bg-slate-800' : 'hover:scale-105'}`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-7 h-7 rounded-full bg-purple-500/20 flex items-center justify-center border border-purple-400/30">
+                                                <MessageSquareText className="w-3.5 h-3.5 text-purple-400" />
+                                            </div>
+                                            <h3 className="text-[10px] font-bold text-purple-300 uppercase tracking-[0.2em]">
+                                                Question {currentQIndex + 1}/{qnaQuestions.length}
+                                            </h3>
+                                        </div>
+                                        <AnimatePresence>
+                                            {isQnaExpanded ? (
+                                                <motion.div
+                                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                    animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    <p className="text-base font-serif leading-relaxed text-white">
+                                                        {qnaQuestions[currentQIndex]}
+                                                    </p>
+                                                </motion.div>
+                                            ) : (
+                                                <motion.p
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    className="text-[10px] text-slate-400 mt-1 italic"
+                                                >
+                                                    Hover to expand...
+                                                </motion.p>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Controls Overlay (Always on top of video or slides) */}
                         {isStarted && (
@@ -456,16 +659,42 @@ function PresentationPageInner() {
                                     </Button>
                                 )}
 
-                                {/* End Session Button */}
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={handleToggleSession}
-                                    className="rounded-full shadow-lg flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white border-none transition-all"
-                                >
-                                    <Square className="w-4 h-4 fill-current" />
-                                    End Session
-                                </Button>
+                                {phase === 'PRESENTING' && (
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={handleStartQnA}
+                                        className="rounded-full shadow-lg flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border-none transition-all"
+                                    >
+                                        <Sparkles className="w-4 h-4 text-purple-200" />
+                                        Start Q&A
+                                    </Button>
+                                )}
+
+                                {phase === 'GENERATING_QNA' && (
+                                    <div className="flex items-center gap-2 bg-slate-800/80 px-4 py-2 rounded-full border border-purple-500/30 backdrop-blur-md">
+                                        <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                                        <span className="text-sm font-medium text-purple-300">Generating Questions...</span>
+                                    </div>
+                                )}
+
+                                {phase === 'QNA_ACTIVE' && (
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={handleNextQuestion}
+                                        className={`rounded-full shadow-lg flex items-center gap-2 text-white border-none transition-all ${currentQIndex === qnaQuestions.length - 1 ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'}`}
+                                    >
+                                        {currentQIndex === qnaQuestions.length - 1 ? (
+                                            <>
+                                                <Square className="w-4 h-4 fill-current" />
+                                                End Session
+                                            </>
+                                        ) : (
+                                            "Next Question ➔"
+                                        )}
+                                    </Button>
+                                )}
                             </div>
                         )}
 
@@ -549,10 +778,10 @@ function PresentationPageInner() {
 
                                         <Button
                                             size="lg"
-                                            onClick={handleToggleSession}
+                                            onClick={handleStartSession}
                                             className="h-10 px-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)] transition-all font-semibold"
                                         >
-                                            Start Session
+                                            Start Presentation
                                         </Button>
                                     </div>
                                 </motion.div>
@@ -671,6 +900,7 @@ function PresentationPageInner() {
                                     topicAnalysis: sessionSummary.topicAnalysis || null,
                                     vocalSummary: sessionSummary.vocalSummary || null,
                                     postureSummary: sessionSummary.postureSummary || null,
+                                    qnaSummary: sessionSummary.qnaSummary || null,
                                     slideAnalysis: sessionSummary.slideAnalysis || null,
                                     rubricAnalysis: sessionSummary.rubricAnalysis || null,
                                     videoUrl: sessionSummary.videoUrl,

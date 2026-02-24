@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
         }
 
         // Return MP3 audio
-        return new NextResponse(response.audioContent as Buffer, {
+        return new NextResponse(response.audioContent as any, {
             status: 200,
             headers: {
                 'Content-Type': 'audio/mpeg',
-                'Content-Length': (response.audioContent as Buffer).length.toString(),
+                'Content-Length': (response.audioContent as any).length.toString(),
                 'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
             },
         });
