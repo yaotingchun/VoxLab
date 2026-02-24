@@ -502,7 +502,7 @@ export default function ProfilePage() {
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-semibold">Practice Session</span>
                                                         <Badge variant="outline" className="text-xs font-normal">
-                                                            {Math.floor((s.duration ?? 0) / 60)}m {Math.floor((s.duration ?? 0) % 60)}s
+                                                            {Math.round((s.duration ?? 0) / 60)}m {(s.duration ?? 0) % 60}s
                                                         </Badge>
                                                     </div>
                                                     <p className="text-sm text-muted-foreground flex items-center gap-1">
