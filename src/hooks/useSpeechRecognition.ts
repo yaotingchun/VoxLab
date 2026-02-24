@@ -49,6 +49,7 @@ export function useSpeechRecognition() {
 
     // Refs for non-state tracking
     const wordsRef = useRef<Word[]>([]);
+    const isPausedRef = useRef(false);
     const wsRef = useRef<WebSocket | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
@@ -75,6 +76,15 @@ export function useSpeechRecognition() {
         transcriptRef.current = "";
         interimTextRef.current = "";
         setError(null);
+        isPausedRef.current = false;
+    }, []);
+
+    const pauseRecording = useCallback(() => {
+        isPausedRef.current = true;
+    }, []);
+
+    const resumeRecording = useCallback(() => {
+        isPausedRef.current = false;
     }, []);
 
     const stopListening = useCallback(() => {
@@ -200,8 +210,14 @@ export function useSpeechRecognition() {
             processor.onaudioprocess = (e) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     const input = e.inputBuffer.getChannelData(0);
-                    const pcm = downsampleToLinear16(input, audioCtx.sampleRate, 16000);
-                    ws.send(pcm);
+                    if (isPausedRef.current) {
+                        // Send silent audio to keep WS alive, but don't transcribe TTS
+                        const outputLength = Math.floor(input.length / (audioCtx.sampleRate / 16000));
+                        ws.send(new Int16Array(outputLength).buffer);
+                    } else {
+                        const pcm = downsampleToLinear16(input, audioCtx.sampleRate, 16000);
+                        ws.send(pcm);
+                    }
                 }
             };
 
@@ -265,6 +281,8 @@ export function useSpeechRecognition() {
         error,
         startListening,
         stopListening,
+        pauseRecording,
+        resumeRecording,
         reset,
         words: wordsRef.current
     };

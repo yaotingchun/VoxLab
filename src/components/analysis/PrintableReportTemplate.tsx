@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, Clock, AlertCircle, Mic, TrendingUp, BarChart3, AlertTriangle } from "lucide-react";
+import { Activity, Clock, AlertCircle, Mic, TrendingUp, BarChart3, AlertTriangle, FileText, Target, MessageSquareText, Sparkles } from "lucide-react";
 import { PacingChart } from "./PacingChart";
 import { PitchChart } from "@/components/PitchChart";
 
@@ -154,7 +154,42 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
 
     if (analysisChunks.length === 0) analysisChunks.push("");
 
-    const pageNumTotal = 7 + transcriptChunks.length + analysisChunks.length;
+    // NEW FOR Q&A
+    const hasQnA = !!data.qnaSummary && data.qnaSummary.length > 0;
+    const qnaChunks = [];
+    if (hasQnA) {
+        for (let i = 0; i < data.qnaSummary.length; i += 1) {
+            qnaChunks.push(data.qnaSummary.slice(i, i + 1));
+        }
+    }
+
+    const hasSlides = !!data.slideAnalysis;
+    const hasRubric = !!data.rubricAnalysis;
+    // --- Pagination Logic for Slides & Rubrics ---
+    // Instead of chunking by 10/8 items, we strictly dedicate 1 whole page to Covered/Strengths
+    // and 1 whole page to Missed/Weaknesses to prevent mid-page flexbox stretching issues.
+
+    const hasSlideCovered = hasSlides && (data.slideAnalysis?.coveredPoints?.length || 0) > 0;
+    const hasSlideMissed = hasSlides && (data.slideAnalysis?.missedPoints?.length || 0) > 0;
+
+    const hasRubricStrengths = hasRubric && (data.rubricAnalysis?.strengths?.length || 0) > 0;
+    const hasRubricWeaknesses = hasRubric && (data.rubricAnalysis?.weaknesses?.length || 0) > 0;
+
+    let currentPageCounter = 7;
+
+    const slideCoveredPageNum = hasSlideCovered ? ++currentPageCounter : -1;
+    const slideMissedPageNum = hasSlideMissed ? ++currentPageCounter : -1;
+
+    const rubricStrengthsPageNum = hasRubricStrengths ? ++currentPageCounter : -1;
+    const rubricWeaknessesPageNum = hasRubricWeaknesses ? ++currentPageCounter : -1;
+
+    const transcriptStartPage = currentPageCounter + 1;
+    currentPageCounter += transcriptChunks.length;
+
+    const analysisOrQnAStartPage = currentPageCounter + 1;
+    currentPageCounter += hasQnA ? qnaChunks.length : analysisChunks.length;
+
+    const pageNumTotal = currentPageCounter;
 
     return (
         <div id="printable-root">
@@ -189,7 +224,6 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                             {metrics.wpm < 110 ? "Slow" : metrics.wpm > 160 ? "Fast" : "Optimal"}
                         </div>
                     </div>
-                    {/* Total Words */}
                     <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
                         <div className="flex items-center gap-2 text-slate-500 mb-2">
                             <TrendingUp className="w-5 h-5" /> <span className="text-xs font-bold uppercase">Words</span>
@@ -451,51 +485,214 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                 </div>
             </PrintablePage>
 
-            {/* PAGE 7: Content Analysis */}
+            {/* PAGE 7: Content Analysis OR Q&A Summary */}
             <PrintablePage pageNum={7} totalPages={pageNumTotal}>
-                <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
-                    <BarChart3 className="w-6 h-6 text-green-600" /> Content & Script Analysis
-                </h2>
+                {hasQnA ? (
+                    <>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <Target className="w-6 h-6 text-teal-600" /> Q&A Session Overview
+                        </h2>
 
-                {/* Content Score Summary */}
-                <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
-                    <div className="flex-1">
-                        <h3 className="text-xs font-bold text-green-700 uppercase tracking-widest mb-3">Content Heuristic Evaluation</h3>
-                        <p className="text-slate-700 text-[15px] leading-relaxed">
-                            Score calculated locally based on your transcript length, pacing dynamics, and filler word frequency.
-                        </p>
-                    </div>
-                    {localContentScore !== undefined && (
-                        <div className="flex-shrink-0">
-                            <CircularScoreChart score={localContentScore} label="Content Score" color="text-green-600" size={120} strokeWidth={10} />
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                            <div className="flex-1">
+                                <h3 className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-3">Q&A Relevance Summary</h3>
+                                <p className="text-slate-700 text-[15px] leading-relaxed">
+                                    This score represents how well your responses addressed the specific questions asked during the Q&A session.
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0">
+                                <CircularScoreChart
+                                    score={Math.round(data.qnaSummary.reduce((a: number, c: any) => a + c.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
+                                    label="Avg Relevance" color="text-teal-600" size={120} strokeWidth={10}
+                                />
+                            </div>
                         </div>
-                    )}
-                </div>
 
-                {/* Pacing Chart */}
-                <div className="mb-6 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-                        <Activity className="w-5 h-5 text-slate-500" /> Pacing Analysis
-                    </h3>
-                    <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-                        <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">WPM Trend</div>
-                        <div className="h-48 w-full relative">
-                            <PacingChart
-                                dataPoints={
-                                    pacingBuckets.length > 0
-                                        ? pacingBuckets.map((b: any) => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
-                                        : [{ time: 0, wpm: metrics.wpm, wordCount: 0 }, { time: metrics.duration, wpm: metrics.wpm, wordCount: 0 }]
-                                }
-                            />
+                        <div className="mb-6 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                <Activity className="w-5 h-5 text-slate-500" /> Delivery Pacing
+                            </h3>
+                            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                                <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">WPM Trend over Q&A</div>
+                                <div className="h-48 w-full relative">
+                                    <PacingChart
+                                        dataPoints={
+                                            pacingBuckets.length > 0
+                                                ? pacingBuckets.map((b: any) => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
+                                                : [{ time: 0, wpm: metrics.wpm, wordCount: 0 }, { time: metrics.duration, wpm: metrics.wpm, wordCount: 0 }]
+                                        }
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    </>
+                ) : (
+                    <>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <BarChart3 className="w-6 h-6 text-green-600" /> Content & Script Analysis
+                        </h2>
+
+                        {/* Content Score Summary */}
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                            <div className="flex-1">
+                                <h3 className="text-xs font-bold text-green-700 uppercase tracking-widest mb-3">Content Heuristic Evaluation</h3>
+                                <p className="text-slate-700 text-[15px] leading-relaxed">
+                                    Score calculated locally based on your transcript length, pacing dynamics, and filler word frequency.
+                                </p>
+                            </div>
+                            {localContentScore !== undefined && (
+                                <div className="flex-shrink-0">
+                                    <CircularScoreChart score={localContentScore} label="Content Score" color="text-green-600" size={120} strokeWidth={10} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Pacing Chart */}
+                        <div className="mb-6 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                <Activity className="w-5 h-5 text-slate-500" /> Pacing Analysis
+                            </h3>
+                            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
+                                <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">WPM Trend</div>
+                                <div className="h-48 w-full relative">
+                                    <PacingChart
+                                        dataPoints={
+                                            pacingBuckets.length > 0
+                                                ? pacingBuckets.map((b: any) => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
+                                                : [{ time: 0, wpm: metrics.wpm, wordCount: 0 }, { time: metrics.duration, wpm: metrics.wpm, wordCount: 0 }]
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
             </PrintablePage>
+
+            {/* PAGE X: Slide Alignment - Covered Points */}
+            {hasSlideCovered && (
+                <PrintablePage pageNum={slideCoveredPageNum} totalPages={pageNumTotal}>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <FileText className="w-6 h-6 text-blue-600" /> Slide Alignment
+                    </h2>
+
+                    <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                        <div className="flex-1">
+                            <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Slide Alignment Summary</h3>
+                            <p className="text-slate-700 text-[15px] leading-relaxed italic">
+                                "{data.slideAnalysis!.feedback}"
+                            </p>
+                        </div>
+                        {data.slideAnalysis!.alignmentScore !== undefined && (
+                            <div className="flex-shrink-0">
+                                <CircularScoreChart score={data.slideAnalysis!.alignmentScore} label="Alignment" color="text-blue-600" size={120} strokeWidth={10} />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-green-50/50 shadow-sm flex flex-col min-h-0 bg-white">
+                        <h3 className="text-sm font-bold text-green-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-green-200 pb-2 flex-shrink-0">
+                            ✅ Points Covered
+                        </h3>
+                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                            {data.slideAnalysis!.coveredPoints.map((point: string, i: number) => (
+                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-green-100 shadow-sm shrink-0">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">✓</span>
+                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{point}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </PrintablePage>
+            )}
+
+            {/* PAGE Y: Slide Alignment - Missed Points */}
+            {hasSlideMissed && (
+                <PrintablePage pageNum={slideMissedPageNum} totalPages={pageNumTotal}>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <FileText className="w-6 h-6 text-blue-600" /> Slide Alignment (Continued)
+                    </h2>
+
+                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-amber-50/50 shadow-sm flex flex-col min-h-0">
+                        <h3 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-amber-200 pb-2 flex-shrink-0">
+                            ⚠️ Missed Points
+                        </h3>
+                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                            {data.slideAnalysis!.missedPoints.map((point: string, i: number) => (
+                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-amber-100 shadow-sm shrink-0">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-xs">!</span>
+                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{point}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </PrintablePage>
+            )}
+
+            {/* PAGE W: Rubric Evaluation - Strengths */}
+            {hasRubricStrengths && (
+                <PrintablePage pageNum={rubricStrengthsPageNum} totalPages={pageNumTotal}>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <AlertCircle className="w-6 h-6 text-purple-600" /> Rubric Evaluation
+                    </h2>
+
+                    <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                        <div className="flex-1">
+                            <h3 className="text-xs font-bold text-purple-700 uppercase tracking-widest mb-3">Rubric Summary</h3>
+                            <p className="text-slate-700 text-[15px] leading-relaxed italic">
+                                "{data.rubricAnalysis!.feedback}"
+                            </p>
+                        </div>
+                        {data.rubricAnalysis!.rubricScore !== undefined && (
+                            <div className="flex-shrink-0">
+                                <CircularScoreChart score={data.rubricAnalysis!.rubricScore} label="Rubric Score" color="text-purple-600" size={120} strokeWidth={10} />
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-purple-50/50 shadow-sm flex flex-col min-h-0 bg-white">
+                        <h3 className="text-sm font-bold text-purple-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-purple-200 pb-2 flex-shrink-0">
+                            🌟 Key Strengths
+                        </h3>
+                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                            {data.rubricAnalysis!.strengths.map((strength: string, i: number) => (
+                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-purple-100 shadow-sm shrink-0">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">↑</span>
+                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{strength}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </PrintablePage>
+            )}
+
+            {/* PAGE Z: Rubric Evaluation - Weaknesses */}
+            {hasRubricWeaknesses && (
+                <PrintablePage pageNum={rubricWeaknessesPageNum} totalPages={pageNumTotal}>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                        <AlertCircle className="w-6 h-6 text-purple-600" /> Rubric Evaluation (Continued)
+                    </h2>
+
+                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-rose-50/50 shadow-sm flex flex-col min-h-0">
+                        <h3 className="text-sm font-bold text-rose-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-rose-200 pb-2 flex-shrink-0">
+                            🎯 Areas to Improve
+                        </h3>
+                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                            {data.rubricAnalysis!.weaknesses.map((weakness: string, i: number) => (
+                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-rose-100 shadow-sm shrink-0">
+                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs">↓</span>
+                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{weakness}</p>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </PrintablePage>
+            )}
 
             {/* PAGE 8+: Transcript Elements */}
 
             {transcriptChunks.map((chunk, index) => (
-                <PrintablePage key={`chunk-${index}`} pageNum={8 + index} totalPages={pageNumTotal}>
+                <PrintablePage key={`chunk-${index}`} pageNum={transcriptStartPage + index} totalPages={pageNumTotal}>
                     <div className="flex-1 flex flex-col min-h-0 mb-6">
                         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
                             <Mic className="w-5 h-5 text-slate-500" /> Full Transcript {index > 0 ? "(Continued)" : ""}
@@ -507,19 +704,66 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                 </PrintablePage>
             ))}
 
-            {/* PAGE 8+n: AI Content Coach Analysis */}
-            {analysisChunks.map((chunk, index) => (
-                <PrintablePage key={`analysis-${index}`} pageNum={8 + transcriptChunks.length + index} totalPages={pageNumTotal}>
-                    <div className="flex-1 flex flex-col min-h-0 mb-6">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-                            <Activity className="w-5 h-5 text-slate-500" /> AI Content Coach Findings {index > 0 ? "(Continued)" : ""}
-                        </h3>
-                        <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 font-serif overflow-hidden prose prose-base max-w-none break-inside-avoid shadow-inner prose-p:my-5 prose-li:my-2 prose-headings:mb-4 prose-headings:mt-6">
-                            {chunk ? <ReactMarkdown>{chunk}</ReactMarkdown> : <em className="text-slate-400">Content analysis pending or unavailable.</em>}
+            {/* PAGE 8+n: AI Content Coach Analysis OR Q&A Breakdown */}
+            {hasQnA ? (
+                qnaChunks.map((chunk, chunkIndex) => (
+                    <PrintablePage key={`qna-${chunkIndex}`} pageNum={analysisOrQnAStartPage + chunkIndex} totalPages={pageNumTotal}>
+                        <div className="mb-6">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                <MessageSquareText className="w-5 h-5 text-teal-600" /> Q&A Breakdown {chunkIndex > 0 ? "(Continued)" : ""}
+                            </h3>
+                            <div className="space-y-6">
+                                {chunk.map((qna: any, idx: number) => {
+                                    const questionNum = chunkIndex + 1;
+                                    return (
+                                        <div key={idx} className="bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-sm shrink-0 page-break-inside-avoid">
+                                            <div className="flex items-start justify-between gap-4 mb-4">
+                                                <div>
+                                                    <div className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                        <MessageSquareText className="w-3 h-3" /> Question {questionNum}
+                                                    </div>
+                                                    <h4 className="text-sm font-bold text-slate-900 leading-snug">{qna.question}</h4>
+                                                </div>
+                                                <div className="flex flex-col items-center justify-center bg-white rounded-xl border border-slate-200 p-2 min-w-[60px] shadow-sm shrink-0">
+                                                    <span className="text-xl font-bold text-teal-600">{Math.round(qna.relevanceScore)}</span>
+                                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Score</span>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                                                    <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">
+                                                        <Mic className="w-3 h-3" /> Your Answer
+                                                    </div>
+                                                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
+                                                </div>
+                                                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-sm">
+                                                    <div className="flex items-center gap-2 text-teal-700 text-[10px] font-bold uppercase tracking-widest mb-2">
+                                                        <Sparkles className="w-3 h-3" /> Ideal Answer Concept
+                                                    </div>
+                                                    <p className="text-teal-900 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                </PrintablePage>
-            ))}
+                    </PrintablePage>
+                ))
+            ) : (
+                analysisChunks.map((chunk, index) => (
+                    <PrintablePage key={`analysis-${index}`} pageNum={analysisOrQnAStartPage + index} totalPages={pageNumTotal}>
+                        <div className="flex-1 flex flex-col min-h-0 mb-6">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                <Activity className="w-5 h-5 text-slate-500" /> AI Content Coach Findings {index > 0 ? "(Continued)" : ""}
+                            </h3>
+                            <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 font-serif overflow-hidden prose prose-base max-w-none break-inside-avoid shadow-inner prose-p:my-5 prose-li:my-2 prose-headings:mb-4 prose-headings:mt-6">
+                                {chunk ? <ReactMarkdown>{chunk}</ReactMarkdown> : <em className="text-slate-400">Content analysis pending or unavailable.</em>}
+                            </div>
+                        </div>
+                    </PrintablePage>
+                ))
+            )}
         </div>
     );
 }
