@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PDFParse } from "pdf-parse";
+import { extractPdfText } from "@/app/actions/interview";
 
 export async function POST(req: NextRequest) {
     try {
@@ -10,14 +10,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const parser = new PDFParse({ data: buffer });
-        const data = await parser.getText();
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const { text, error } = await extractPdfText(base64);
+
+        if (error) {
+            throw new Error(error);
+        }
 
         return NextResponse.json({
-            text: data.text,
+            text: text,
             title: file.name.replace(".pdf", ""),
-            pageCount: data.total
+            pageCount: 1 // Gemini extraction doesn't provide page count easily, defaulting to 1 or omitting
         });
     } catch (error: any) {
         console.error("PDF Parsing Error:", error);
