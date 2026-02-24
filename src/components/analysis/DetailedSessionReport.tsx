@@ -405,7 +405,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         <Type className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.totalWords}</div>
-                                    <div className="text-xs text-slate-400">Duration: {Math.floor(metrics.duration / 60)}m {metrics.duration % 60}s</div>
+                                    <div className="text-xs text-slate-400">Duration: {Math.floor(metrics.duration / 60)}m {Math.floor(metrics.duration % 60)}s</div>
                                 </div >
 
                                 {/* Filler Words */}

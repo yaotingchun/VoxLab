@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PDFParse } from "pdf-parse";
 import path from "path";
+import { pathToFileURL } from "url";
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,8 +13,9 @@ export async function POST(req: NextRequest) {
         }
 
         // Set worker path to avoid "pdf.worker.mjs not found" error
+        // On Windows, ESM loader requires file:// protocol for absolute paths
         const workerPath = path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs");
-        PDFParse.setWorker(workerPath);
+        PDFParse.setWorker(pathToFileURL(workerPath).href);
 
         const buffer = Buffer.from(await file.arrayBuffer());
         const parser = new PDFParse({ data: buffer });
