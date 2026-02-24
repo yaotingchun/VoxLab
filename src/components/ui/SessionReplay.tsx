@@ -133,7 +133,10 @@ export function SessionReplay({ sessionId, videoUrl, jsonUrl, availableSessions,
                             if (s.savedAt) {
                                 const d = new Date(s.savedAt);
                                 if (!isNaN(d.getTime())) {
-                                    text = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Recording';
+                                    const isToday = d.toDateString() === new Date().toDateString();
+                                    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                                    text = isToday ? `${timeStr} Recording` : `${dateStr}, ${timeStr} Recording`;
                                 }
                             }
                             return (

@@ -96,8 +96,10 @@ export function ProgressChart({ data, title, onPrev, onNext, canGoNext, onNodeCl
                             data={data}
                             margin={{ top: 5, right: 20, left: -20, bottom: 5 }}
                             onClick={(e: any) => {
-                                if (e?.activePayload?.[0]?.payload?.sessionIds) {
-                                    onNodeClick?.(e.activePayload[0].payload as ChartDataPoint);
+                                // Try activePayload first, fallback to activeTooltipIndex if clicking near but not on a line
+                                const payload = e?.activePayload?.[0]?.payload || data[e?.activeTooltipIndex];
+                                if (payload?.sessionIds) {
+                                    onNodeClick?.(payload as ChartDataPoint);
                                 }
                             }}
                         >
@@ -123,10 +125,42 @@ export function ProgressChart({ data, title, onPrev, onNext, canGoNext, onNodeCl
                             />
                             <Legend iconType="circle" wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
 
-                            <Line connectNulls type="monotone" dataKey="Voice" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                            <Line connectNulls type="monotone" dataKey="Posture & Facial" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                            <Line connectNulls type="monotone" dataKey="Content" stroke="#f59e0b" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                            <Line connectNulls type="monotone" dataKey="Overall" stroke="#ec4899" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                            <Line
+                                connectNulls
+                                type="monotone"
+                                dataKey="Voice"
+                                stroke="#4f46e5"
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: "#4f46e5" }}
+                                activeDot={{ r: 6, onClick: (props: any) => onNodeClick?.(props.payload as ChartDataPoint) }}
+                            />
+                            <Line
+                                connectNulls
+                                type="monotone"
+                                dataKey="Posture & Facial"
+                                stroke="#10b981"
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: "#10b981" }}
+                                activeDot={{ r: 6, onClick: (props: any) => onNodeClick?.(props.payload as ChartDataPoint) }}
+                            />
+                            <Line
+                                connectNulls
+                                type="monotone"
+                                dataKey="Content"
+                                stroke="#f59e0b"
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: "#f59e0b" }}
+                                activeDot={{ r: 6, onClick: (props: any) => onNodeClick?.(props.payload as ChartDataPoint) }}
+                            />
+                            <Line
+                                connectNulls
+                                type="monotone"
+                                dataKey="Overall"
+                                stroke="#ec4899"
+                                strokeWidth={3}
+                                dot={{ r: 4, fill: "#ec4899" }}
+                                activeDot={{ r: 6, onClick: (props: any) => onNodeClick?.(props.payload as ChartDataPoint) }}
+                            />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>

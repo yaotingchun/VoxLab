@@ -78,6 +78,7 @@ function PresentationPageInner() {
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [newBadges, setNewBadges] = useState<string[]>([]);
+    const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
 
     // Presentation specific state
     const [slideFile, setSlideFile] = useState<{ name: string, type: string } | null>(null);
@@ -214,6 +215,7 @@ function PresentationPageInner() {
             startListening();
 
             startSession();
+            setSessionStartTime(new Date().toISOString());
             setIsStarted(true); // Trigger UI and recording
         } catch (e) {
             console.error("Audio stream failed", e);
@@ -440,7 +442,7 @@ function PresentationPageInner() {
 
             // Save to GCS asynchronously
             try {
-                await saveSessionToGCS(finalSummaryData, user.uid, Date.now().toString());
+                await saveSessionToGCS(finalSummaryData, user.uid, Date.now().toString(), sessionStartTime || new Date().toISOString());
             } catch (e) {
                 console.error("Failed to save session to GCS:", e);
             }

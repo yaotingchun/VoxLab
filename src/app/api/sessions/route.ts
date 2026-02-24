@@ -85,9 +85,11 @@ export async function GET(request: Request) {
                     }
 
                     // Extract what we need for the dashboard
+                    const savedAt = data.savedAt || (file.metadata.updated || file.metadata.timeCreated || new Date().toISOString());
+
                     return {
                         id: data.sessionId || file.name,
-                        savedAt: data.savedAt || new Date().toISOString(),
+                        savedAt: savedAt,
                         score: data.averageScore || data.score || 0, // Fallbacks
                         vocalScore: vocal,
                         postureScore: data.postureSummary?.score || 0,

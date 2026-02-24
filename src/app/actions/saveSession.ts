@@ -10,7 +10,7 @@ const storage = new Storage();
 // Replace with your actual bucket name. The user can configure this in .env.local
 const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "voxlab-storage";
 
-export async function saveSessionToGCS(sessionData: any, userId: string, fileId: string): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function saveSessionToGCS(sessionData: any, userId: string, fileId: string, timestamp?: string): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
         if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
             console.warn("GOOGLE_APPLICATION_CREDENTIALS is not set. Saving to GCS might fail if not in a GCP environment.");
@@ -26,7 +26,7 @@ export async function saveSessionToGCS(sessionData: any, userId: string, fileId:
         // Define the content to save. We add a savedAt timestamp.
         const contentToSave = {
             ...sessionData,
-            savedAt: new Date().toISOString(),
+            savedAt: timestamp || new Date().toISOString(),
         };
 
         const jsonString = JSON.stringify(contentToSave, null, 2);

@@ -71,6 +71,7 @@ function PracticePageInner() {
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [newBadges, setNewBadges] = useState<string[]>([]);
+    const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
 
     // Video Recording State
     const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
@@ -225,7 +226,7 @@ function PracticePageInner() {
 
                 // Save to GCS asynchronously
                 try {
-                    await saveSessionToGCS(finalSummaryData, finalUserId, fileId);
+                    await saveSessionToGCS(finalSummaryData, finalUserId, fileId, sessionStartTime || new Date().toISOString());
                 } catch (e) {
                     console.error("Failed to save session to GCS:", e);
                 }
@@ -300,6 +301,7 @@ function PracticePageInner() {
                 startListening();
 
                 startSession();
+                setSessionStartTime(new Date().toISOString());
                 setIsStarted(true); // Trigger UI and recording
             } catch (e) {
                 console.error("Audio stream failed", e);

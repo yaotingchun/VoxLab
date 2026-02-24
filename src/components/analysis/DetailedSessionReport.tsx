@@ -1222,36 +1222,41 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                     )}
 
                     {currentReportIndex === 3 && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* 1. Header */}
-                            <div className="text-center space-y-2 pb-6 border-b border-slate-800">
-                                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-400 bg-clip-text text-transparent">
-                                    Content Analysis
-                                </h1>
-                                <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
-                                {metrics.topic && (
-                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mt-2">
-                                        <span className="text-emerald-400 text-xs font-medium">Topic:</span>
-                                        <span className="text-white text-sm font-semibold">{metrics.topic}</span>
-                                    </div>
-                                )}
-                            </div>
+                        <>
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {/* 1. Header */}
+                                <div className="text-center space-y-2 pb-6 border-b border-slate-800">
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-400 bg-clip-text text-transparent">
+                                        Content Analysis
+                                    </h1>
+                                    <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
+                                    {metrics.topic && (
+                                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mt-2">
+                                            <span className="text-emerald-400 text-xs font-medium">Topic:</span>
+                                            <span className="text-white text-sm font-semibold">{metrics.topic}</span>
+                                        </div>
+                                    )}
+                                </div>
 
-                            {metrics.rubricFeedback && (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
-                                    <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6 flex flex-col md:flex-row gap-8 items-center shadow-lg shadow-orange-950/10">
-                                        <div className="flex-1 space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
-                                                    {metrics.rubricFeedback.alignmentLevel} alignment
+                                {metrics.rubricFeedback && (
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
+                                        <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6 flex flex-col md:flex-row gap-8 items-center shadow-lg shadow-orange-950/10">
+                                            <div className="flex-1 space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                                                        {metrics.rubricFeedback.alignmentLevel} alignment
+                                                    </div>
+                                                    <h4 className="text-xl font-bold text-white">Target Rubric Review</h4>
                                                 </div>
-                                                <h4 className="text-xl font-bold text-white">Target Rubric Review</h4>
+                                                <p className="text-orange-200/70 text-sm leading-relaxed italic">
+                                                    "{metrics.rubricFeedback.overallAssessment}"
+                                                </p>
                                             </div>
-                                            <p className="text-orange-200/70 text-sm leading-relaxed italic">
-                                                "{metrics.rubricFeedback.overallAssessment}"
-                                            </p>
                                         </div>
                                     </div>
+                                )}
+
+                                <div className="space-y-8">
                                     {/* Topic Relevance Analysis — Only shown when a topic was selected */}
                                     {data.topicAnalysis && (
                                         <div className="space-y-6">
@@ -1279,49 +1284,51 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
 
                                             {/* Detailed Criteria Breakdown */}
-                                            <div className="grid grid-cols-1 gap-4">
-                                                {metrics.rubricFeedback.criteriaBreakdown.map((item: any, i: number) => (
-                                                    <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
-                                                        <div className="flex items-start justify-between mb-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
-                                                                    item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                                                                        'bg-red-500/10 border-red-500/20 text-red-400'
-                                                                    }`}>
-                                                                    {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
-                                                                        item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
-                                                                            <XCircle className="w-4 h-4" />}
-                                                                </div>
-                                                                <div>
-                                                                    <h5 className="font-bold text-slate-100">{item.criterion}</h5>
-                                                                    <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
-                                                                        item.fulfillment === 'partial' ? 'text-amber-400' :
-                                                                            'text-red-400'
+                                            {metrics.rubricFeedback?.criteriaBreakdown && (
+                                                <div className="grid grid-cols-1 gap-4">
+                                                    {metrics.rubricFeedback.criteriaBreakdown.map((item: any, i: number) => (
+                                                        <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
+                                                            <div className="flex items-start justify-between mb-3">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                                                        item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                                                                            'bg-red-500/10 border-red-500/20 text-red-400'
                                                                         }`}>
-                                                                        {item.fulfillment} fulfillment
-                                                                    </p>
+                                                                        {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
+                                                                            item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
+                                                                                <XCircle className="w-4 h-4" />}
+                                                                    </div>
+                                                                    <div>
+                                                                        <h5 className="font-bold text-slate-100">{item.criterion}</h5>
+                                                                        <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
+                                                                            item.fulfillment === 'partial' ? 'text-amber-400' :
+                                                                                'text-red-400'
+                                                                            }`}>
+                                                                            {item.fulfillment} fulfillment
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="space-y-3">
-                                                            <p className="text-sm text-slate-300 leading-relaxed">
-                                                                {item.feedback}
-                                                            </p>
-                                                            {item.evidence && (
-                                                                <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <Search className="w-3 h-3 text-slate-500" />
-                                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
+                                                            <div className="space-y-3">
+                                                                <p className="text-sm text-slate-300 leading-relaxed">
+                                                                    {item.feedback}
+                                                                </p>
+                                                                {item.evidence && (
+                                                                    <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <Search className="w-3 h-3 text-slate-500" />
+                                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
+                                                                        </div>
+                                                                        <p className="text-xs text-slate-400 italic">
+                                                                            "{item.evidence}"
+                                                                        </p>
                                                                     </div>
-                                                                    <p className="text-xs text-slate-400 italic">
-                                                                        "{item.evidence}"
-                                                                    </p>
-                                                                </div>
-                                                            )}
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                    ))}
+                                                </div>
+                                            )}
                                             {/* Covered Points & Missed Angles */}
                                             <div className="grid md:grid-cols-2 gap-6">
                                                 {/* Covered Points */}
@@ -1621,8 +1628,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         )}
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        </>
                     )}
 
                     {currentReportIndex === 4 && data.lectureAnalysis && (
@@ -1708,5 +1715,6 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                     }}
                 />
             </motion.div>
-        </>);
+        </>
+    );
 };
