@@ -33,9 +33,9 @@ export const sendNotification = async ({
             read: false,
             createdAt: serverTimestamp(),
             sender: {
-                id: senderId ?? null,
-                name: senderName ?? "Anonymous",
-                avatar: senderAvatar ?? null
+                id: senderId || null,
+                name: senderName || "Anonymous",
+                avatar: senderAvatar || null
             }
         });
     } catch (error) {
