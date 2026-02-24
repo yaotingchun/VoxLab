@@ -27,7 +27,7 @@ import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePos
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
-import { updateStreak } from "@/lib/streaks";
+import { getUserStreak } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 // ...
 
@@ -291,6 +291,10 @@ function PresentationPageInner() {
     };
 
     const handleFinishSession = async (finalAnswers: string[]) => {
+        if (!user) {
+            console.error("Session finish attempted without user context");
+            return;
+        }
         stopSpeaking();
         setIsStarted(false);
         setPhase('EVALUATING');
@@ -329,7 +333,8 @@ function PresentationPageInner() {
             if (videoBlob.size > 0) {
                 try {
                     const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
-                    const res = await getGCSUploadUrl(videoBlob.type, ext);
+                    const fileId = Date.now().toString();
+                    const res = await getGCSUploadUrl(videoBlob.type, ext, user.uid, fileId);
                     if (res.success && res.uploadUrl) {
                         await fetch(res.uploadUrl, {
                             method: 'PUT',
@@ -435,7 +440,7 @@ function PresentationPageInner() {
 
             // Save to GCS asynchronously
             try {
-                await saveSessionToGCS(finalSummaryData);
+                await saveSessionToGCS(finalSummaryData, user.uid, Date.now().toString());
             } catch (e) {
                 console.error("Failed to save session to GCS:", e);
             }
@@ -460,13 +465,14 @@ function PresentationPageInner() {
                             audioMetrics: (presentationSnapshot && presentationSnapshot.audioStats) ? presentationSnapshot.audioStats.stats : (audioResult?.stats ?? undefined),
                             // Save extra metrics as custom data if needed, or update DB schema later
                         });
-                        const newStreak = await updateStreak(user.uid);
+                        const streakData = await getUserStreak(user.uid);
+                        const newStreak = streakData?.currentStreak || 0;
                         const sessionStats = await getSessionStats(user.uid);
 
                         const awarded = await checkAndAwardBadges(user.uid, {
                             sessionsCount: sessionStats.sessionsCount,
                             streakCount: newStreak,
-                            longestStreak: newStreak,
+                            longestStreak: newStreak, // Fallback to current if longest not tracked separately here
                             averageScore: Math.round(data.averageScore),
                             postsCount: 0,
                             likesReceived: 0,

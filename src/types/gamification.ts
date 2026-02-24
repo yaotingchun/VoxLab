@@ -84,11 +84,12 @@ export interface PracticeSession {
             feedback: string;
             evidence: string;
         }[];
+    } | null;
     lectureAnalysis?: {
         teachingScore: number;
         clarityFeedback: string;
         potentialConfusion: string[];
         analogies: string[];
     } | null;
-}}
+}
 

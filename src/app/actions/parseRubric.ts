@@ -1,6 +1,7 @@
 "use server";
 
-import pdf from 'pdf-parse';
+import * as _pdf from 'pdf-parse';
+const pdf = (_pdf as any).default || _pdf;
 
 export async function parseRubric(formData: FormData): Promise<{ text: string; error?: string }> {
     try {
