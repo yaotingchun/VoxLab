@@ -27,7 +27,7 @@ import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePos
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
-import { updateStreak } from "@/lib/streaks";
+import { getUserStreak } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 // ...
 
@@ -78,6 +78,7 @@ function PresentationPageInner() {
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [newBadges, setNewBadges] = useState<string[]>([]);
+    const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
 
     // Presentation specific state
     const [slideFile, setSlideFile] = useState<{ name: string, type: string } | null>(null);
@@ -214,6 +215,7 @@ function PresentationPageInner() {
             startListening();
 
             startSession();
+            setSessionStartTime(new Date().toISOString());
             setIsStarted(true); // Trigger UI and recording
         } catch (e) {
             console.error("Audio stream failed", e);
@@ -291,6 +293,10 @@ function PresentationPageInner() {
     };
 
     const handleFinishSession = async (finalAnswers: string[]) => {
+        if (!user) {
+            console.error("Session finish attempted without user context");
+            return;
+        }
         stopSpeaking();
         setIsStarted(false);
         setPhase('EVALUATING');
@@ -329,7 +335,8 @@ function PresentationPageInner() {
             if (videoBlob.size > 0) {
                 try {
                     const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
-                    const res = await getGCSUploadUrl(videoBlob.type, ext);
+                    const fileId = Date.now().toString();
+                    const res = await getGCSUploadUrl(videoBlob.type, ext, user.uid, fileId);
                     if (res.success && res.uploadUrl) {
                         await fetch(res.uploadUrl, {
                             method: 'PUT',
@@ -438,6 +445,7 @@ function PresentationPageInner() {
             try {
                 const gcsRes = await saveSessionToGCS(finalSummaryData);
                 if (gcsRes.success) reportUrl = gcsRes.url;
+                await saveSessionToGCS(finalSummaryData, user.uid, Date.now().toString(), sessionStartTime || new Date().toISOString());
             } catch (e) {
                 console.error("Failed to save session to GCS:", e);
             }
@@ -465,13 +473,14 @@ function PresentationPageInner() {
                             pauseStats: presentationSnapshot ? presentationSnapshot.pauseStats : (finalPauseStats ?? null),
                             audioMetrics: (presentationSnapshot && presentationSnapshot.audioStats) ? presentationSnapshot.audioStats.stats : (audioResult?.stats ?? undefined),
                         });
-                        const newStreak = await updateStreak(user.uid);
+                        const streakData = await getUserStreak(user.uid);
+                        const newStreak = streakData?.currentStreak || 0;
                         const sessionStats = await getSessionStats(user.uid);
 
                         const awarded = await checkAndAwardBadges(user.uid, {
                             sessionsCount: sessionStats.sessionsCount,
                             streakCount: newStreak,
-                            longestStreak: newStreak,
+                            longestStreak: newStreak, // Fallback to current if longest not tracked separately here
                             averageScore: Math.round(data.averageScore),
                             postsCount: 0,
                             likesReceived: 0,

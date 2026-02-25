@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { usePostureAnalysis, type PostureAnalysisResult } from '@/hooks/usePostureAnalysis';
 import { useFaceAnalysis, type FaceAnalysisMetrics } from '@/hooks/useFaceAnalysis';
 
@@ -42,6 +42,10 @@ export function useUnifiedAnalysis() {
     const distractionIntegrator = useRef(0); // Accumulates ms of distraction
     const lastIntegrationTime = useRef(Date.now());
 
+    // New Event Tracking Ref
+    const sessionEventsRef = useRef<{ timestamp: number, type: string, message: string }[]>([]);
+    const unifiedStartTimeRef = useRef<number>(0);
+
     useEffect(() => {
         const now = Date.now();
         // Cap dt to prevent huge jumps if tab was backgrounded (max 100ms)
@@ -67,8 +71,12 @@ export function useUnifiedAnalysis() {
 
         if (isNowDistracted !== isDistractedBuffered) {
             setIsDistractedBuffered(isNowDistracted);
+            if (isNowDistracted && isSessionActive) {
+                const timestamp = Math.round((Date.now() - unifiedStartTimeRef.current) / 1000);
+                sessionEventsRef.current.push({ timestamp, type: "EYE_CONTACT", message: "Eye Contact Lost" });
+            }
         }
-    }, [face.eyeContactScore, isDistractedBuffered]);
+    }, [face.eyeContactScore, isDistractedBuffered, isSessionActive]);
 
     // ---------------------------------------------------------
     // BUFFERING LOGIC for Posture (Leaky Bucket Integrator)
@@ -94,13 +102,21 @@ export function useUnifiedAnalysis() {
 
         if (isNowIncorrect !== isPostureIncorrectBuffered) {
             setIsPostureIncorrectBuffered(isNowIncorrect);
+            if (isNowIncorrect && isSessionActive) {
+                const timestamp = Math.round((Date.now() - unifiedStartTimeRef.current) / 1000);
+                const activeIssue = posture.issues[0]?.type || "POSTURE";
+                const message = posture.issues[0]?.message || "Posture Issue Detected";
+                sessionEventsRef.current.push({ timestamp, type: activeIssue, message: message });
+            }
         }
-    }, [posture.issues, isPostureIncorrectBuffered]);
+    }, [posture.issues, isPostureIncorrectBuffered, isSessionActive]);
 
     // Wrapper to control both sessions
     const startUnifiedSession = useCallback(() => {
         startPostureSession();
         startFaceSession();
+        unifiedStartTimeRef.current = Date.now();
+        sessionEventsRef.current = [];
     }, [startPostureSession, startFaceSession]);
 
     const endUnifiedSession = useCallback(() => {
@@ -109,7 +125,8 @@ export function useUnifiedAnalysis() {
 
         return {
             ...postureData,
-            faceMetrics: faceData.faceMetrics
+            faceMetrics: faceData.faceMetrics,
+            events: sessionEventsRef.current
         };
     }, [endPostureSession, endFaceSession]);
 
@@ -185,8 +202,10 @@ export function useUnifiedAnalysis() {
         };
     }, [posture, face, isDistractedBuffered]);
 
+    const result = useMemo(() => calculateUnifiedScore(), [calculateUnifiedScore]);
+
     return {
-        result: calculateUnifiedScore(),
+        result,
         analyzePosture,
         analyzeFace,
         startSession: startUnifiedSession,

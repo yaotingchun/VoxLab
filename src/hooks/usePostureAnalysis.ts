@@ -12,6 +12,8 @@ const LANDMARKS = {
     RIGHT_SHOULDER: 12,
     LEFT_HIP: 23,
     RIGHT_HIP: 24,
+    LEFT_WRIST: 15,
+    RIGHT_WRIST: 16,
 };
 
 interface PostureIssue {
@@ -36,27 +38,36 @@ export function usePostureAnalysis() {
 
     const [isSessionActive, setIsSessionActive] = useState(false);
     const sessionStartTime = useRef<number | null>(null);
+    const lastFrameTime = useRef<number | null>(null);
     const sessionStats = useRef({
         totalScore: 0,
         frameCount: 0,
         issueCounts: {} as Record<string, number>,
         lastSeenTime: {} as Record<string, number>,
+        gestureEnergy: 0,
     });
 
-    const startSession = useCallback(() => {
+    const startSession = useCallback((timestampMs?: number) => {
         setIsSessionActive(true);
-        sessionStartTime.current = Date.now();
+        sessionStartTime.current = timestampMs !== undefined ? timestampMs : Date.now();
+        lastFrameTime.current = null;
         sessionStats.current = {
             totalScore: 0,
             frameCount: 0,
             issueCounts: {},
             lastSeenTime: {},
+            gestureEnergy: 0,
         };
     }, []);
 
-    const endSession = useCallback(() => {
+    const endSession = useCallback((timestampMs?: number) => {
         setIsSessionActive(false);
-        const duration = sessionStartTime.current ? (Date.now() - sessionStartTime.current) / 1000 : 0;
+        const now = timestampMs !== undefined ? timestampMs : Date.now();
+        // If we processed video frames with exact timestamps, use the last frame time
+        // fallback to wall clock duration if no frames or live mode
+        const duration = sessionStartTime.current
+            ? ((lastFrameTime.current || now) - sessionStartTime.current) / 1000
+            : 0;
 
         const averageScore = sessionStats.current.frameCount > 0
             ? sessionStats.current.totalScore / sessionStats.current.frameCount
@@ -65,15 +76,27 @@ export function usePostureAnalysis() {
         return {
             duration,
             averageScore,
-            issueCounts: sessionStats.current.issueCounts
+            issueCounts: sessionStats.current.issueCounts,
+            gestureEnergy: sessionStats.current.frameCount > 0 ? (sessionStats.current.gestureEnergy / sessionStats.current.frameCount) * 100 : 0
         };
     }, []);
 
     // History for stability analysis (filtering jitter)
     const historyRef = useRef<any[]>([]);
 
-    const analyze = useCallback((results: PoseLandmarkerResult) => {
+    const analyze = useCallback((results: PoseLandmarkerResult, timestampMs?: number) => {
         if (!results.landmarks || results.landmarks.length === 0) return;
+
+        const now = timestampMs !== undefined ? timestampMs : Date.now();
+
+        // At the start of a manual timestamp session, set the anchor
+        if (timestampMs !== undefined && sessionStartTime.current === null) {
+            sessionStartTime.current = timestampMs;
+        }
+
+        if (timestampMs !== undefined) {
+            lastFrameTime.current = timestampMs;
+        }
 
         const landmarks = results.landmarks[0];
         const issues: PostureIssue[] = [];
@@ -124,7 +147,20 @@ export function usePostureAnalysis() {
             }
         }
 
-        // 4. Slouching (Heuristic: Nose too close to shoulders vertically relative to shoulder width)
+        // 5. Gesture Energy (Performance)
+        const leftWrist = getPoint(LANDMARKS.LEFT_WRIST);
+        const rightWrist = getPoint(LANDMARKS.RIGHT_WRIST);
+
+        if (leftWrist && rightWrist) {
+            // Calculate movement delta for wrists (simple proxy for gesturing)
+            const wristMovement = (Math.abs(leftWrist.x - nose.x) + Math.abs(rightWrist.x - nose.x));
+            // Accumulate normalized "gesture energy"
+            if (isSessionActive) {
+                sessionStats.current.gestureEnergy += Math.min(1, wristMovement);
+            }
+        }
+
+        // Clamp score
         const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
         const noseToShoulderDistY = Math.abs(shoulderMidY - nose.y);
         const shoulderWidth = Math.sqrt(
@@ -147,7 +183,6 @@ export function usePostureAnalysis() {
             sessionStats.current.frameCount++;
             sessionStats.current.totalScore += currentScore;
 
-            const now = Date.now();
             issues.forEach(issue => {
                 const lastSeen = sessionStats.current.lastSeenTime[issue.type] || 0;
                 // If it's been more than 2 seconds since we last saw this issue, count it as a new distinct occurrence

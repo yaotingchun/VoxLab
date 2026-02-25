@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  serverExternalPackages: ["pdf-parse", "@ffmpeg/ffmpeg", "@ffmpeg/core", "@ffmpeg-installer/ffmpeg"],
 };
 
 export default nextConfig;

@@ -23,7 +23,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
-import { getStreak } from "@/lib/streaks";
+import { getUserStreak } from "@/lib/streak";
 import { getFriends } from "@/lib/friends";
 import { Post } from "@/types/forum";
 import { PracticeSession } from "@/types/gamification";
@@ -174,7 +174,7 @@ function ProfileContent() {
         if (user && !dataLoaded) {
             Promise.all([
                 loadMyFollowData(),
-                getStreak(user.uid).then(s => { setStreakCount(s.streakCount); setLongestStreak(s.longestStreak); }),
+                getUserStreak(user.uid).then(s => { if (s) { setStreakCount(s.currentStreak); setLongestStreak(s.longestStreak); } }),
                 getUserBadges(user.uid).then(setBadges),
                 getRecentSessions(user.uid, 20).then(setSessions),
                 getFriends(user.uid).then(setFriends),

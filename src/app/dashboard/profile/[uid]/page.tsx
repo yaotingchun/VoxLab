@@ -20,7 +20,7 @@ import Link from "next/link";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
-import { getStreak } from "@/lib/streaks";
+import { getUserStreak } from "@/lib/streak";
 import { PracticeSession } from "@/types/gamification";
 import { Post } from "@/types/forum";
 import { formatForumDate } from "@/lib/utils";

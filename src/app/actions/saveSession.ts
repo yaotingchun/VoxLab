@@ -1,7 +1,6 @@
 "use server";
 
 import { Storage } from "@google-cloud/storage";
-import { randomUUID } from "crypto";
 
 // Initialize GCS client
 // It will automatically pick up the credentials from GOOGLE_APPLICATION_CREDENTIALS
@@ -9,9 +8,9 @@ import { randomUUID } from "crypto";
 const storage = new Storage();
 
 // Replace with your actual bucket name. The user can configure this in .env.local
-const BUCKET_NAME = process.env.GCS_SESSIONS_BUCKET_NAME || "voxlab-storage";
+const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "voxlab-storage";
 
-export async function saveSessionToGCS(sessionData: any): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function saveSessionToGCS(sessionData: any, userId: string, fileId: string, timestamp?: string): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
         if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
             console.warn("GOOGLE_APPLICATION_CREDENTIALS is not set. Saving to GCS might fail if not in a GCP environment.");
@@ -19,16 +18,15 @@ export async function saveSessionToGCS(sessionData: any): Promise<{ success: boo
 
         const bucket = storage.bucket(BUCKET_NAME);
 
-        // Generate a unique filename based on the current timestamp + UUID
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `sessions/${timestamp}-${randomUUID()}.json`;
+        // Flat Organization: Save into a shared uploads folder with userId prefix
+        const filename = `uploads/${userId}_${fileId}.json`;
 
         const file = bucket.file(filename);
 
         // Define the content to save. We add a savedAt timestamp.
         const contentToSave = {
             ...sessionData,
-            savedAt: new Date().toISOString(),
+            savedAt: timestamp || new Date().toISOString(),
         };
 
         const jsonString = JSON.stringify(contentToSave, null, 2);
@@ -59,12 +57,12 @@ export async function saveSessionToGCS(sessionData: any): Promise<{ success: boo
     }
 }
 
-export async function getGCSUploadUrl(contentType: string, extension: string): Promise<{ success: boolean; uploadUrl?: string; fileUrl?: string; error?: string }> {
+export async function getGCSUploadUrl(contentType: string, extension: string, userId: string, fileId: string): Promise<{ success: boolean; uploadUrl?: string; fileUrl?: string; error?: string }> {
     try {
         const bucket = storage.bucket(BUCKET_NAME);
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const filename = `sessions/videos/${timestamp}-${randomUUID()}.${extension}`;
+        // Flat Organization: Generate a signed upload URL into the shared uploads folder
+        const filename = `uploads/${userId}_${fileId}.${extension}`;
         const file = bucket.file(filename);
 
         // Generate a 15-minute signed URL for PUT

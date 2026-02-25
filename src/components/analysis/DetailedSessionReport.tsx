@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles, FileText, Target } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2, FileCheck2, CheckCircle2, XCircle, Search, Sparkles, FileText, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -53,7 +53,7 @@ interface DetailedSessionReportProps {
             idealAnswer: string;
             relevanceScore: number;
         }[] | null;
-        videoUrl?: string; // Newly added video URL from GCS
+        videoUrl?: string | null; // Newly added video URL from GCS
         rawMetrics?: {
             topic?: string | null;
             duration: number;
@@ -85,7 +85,30 @@ interface DetailedSessionReportProps {
             volumeSamples?: number[];
             pitchSamples?: number[];
             transcript?: string; // Added transcript
+            faceMetrics?: {
+                averageEngagement: number;
+                smilePercentage: number;
+                blinkRateAverage: number;
+                eyeContactScore: number;
+                hasHighBlinkRate: boolean;
+                hasMouthTension: boolean;
+                hasShiftyEyes: boolean;
+                hasPoorCameraClarity: boolean;
+            };
         };
+        rubricFeedback?: {
+            score: number;
+            alignmentLevel: "high" | "medium" | "low";
+            overallAssessment: string;
+            criteriaBreakdown: {
+                criterion: string;
+                fulfillment: "full" | "partial" | "none";
+                feedback: string;
+                evidence: string;
+            }[];
+        } | null;
+        topic?: string | null;
+        createdAt?: string | any;
     };
     onClose: () => void;
 }
@@ -107,7 +130,11 @@ function getWpmZoneColor(wpm: number): string {
 export function DetailedSessionReport({ data, onClose }: DetailedSessionReportProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
-    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0); // 0: General, 1: Vocal, 2: Posture, 3: Content, 4: Lecture
+
+    const maxTabIndex = 3;
+
+    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0);
+    // 0: General, 1: Vocal, 2: Posture, 3: Content
 
     // Content Analysis State
     const [contentAnalysis, setContentAnalysis] = useState<string>("");
@@ -186,23 +213,43 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
         }
     };
 
-    const metrics = data.rawMetrics || {
-        duration: 0,
-        wpm: 0,
-        totalWords: 0,
-        fillerCounts: {},
-        issueCounts: {},
-        pauseCount: 0,
-        wpmHistory: [],
-        pauseStats: undefined,
-        audioMetrics: undefined,
-        volumeSamples: [],
-        pitchSamples: [],
-        transcript: ""
+    const metrics: {
+        duration: number;
+        wpm: number;
+        totalWords: number;
+        fillerCounts: Record<string, number>;
+        issueCounts: Record<string, number>;
+        pauseCount: number;
+        wpmHistory: number[];
+        pauseStats?: any;
+        audioMetrics?: any;
+        volumeSamples: number[];
+        pitchSamples: number[];
+        transcript: string;
+        faceMetrics?: any;
+        words: { word: string; startTime: number; endTime: number }[];
+        rubricFeedback?: any;
+        topic?: string | null;
+    } = {
+        duration: data.rawMetrics?.duration ?? (data as any).duration ?? 0,
+        wpm: data.rawMetrics?.wpm ?? (data as any).wpm ?? 0,
+        totalWords: data.rawMetrics?.totalWords ?? (data as any).totalWords ?? 0,
+        fillerCounts: data.rawMetrics?.fillerCounts ?? (data as any).fillerCounts ?? {},
+        issueCounts: data.rawMetrics?.issueCounts ?? (data as any).issueCounts ?? (data as any).combinedIssueCounts ?? {},
+        pauseCount: data.rawMetrics?.pauseCount ?? (data as any).pauses ?? (data as any).pauseCount ?? 0,
+        wpmHistory: data.rawMetrics?.wpmHistory ?? (data as any).wpmHistory ?? [],
+        pauseStats: data.rawMetrics?.pauseStats ?? (data as any).pauseStats,
+        audioMetrics: data.rawMetrics?.audioMetrics ?? (data as any).audioMetrics,
+        volumeSamples: data.rawMetrics?.volumeSamples ?? (data as any).volumeSamples ?? [],
+        pitchSamples: data.rawMetrics?.pitchSamples ?? (data as any).pitchSamples ?? [],
+        transcript: data.rawMetrics?.transcript ?? (data as any).transcript ?? "",
+        faceMetrics: data.rawMetrics?.faceMetrics ?? (data as any).faceMetrics,
+        words: data.rawMetrics?.words ?? (data as any).words ?? [],
+        rubricFeedback: data.rubricFeedback,
+        topic: data.topic ?? data.rawMetrics?.topic ?? (data as any).topic
     };
 
     const { messages: contentMessages, status: contentStatus, sendMessage: sendContentMessage } = useChat({
-        api: "/api/chat",
         id: "content-coach"
     } as any);
 
@@ -377,8 +424,17 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                                     General Performance Report
                                 </h1>
-                                <p className="text-slate-400 text-sm">Generated by VoxLab AI</p>
-                            </div >
+                                <p className="text-slate-400 text-sm flex items-center justify-center gap-2">
+                                    <Clock className="w-3 h-3" />
+                                    {data.createdAt ? (
+                                        typeof data.createdAt === 'string' ? new Date(data.createdAt).toLocaleString() :
+                                            data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() :
+                                                new Date(data.createdAt).toLocaleString()
+                                    ) : (
+                                        "Recently Recorded"
+                                    )} — Generated by VoxLab AI
+                                </p>
+                            </div>
 
                             {/* 2. Executive Summary & Score */}
                             < div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center" >
@@ -397,7 +453,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         color="text-blue-500"
                                     />
                                 </div>
-                            </div >
+                            </div>
 
                             {/* 3. Key Metrics Grid */}
                             < div className="grid grid-cols-2 lg:grid-cols-4 gap-4" >
@@ -410,7 +466,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     <div className="text-xs text-slate-400">
                                         {metrics.wpm < 110 ? "Slow Paced" : metrics.wpm > 160 ? "Fast Paced" : "Optimal Pace"}
                                     </div>
-                                </div >
+                                </div>
 
                                 {/* Total Words */}
                                 <div className="p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
@@ -430,7 +486,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                     <div className={`text-3xl font-bold mb-1 ${fillerTotal > 5 ? 'text-red-400' : 'text-green-400'}`}>{fillerTotal}</div>
                                     <div className="text-xs text-slate-400">{fillerTotal > 5 ? "Needs Attention" : "Great Clarity"}</div>
-                                </div >
+                                </div>
 
                                 {/* Pauses */}
                                 < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
@@ -439,8 +495,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.pauseCount}</div>
                                     <div className="text-xs text-slate-400">Detected Gaps</div>
-                                </div >
-                            </div >
+                                </div>
+                            </div>
 
                             {/* Optional: Video Replay */}
                             {data.videoUrl && (
@@ -491,7 +547,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div >
+                                </div>
 
                                 {/* Actionable Tips */}
                                 < div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50 flex flex-col" >
@@ -508,8 +564,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </li>
                                         ))}
                                     </ul>
-                                </div >
-                            </div >
+                                </div>
+                            </div>
 
                             {/* Pace Analysis & Interval Breakdown */}
                             < div className="grid grid-cols-1 gap-6" >
@@ -621,8 +677,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             );
                                         })()
                                     }
-                                </div >
-                            </div >
+                                </div>
+                            </div>
 
                             {/* Vocal Dynamics & Pause Breakdown */}
                             < div className="space-y-6" >
@@ -649,9 +705,16 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                                         <div className="text-2xl font-bold text-white">{audioStats.stats.pitchStdDev?.toFixed(1) || 0}</div>
                                                         <div className="text-xs text-slate-500">Pitch Variety (st)</div>
                                                         <div className="mt-1 flex gap-0.5 justify-center">
-                                                            {[1, 2, 3, 4, 5].map(i => (
-                                                                <div key={i} className={`w-1.5 h-1.5 rounded-full ${((audioStats.stats.pitchStdDev || 0) / 3) * 5 >= i ? "bg-purple-500" : "bg-white/10"}`} />
-                                                            ))}
+                                                            {[1, 2, 3, 4, 5].map(i => {
+                                                                const stdDev = audioStats?.stats.pitchStdDev || 0;
+                                                                const active = i < Math.min(5, Math.ceil(stdDev / 2));
+                                                                return (
+                                                                    <div
+                                                                        key={i}
+                                                                        className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-purple-500' : 'bg-white/10'}`}
+                                                                    />
+                                                                )
+                                                            })}
                                                         </div>
                                                     </div>
                                                     {/* Volume Consistency */}
@@ -684,7 +747,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div >
+                                </div>
 
                                 {/* Pause Analysis Card (Matches SpeechCoachPage logic) */}
                                 < div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50" >
@@ -747,8 +810,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div >
-                            </div >
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -812,14 +875,14 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     <div className="text-xs text-slate-400">
                                         {metrics.wpm < 110 ? "Slow Paced" : metrics.wpm > 160 ? "Fast Paced" : "Optimal Pace"}
                                     </div>
-                                </div >
+                                </div>
                                 {/* Total Words */}
                                 < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
                                     <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                        <TypeIcon className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
+                                        <Type className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.totalWords}</div>
-                                </div >
+                                </div>
                                 {/* Filler Words */}
                                 < div className={`p-5 rounded-2xl border bg-slate-800/30 ${fillerTotal > 5 ? 'border-red-500/30' : 'border-green-500/30'}`
                                 }>
@@ -827,15 +890,15 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         <AlertCircle className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Filler Words</span>
                                     </div>
                                     <div className={`text-3xl font-bold mb-1 ${fillerTotal > 5 ? 'text-red-400' : 'text-green-400'}`}>{fillerTotal}</div>
-                                </div >
+                                </div>
                                 {/* Pauses */}
                                 < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
                                     <div className="flex items-center gap-2 text-slate-400 mb-2">
                                         <Mic className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Pauses</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.pauseCount}</div>
-                                </div >
-                            </div >
+                                </div>
+                            </div>
 
                             {/* Filler Word Breakdown & Pitch Analysis Columns */}
                             < div className="grid md:grid-cols-2 gap-6" >
@@ -868,7 +931,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div >
+                                </div>
 
                                 {/* Pause Analysis Breakdown */}
                                 <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
@@ -1056,7 +1119,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         </div>
                                     );
                                 })()}
-                            </div >
+                            </div>
                         </div>
                     )}
 
@@ -1067,7 +1130,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                                     Posture & Presence
                                 </h1>
-                                <p className="text-slate-400 text-sm">Body language, alignment, and eye contact</p>
+                                <p className="text-slate-400 text-sm">Body language and postural alignment</p>
                             </div>
 
                             {/* Posture Coach Summary & Score */}
@@ -1140,6 +1203,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     )
                                 }
                             </div>
+
 
                         </div>
                     )}
@@ -1306,249 +1370,318 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </div>
                             )}
 
-                            {/* Slide Alignment Analysis */}
-                            {data.slideAnalysis && (
-                                <div className="space-y-6">
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-blue-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                        <div className="flex-1 space-y-3">
-                                            <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                                <FileText className="w-4 h-4" /> Slide Alignment
-                                            </h3>
-                                            <p className="text-slate-300 text-sm leading-relaxed">
-                                                {data.slideAnalysis.feedback}
-                                            </p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <CircularScoreChart
-                                                score={data.slideAnalysis.alignmentScore}
-                                                label="Alignment"
-                                                color="text-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                ✅ Points Covered
-                                            </h3>
-                                            <ul className="space-y-3">
-                                                {data.slideAnalysis.coveredPoints.map((point, i) => (
-                                                    <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
-                                                        <p className="text-sm text-slate-200 leading-snug">{point}</p>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                ⚠️ Missed Points
-                                            </h3>
-                                            <ul className="space-y-3">
-                                                {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
-                                                    <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
-                                                        <p className="text-sm text-slate-200 leading-snug">{point}</p>
-                                                    </li>
-                                                )) : <p className="text-slate-500 italic text-sm">All key points were covered!</p>}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Rubric Analysis */}
-                            {data.rubricAnalysis && (
-                                <div className="space-y-6">
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-purple-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                        <div className="flex-1 space-y-3">
-                                            <h3 className="text-sm font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                                                <AlertCircle className="w-4 h-4" /> Rubric Evaluation
-                                            </h3>
-                                            <p className="text-slate-300 text-sm leading-relaxed">
-                                                {data.rubricAnalysis.feedback}
-                                            </p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <CircularScoreChart
-                                                score={data.rubricAnalysis.rubricScore}
-                                                label="Rubric Score"
-                                                color="text-purple-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                🌟 Key Strengths
-                                            </h3>
-                                            <ul className="space-y-3">
-                                                {data.rubricAnalysis.strengths.map((str, i) => (
-                                                    <li key={i} className="flex items-start gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs font-bold">✓</span>
-                                                        <p className="text-sm text-slate-200 leading-snug">{str}</p>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                📉 Areas to Improve
-                                            </h3>
-                                            <ul className="space-y-3">
-                                                {data.rubricAnalysis.weaknesses.map((weakness, i) => (
-                                                    <li key={i} className="flex items-start gap-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs font-bold">↓</span>
-                                                        <p className="text-sm text-slate-200 leading-snug">{weakness}</p>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex flex-col gap-6">
-
-                                {/* Content Summary & Score Header */}
-                                {!data.qnaSummary && (
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
+                            {/* Rubric Feedback */}
+                            {metrics.rubricFeedback && (
+                                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
+                                    <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6 flex flex-col md:flex-row gap-8 items-center shadow-lg shadow-orange-950/10">
                                         <div className="flex-1 space-y-4">
-                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                                <Activity className="w-4 h-4" /> Content Heuristic Score
-                                            </h3>
-                                            <p className="text-slate-200 leading-relaxed text-sm">
-                                                This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
+                                            <div className="flex items-center gap-3">
+                                                <div className="px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
+                                                    {metrics.rubricFeedback.alignmentLevel} alignment
+                                                </div>
+                                                <h4 className="text-xl font-bold text-white">Target Rubric Review</h4>
+                                            </div>
+                                            <p className="text-orange-200/70 text-sm leading-relaxed italic">
+                                                &quot;{metrics.rubricFeedback.overallAssessment}&quot;
                                             </p>
                                         </div>
-                                        <div className="flex-shrink-0">
-                                            <CircularScoreChart
-                                                score={localContentScore}
-                                                label="Content Score"
-                                                color="text-green-500"
-                                            />
-                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-8">
+                                {/* Detailed Criteria Breakdown */}
+                                {metrics.rubricFeedback?.criteriaBreakdown && (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {metrics.rubricFeedback.criteriaBreakdown.map((item: any, i: number) => (
+                                            <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+                                                            item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                                                                'bg-red-500/10 border-red-500/20 text-red-400'
+                                                            }`}>
+                                                            {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
+                                                                item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
+                                                                    <XCircle className="w-4 h-4" />}
+                                                        </div>
+                                                        <div>
+                                                            <h5 className="font-bold text-slate-100">{item.criterion}</h5>
+                                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
+                                                                item.fulfillment === 'partial' ? 'text-amber-400' :
+                                                                    'text-red-400'
+                                                                }`}>
+                                                                {item.fulfillment} fulfillment
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <p className="text-sm text-slate-300 leading-relaxed">
+                                                        {item.feedback}
+                                                    </p>
+                                                    {item.evidence && (
+                                                        <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <Search className="w-3 h-3 text-slate-500" />
+                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-400 italic">
+                                                                &quot;{item.evidence}&quot;
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
 
-                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                    <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                        <Mic className="w-4 h-4" /> Live Transcript
-                                    </h3>
-                                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                        {metrics.transcript || "No transcript recorded for this session."}
-                                    </div>
-                                </div>
-
-                                {/* Q&A Breakdown */}
-                                {data.qnaSummary && (
+                                {/* Slide Alignment Analysis */}
+                                {data.slideAnalysis && (
                                     <div className="space-y-6">
-                                        {/* Average Relevance Score */}
-                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-blue-500/20 flex flex-col md:flex-row gap-8 items-center">
                                             <div className="flex-1 space-y-3">
-                                                <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <Target className="w-4 h-4" /> Average Relevance
+                                                <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <FileText className="w-4 h-4" /> Slide Alignment
                                                 </h3>
                                                 <p className="text-slate-300 text-sm leading-relaxed">
-                                                    This score represents how well your answers addressed the specific questions asked during the Q&A session.
+                                                    {data.slideAnalysis.feedback}
                                                 </p>
                                             </div>
                                             <div className="flex-shrink-0">
                                                 <CircularScoreChart
-                                                    score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
-                                                    label="Avg Score"
-                                                    color="text-teal-500"
+                                                    score={data.slideAnalysis.alignmentScore}
+                                                    label="Alignment"
+                                                    color="text-blue-500"
                                                 />
                                             </div>
                                         </div>
 
-                                        {/* Questions Breakdown */}
-                                        <div className="space-y-6">
-                                            {data.qnaSummary.map((qna, idx) => (
-                                                <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
-                                                    <div className="flex items-start justify-between gap-4">
-                                                        <div className="space-y-1">
-                                                            <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
-                                                            <p className="text-slate-300 font-medium">{qna.question}</p>
-                                                        </div>
-                                                        <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
-                                                            <span className="text-xs font-bold text-slate-400">Score</span>
-                                                            <span className={`text-sm font-bold ${qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
-                                                                {qna.relevanceScore}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    ✅ Points Covered
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {data.slideAnalysis.coveredPoints.map((point, i) => (
+                                                        <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
+                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                            <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
 
-                                                    <div className="grid md:grid-cols-2 gap-4 mt-4">
-                                                        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
-                                                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                                                <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
-                                                            </div>
-                                                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
-                                                        </div>
-                                                        <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
-                                                            <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                                                <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
-                                                            </div>
-                                                            <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    ⚠️ Missed Points
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
+                                                        <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                            <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                        </li>
+                                                    )) : <p className="text-slate-500 italic text-sm">All key points were covered!</p>}
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* AI Analysis Column */}
-                                {!data.qnaSummary && (
+                                {/* Rubric Analysis */}
+                                {data.rubricAnalysis && (
+                                    <div className="space-y-6">
+                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-purple-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                            <div className="flex-1 space-y-3">
+                                                <h3 className="text-sm font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <AlertCircle className="w-4 h-4" /> Rubric Evaluation
+                                                </h3>
+                                                <p className="text-slate-300 text-sm leading-relaxed">
+                                                    {data.rubricAnalysis.feedback}
+                                                </p>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <CircularScoreChart
+                                                    score={data.rubricAnalysis.rubricScore}
+                                                    label="Rubric Score"
+                                                    color="text-purple-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    🌟 Key Strengths
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {data.rubricAnalysis.strengths.map((str, i) => (
+                                                        <li key={i} className="flex items-start gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                            <p className="text-sm text-slate-200 leading-snug">{str}</p>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+
+                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                                <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    📉 Areas to Improve
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {data.rubricAnalysis.weaknesses.map((weakness, i) => (
+                                                        <li key={i} className="flex items-start gap-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
+                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs font-bold">↓</span>
+                                                            <p className="text-sm text-slate-200 leading-snug">{weakness}</p>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col gap-6">
+
+                                    {/* Content Summary & Score Header */}
+                                    {!data.qnaSummary && (
+                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
+                                            <div className="flex-1 space-y-4">
+                                                <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Activity className="w-4 h-4" /> Content Heuristic Score
+                                                </h3>
+                                                <p className="text-slate-200 leading-relaxed text-sm">
+                                                    This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
+                                                </p>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <CircularScoreChart
+                                                    score={localContentScore}
+                                                    label="Content Score"
+                                                    color="text-green-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                                <Activity className="w-4 h-4" /> AI Content Coach
-                                            </h3>
-                                            {!contentAnalysis && isAnalyzingContent && (
-                                                <div className="flex items-center gap-2 text-teal-400 text-sm">
-                                                    <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                                                    Analyzing...
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                            {isContentLoading && !streamedContentAnalysis && (
-                                                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                                                    <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                                                    <p>Analyzing script flow and impact...</p>
-                                                </div>
-                                            )}
-                                            {streamedContentAnalysis && (
-                                                <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
-                                                    <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
-                                                    {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
-                                                </div>
-                                            )}
-                                            {!isContentLoading && !streamedContentAnalysis && (
-                                                <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
-                                                    {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
-                                                </div>
-                                            )}
+                                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <Mic className="w-4 h-4" /> Live Transcript
+                                        </h3>
+                                        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                            {metrics.transcript || "No transcript recorded for this session."}
                                         </div>
                                     </div>
-                                )}
+
+                                    {/* Q&A Breakdown */}
+                                    {data.qnaSummary && (
+                                        <div className="space-y-6">
+                                            {/* Average Relevance Score */}
+                                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                                <div className="flex-1 space-y-3">
+                                                    <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                        <Target className="w-4 h-4" /> Average Relevance
+                                                    </h3>
+                                                    <p className="text-slate-300 text-sm leading-relaxed">
+                                                        This score represents how well your answers addressed the specific questions asked during the Q&A session.
+                                                    </p>
+                                                </div>
+                                                <div className="flex-shrink-0">
+                                                    <CircularScoreChart
+                                                        score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
+                                                        label="Avg Score"
+                                                        color="text-teal-500"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Questions Breakdown */}
+                                            <div className="space-y-6">
+                                                {data.qnaSummary.map((qna, idx) => (
+                                                    <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="space-y-1">
+                                                                <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
+                                                                <p className="text-slate-300 font-medium">{qna.question}</p>
+                                                            </div>
+                                                            <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
+                                                                <span className="text-xs font-bold text-slate-400">Score</span>
+                                                                <span className={qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}>
+                                                                    {qna.relevanceScore}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid md:grid-cols-2 gap-4 mt-4">
+                                                            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                                                                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                    <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
+                                                                </div>
+                                                                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
+                                                            </div>
+                                                            <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
+                                                                <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                    <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
+                                                                </div>
+                                                                <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {!data.qnaSummary && (
+                                        <div className="flex flex-col gap-6">
+                                            {/* AI Analysis Column */}
+                                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                        <Activity className="w-4 h-4" /> AI Content Coach
+                                                    </h3>
+                                                    {!contentAnalysis && isAnalyzingContent && (
+                                                        <div className="flex items-center gap-2 text-teal-400 text-sm">
+                                                            <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                                                            Analyzing...
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                                    {isContentLoading && !streamedContentAnalysis && (
+                                                        <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
+                                                            <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                                            <p>Analyzing script flow and impact...</p>
+                                                        </div>
+                                                    )}
+                                                    {streamedContentAnalysis && (
+                                                        <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
+                                                            <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
+                                                            {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
+                                                        </div>
+                                                    )}
+                                                    {!isContentLoading && !streamedContentAnalysis && (
+                                                        <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
+                                                            {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
 
-                </div >
+                </div>
 
-                {/* Session Context Chatbot */}
+
                 <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
 
-                {/* Share to Forum Modal */}
                 <ShareSessionModal
                     isOpen={isSharing}
                     onClose={() => setIsSharing(false)}
@@ -1567,18 +1700,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                         }
                     }}
                 />
-
-            </motion.div>
+            </motion.div >
         </>
     );
-}
-
-function TypeIcon({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <polyline points="4 7 4 4 20 4 20 7" />
-            <line x1="9" x2="15" y1="20" y2="20" />
-            <line x1="12" x2="12" y1="4" y2="20" />
-        </svg>
-    )
-}
+};

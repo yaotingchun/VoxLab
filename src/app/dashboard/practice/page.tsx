@@ -22,7 +22,7 @@ import { analyzePosture as getAIPostureAnalysis } from "@/app/actions/analyzePos
 import { saveSessionToGCS, getGCSUploadUrl } from "@/app/actions/saveSession";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
-import { updateStreak } from "@/lib/streaks";
+import { getUserStreak, getLocalDateString } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 
 function PracticePageInner() {
@@ -75,6 +75,7 @@ function PracticePageInner() {
     const [isSlidesExpanded, setIsSlidesExpanded] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [slideFile, setSlideFile] = useState<{ name: string, type: string } | null>(null);
+    const [sessionStartTime, setSessionStartTime] = useState<string | null>(null);
 
     // Video Recording State
     const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
@@ -149,6 +150,10 @@ function PracticePageInner() {
 
             setIsAnalyzing(true);
             try {
+                // Generate synchronized ID for strict isolation routing
+                const finalUserId = user?.uid || "anonymous";
+                const fileId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${window.crypto.randomUUID()}`;
+
                 // Wait for video buffer to finish processing
                 const videoBlob = await new Promise<Blob>((resolve) => {
                     videoResolveRef.current = resolve;
@@ -160,7 +165,7 @@ function PracticePageInner() {
                 if (videoBlob.size > 0) {
                     try {
                         const ext = videoBlob.type.includes("mp4") ? "mp4" : "webm";
-                        const res = await getGCSUploadUrl(videoBlob.type, ext);
+                        const res = await getGCSUploadUrl(videoBlob.type, ext, finalUserId, fileId);
                         if (res.success && res.uploadUrl) {
                             await fetch(res.uploadUrl, {
                                 method: 'PUT',
@@ -233,6 +238,7 @@ function PracticePageInner() {
                 }
 
                 const finalSummaryData = {
+                    sessionId: fileId,
                     ...aiSummary,
                     vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
                     postureSummary: 'error' in postureSummary ? null : postureSummary,
@@ -253,7 +259,8 @@ function PracticePageInner() {
                         // Pass raw samples for charts
                         volumeSamples: volumeSamples,
                         pitchSamples: pitchSamples,
-                        transcript: transcript // Pass transcript for report
+                        transcript: transcript, // Pass transcript for report
+                        events: data.events || [] // NEW: Timestamped bookmarks for Time-Machine Replay
                     }
                 };
 
@@ -262,7 +269,7 @@ function PracticePageInner() {
                 // Save to GCS
                 let reportUrl = undefined;
                 try {
-                    const gcsRes = await saveSessionToGCS(finalSummaryData);
+                    const gcsRes = await saveSessionToGCS(finalSummaryData, finalUserId, fileId, sessionStartTime || new Date().toISOString());
                     if (gcsRes.success) reportUrl = gcsRes.url;
                 } catch (e) {
                     console.error("Failed to save session to GCS:", e);
@@ -285,14 +292,20 @@ function PracticePageInner() {
                                 fillerCounts,
                                 pauseCount,
                                 wpmHistory,
-                                videoUrl: videoUrl,
                                 reportUrl, // Store the GCS full report URL
                                 transcript: transcript ?? "",
                                 pauseStats: finalPauseStats ?? null,
+                                faceMetrics: data.faceMetrics,
+                                postureSummary: 'error' in postureSummary ? null : postureSummary,
+                                videoUrl: videoUrl ?? null,
                                 audioMetrics: audioResult?.stats ?? undefined,
                                 lectureAnalysis: (aiSummary as any).lectureAnalysis ?? null,
                             });
-                            const newStreak = await updateStreak(user.uid);
+                            const streakData = await getUserStreak(user.uid);
+                            const today = getLocalDateString(new Date());
+                            const newStreak = (streakData?.lastPracticeDate !== today)
+                                ? (streakData?.currentStreak || 0) + 1
+                                : (streakData?.currentStreak || 0);
                             const sessionStats = await getSessionStats(user.uid);
 
                             const awarded = await checkAndAwardBadges(user.uid, {
@@ -335,6 +348,7 @@ function PracticePageInner() {
                 startListening();
 
                 startSession();
+                setSessionStartTime(new Date().toISOString());
                 setIsStarted(true); // Trigger UI and recording
             } catch (e) {
                 console.error("Audio stream failed", e);

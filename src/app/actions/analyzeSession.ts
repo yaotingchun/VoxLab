@@ -36,6 +36,7 @@ interface SessionData {
         avgPitch?: number;
         volumeRange?: number;
     };
+    rubricText?: string;
 }
 
 export async function analyzeSession(data: SessionData) {
@@ -88,6 +89,7 @@ export async function analyzeSession(data: SessionData) {
         - Filler Words: ${data.speechMetrics ? Object.entries(data.speechMetrics.fillerCounts).map(([k, v]) => `${k}: ${v}`).join(', ') : 'None'}
         - Pauses Detected: ${data.speechMetrics?.pauseCount || 0}
         - Pace Stability: ${data.speechMetrics?.wpmHistory.length ? 'Varied' : 'Stable'} (History: ${data.speechMetrics?.wpmHistory.slice(0, 10).join(', ')}...)
+        - Transcript: "${data.transcript || 'N/A'}"
 
         - Posture Issues:
         ${Object.entries(data.issueCounts).map(([k, v]) => `  - ${k}: ${v} detected`).join('\n')}
@@ -105,10 +107,27 @@ export async function analyzeSession(data: SessionData) {
         - Monotone: ${data.audioMetrics?.isMonotone ? 'Yes' : 'No'}
         - Too Quiet: ${data.audioMetrics?.isTooQuiet ? 'Yes' : 'No'}
 
+        ${data.rubricText ? `
+        CRITICAL: EVALUATE BASED ON THIS RUBRIC:
+        "${data.rubricText}"
+        
+        INSTRUCTIONS FOR RUBRIC EVALUATION:
+        1. Parse the rubric text above to identify distinct evaluation criteria (e.g., "Clarity", "Body Language", "Structure").
+        2. Evaluate each criterion based on the transcript and performance metrics provided.
+        3. Assign a fulfillment status to each: "full", "partial", or "none".
+        4. Provide specific feedback for each criterion, citing evidence from the session (e.g., quotes from transcript or specific posture metrics).
+        5. Provide an overall assessment of how well the user met the rubric's goals.
+        ` : ""}
+        
         Provide a "Gemini AI Coach" summary.
         1. A brief, 2-3 sentence analysis of their overall performance, encompassing their script, posture, and VOCAL delivery.${hasTopic ? ' Specifically mention how well their content addressed the topic.' : ''}
         2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).${hasTopic ? ' At least one tip should be about content/topic coverage.' : ''}
         3. An objective 'score' from 0 to 100 evaluating their overall performance across all these pillars. Make it tough but fair.
+        
+        ${data.rubricText ? `
+        4. Provide a rubric-specific score (0-100) reflecting the average fulfillment of the identified criteria.
+        5. Assess the "Alignment Level" (high, medium, low) based on the overall fulfillment.
+        ` : ""}
         ${topicInstructions}
         ${lectureInstructions}
         `;
