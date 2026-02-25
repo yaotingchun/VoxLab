@@ -358,7 +358,7 @@ function PracticePageInner() {
                 startAudioAnalysis(stream);
 
                 // Note: startListening now handles its own AudioContext/WebSocket
-                startListening();
+                startListening(stream);
 
                 startSession();
                 setSessionStartTime(new Date().toISOString());
@@ -431,6 +431,7 @@ function PracticePageInner() {
                                 isRecording={isStarted}
                                 audioStream={audioStream}
                                 onVideoRecorded={handleVideoRecorded}
+                                isAutoFramed={result.isAutoFramed}
                             />
 
                             {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}

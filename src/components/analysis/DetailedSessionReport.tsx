@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useChat } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, ChevronLeft, ChevronRight, Video, Type, Share2, FileCheck2, CheckCircle2, XCircle, Search, Sparkles, FileText, Target } from "lucide-react";
+import { Download, X, Activity, Mic, Clock, BarChart3, AlertCircle, TrendingUp, AlertTriangle, Video, Type, Share2, Sparkles, FileText, Target, Star, MessageSquare, Brain, Users, Zap, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
@@ -15,6 +15,8 @@ import { CircularScoreChart } from "./CircularScoreChart";
 import { SessionChatbot } from "./SessionChatbot";
 import { ShareSessionModal } from "./ShareSessionModal";
 import ReactMarkdown from "react-markdown";
+import { InterviewEvaluation, QuestionEvaluation, InterviewAnswer } from "@/types/interview";
+
 
 interface DetailedSessionReportProps {
     data: {
@@ -47,13 +49,9 @@ interface DetailedSessionReportProps {
             weaknesses: string[];
             feedback: string;
         } | null;
-        qnaSummary?: {
-            question: string;
-            userAnswer: string;
-            idealAnswer: string;
-            relevanceScore: number;
-        }[] | null;
-        videoUrl?: string | null; // Newly added video URL from GCS
+        qnaSummary?: QuestionEvaluation[] | null;
+        interviewEvaluation?: InterviewEvaluation | null;
+        videoUrl?: string; // Newly added video URL from GCS
         rawMetrics?: {
             topic?: string | null;
             duration: number;
@@ -85,30 +83,7 @@ interface DetailedSessionReportProps {
             volumeSamples?: number[];
             pitchSamples?: number[];
             transcript?: string; // Added transcript
-            faceMetrics?: {
-                averageEngagement: number;
-                smilePercentage: number;
-                blinkRateAverage: number;
-                eyeContactScore: number;
-                hasHighBlinkRate: boolean;
-                hasMouthTension: boolean;
-                hasShiftyEyes: boolean;
-                hasPoorCameraClarity: boolean;
-            };
         };
-        rubricFeedback?: {
-            score: number;
-            alignmentLevel: "high" | "medium" | "low";
-            overallAssessment: string;
-            criteriaBreakdown: {
-                criterion: string;
-                fulfillment: "full" | "partial" | "none";
-                feedback: string;
-                evidence: string;
-            }[];
-        } | null;
-        topic?: string | null;
-        createdAt?: string | any;
     };
     onClose: () => void;
 }
@@ -130,11 +105,7 @@ function getWpmZoneColor(wpm: number): string {
 export function DetailedSessionReport({ data, onClose }: DetailedSessionReportProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
-
-    const maxTabIndex = 3;
-
-    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0);
-    // 0: General, 1: Vocal, 2: Posture, 3: Content
+    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0); // 0: General, 1: Vocal, 2: Posture, 3: Content, 4: Lecture
 
     // Content Analysis State
     const [contentAnalysis, setContentAnalysis] = useState<string>("");
@@ -213,52 +184,31 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
         }
     };
 
-    const metrics: {
-        duration: number;
-        wpm: number;
-        totalWords: number;
-        fillerCounts: Record<string, number>;
-        issueCounts: Record<string, number>;
-        pauseCount: number;
-        wpmHistory: number[];
-        pauseStats?: any;
-        audioMetrics?: any;
-        volumeSamples: number[];
-        pitchSamples: number[];
-        transcript: string;
-        faceMetrics?: any;
-        words: { word: string; startTime: number; endTime: number }[];
-        rubricFeedback?: any;
-        topic?: string | null;
-    } = {
-        duration: data.rawMetrics?.duration ?? (data as any).duration ?? 0,
-        wpm: data.rawMetrics?.wpm ?? (data as any).wpm ?? 0,
-        totalWords: data.rawMetrics?.totalWords ?? (data as any).totalWords ?? 0,
-        fillerCounts: data.rawMetrics?.fillerCounts ?? (data as any).fillerCounts ?? {},
-        issueCounts: data.rawMetrics?.issueCounts ?? (data as any).issueCounts ?? (data as any).combinedIssueCounts ?? {},
-        pauseCount: data.rawMetrics?.pauseCount ?? (data as any).pauses ?? (data as any).pauseCount ?? 0,
-        wpmHistory: data.rawMetrics?.wpmHistory ?? (data as any).wpmHistory ?? [],
-        pauseStats: data.rawMetrics?.pauseStats ?? (data as any).pauseStats,
-        audioMetrics: data.rawMetrics?.audioMetrics ?? (data as any).audioMetrics,
-        volumeSamples: data.rawMetrics?.volumeSamples ?? (data as any).volumeSamples ?? [],
-        pitchSamples: data.rawMetrics?.pitchSamples ?? (data as any).pitchSamples ?? [],
-        transcript: data.rawMetrics?.transcript ?? (data as any).transcript ?? "",
-        faceMetrics: data.rawMetrics?.faceMetrics ?? (data as any).faceMetrics,
-        words: data.rawMetrics?.words ?? (data as any).words ?? [],
-        rubricFeedback: data.rubricFeedback,
-        topic: data.topic ?? data.rawMetrics?.topic ?? (data as any).topic
+    const metrics = data.rawMetrics || {
+        duration: 0,
+        wpm: 0,
+        totalWords: 0,
+        fillerCounts: {},
+        issueCounts: {},
+        pauseCount: 0,
+        wpmHistory: [],
+        pauseStats: undefined,
+        audioMetrics: undefined,
+        volumeSamples: [],
+        pitchSamples: [],
+        transcript: ""
     };
 
     const { messages: contentMessages, status: contentStatus, sendMessage: sendContentMessage } = useChat({
+        api: "/api/chat",
         id: "content-coach"
     } as any);
 
     const isContentLoading = contentStatus === 'submitted' || contentStatus === 'streaming';
     const [hasTriggeredContent, setHasTriggeredContent] = useState(false);
 
-    // Auto-analyze transcript when report opens
     useEffect(() => {
-        if (!hasTriggeredContent && metrics.transcript && sendContentMessage && !data.qnaSummary) {
+        if (!hasTriggeredContent && metrics.transcript && sendContentMessage && !data.qnaSummary && !data.interviewEvaluation) {
             setHasTriggeredContent(true);
             setIsAnalyzingContent(true);
 
@@ -291,12 +241,51 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
 
     const fillerTotal = Object.values(metrics.fillerCounts).reduce((a, b) => a + b, 0);
 
+    // Question Markers for Interview Mode
+    const answers = (metrics as any).answers as InterviewAnswer[] | undefined;
+    const answerSegments = (metrics as any).answerSegments;
+
     // Prepare WPM Data Points for Chart
-    const wpmDataPoints = metrics.wpmHistory.map((val, i) => ({
-        time: (i + 1) * 5, // 5 second intervals
-        wpm: val,
-        wordCount: Math.round((val / 60) * 5) // approximate
-    }));
+    // If in interview mode with per-question data, use the question averages to avoid "spikes" during transitions
+    const wpmDataPoints = (answers && answers.length > 0)
+        ? (() => {
+            let elapsed = 0;
+            const points: { time: number; wpm: number; wordCount: number }[] = [];
+            answers.forEach((a) => {
+                elapsed += a.duration;
+                // Only add a data point if the question wasn't skipped (has words)
+                if (a.wordCount > 0 && a.answer !== "(Skipped)") {
+                    points.push({
+                        time: elapsed,
+                        wpm: a.wpm || 0,
+                        wordCount: a.wordCount || 0
+                    });
+                }
+            });
+            return points;
+        })()
+        : metrics.wpmHistory.map((val, i) => ({
+            time: (i + 1) * 5, // 5 second intervals
+            wpm: val,
+            wordCount: Math.round((val / 60) * 5) // approximate
+        }));
+
+    // Attempt to build markers from answers durations or segments
+    const questionMarkers = (() => {
+        if (!answers || !Array.isArray(answers)) return [];
+
+        // Simpler fallback: just use the sequential durations
+        let elapsed = 0;
+        const markers: { time: number; label: string }[] = [];
+        answers.forEach((a, i) => {
+            elapsed += a.duration;
+            // Only add a marker if the question wasn't skipped
+            if (a.wordCount > 0 && a.answer !== "(Skipped)") {
+                markers.push({ time: elapsed, label: `Q${i + 1}` });
+            }
+        });
+        return markers;
+    })();
 
     const pauseStats = metrics.pauseStats;
     const audioStats = metrics.audioMetrics ? {
@@ -378,8 +367,21 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 }`}
                         >
                             <BarChart3 className={`w-4 h-4 ${currentReportIndex === 3 ? "text-green-400" : "text-slate-500"}`} />
-                            <span className="text-sm font-bold">{data.lectureAnalysis ? "Lecture Analysis" : (data.qnaSummary ? "Q&A Analysis" : "Content")}</span>
+                            <span className="text-sm font-bold">Content</span>
                         </button>
+
+                        {data.lectureAnalysis && (
+                            <button
+                                onClick={() => setCurrentReportIndex(4)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${currentReportIndex === 4
+                                    ? "bg-slate-700 text-amber-400 shadow-lg"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 ${currentReportIndex === 4 ? "text-amber-400" : "text-slate-500"}`} />
+                                <span className="text-sm font-bold">Lecture</span>
+                            </button>
+                        )}
                     </div>
                     <div className="flex items-center gap-4">
                         <Button
@@ -424,17 +426,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                                     General Performance Report
                                 </h1>
-                                <p className="text-slate-400 text-sm flex items-center justify-center gap-2">
-                                    <Clock className="w-3 h-3" />
-                                    {data.createdAt ? (
-                                        typeof data.createdAt === 'string' ? new Date(data.createdAt).toLocaleString() :
-                                            data.createdAt.toDate ? data.createdAt.toDate().toLocaleString() :
-                                                new Date(data.createdAt).toLocaleString()
-                                    ) : (
-                                        "Recently Recorded"
-                                    )} — Generated by VoxLab AI
-                                </p>
-                            </div>
+                                <p className="text-slate-400 text-sm">Generated by VoxLab AI</p>
+                            </div >
 
                             {/* 2. Executive Summary & Score */}
                             < div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center" >
@@ -453,7 +446,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         color="text-blue-500"
                                     />
                                 </div>
-                            </div>
+                            </div >
 
                             {/* 3. Key Metrics Grid */}
                             < div className="grid grid-cols-2 lg:grid-cols-4 gap-4" >
@@ -466,7 +459,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     <div className="text-xs text-slate-400">
                                         {metrics.wpm < 110 ? "Slow Paced" : metrics.wpm > 160 ? "Fast Paced" : "Optimal Pace"}
                                     </div>
-                                </div>
+                                </div >
 
                                 {/* Total Words */}
                                 <div className="p-4 rounded-xl border border-slate-700/50 bg-slate-800/30">
@@ -486,7 +479,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                     <div className={`text-3xl font-bold mb-1 ${fillerTotal > 5 ? 'text-red-400' : 'text-green-400'}`}>{fillerTotal}</div>
                                     <div className="text-xs text-slate-400">{fillerTotal > 5 ? "Needs Attention" : "Great Clarity"}</div>
-                                </div>
+                                </div >
 
                                 {/* Pauses */}
                                 < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
@@ -495,8 +488,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.pauseCount}</div>
                                     <div className="text-xs text-slate-400">Detected Gaps</div>
-                                </div>
-                            </div>
+                                </div >
+                            </div >
 
                             {/* Optional: Video Replay */}
                             {data.videoUrl && (
@@ -547,7 +540,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div>
+                                </div >
 
                                 {/* Actionable Tips */}
                                 < div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50 flex flex-col" >
@@ -564,8 +557,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </li>
                                         ))}
                                     </ul>
-                                </div>
-                            </div>
+                                </div >
+                            </div >
 
                             {/* Pace Analysis & Interval Breakdown */}
                             < div className="grid grid-cols-1 gap-6" >
@@ -578,16 +571,67 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     {/* Logic to calculate buckets matches speech-coach/page.tsx exactly */}
                                     {
                                         (() => {
+                                            // 1. QUESTION-BASED BREAKDOWN (Preferred for Interviews)
+                                            if (answers && answers.length > 0) {
+                                                const buckets = answers.map((a, i) => {
+                                                    let color = "bg-green-500";
+                                                    let textColor = "text-green-500";
+                                                    if (a.wpm < 110 || a.wpm > 155) { color = "bg-red-500"; textColor = "text-red-500"; }
+                                                    else if (a.wpm < 130 || a.wpm > 155) { color = "bg-amber-500"; textColor = "text-amber-500"; }
+
+                                                    return {
+                                                        intervalLabel: `Question ${i + 1}`,
+                                                        wpm: a.wpm,
+                                                        wordCount: a.wordCount,
+                                                        color,
+                                                        textColor,
+                                                        question: a.question
+                                                    };
+                                                });
+
+                                                return (
+                                                    <div className="space-y-8">
+                                                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                                                            <PacingChart dataPoints={wpmDataPoints} questionMarkers={questionMarkers} />
+                                                        </div>
+
+                                                        <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
+                                                            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+                                                                <h4 className="text-sm font-bold text-slate-300 uppercase">Question Breakdown</h4>
+                                                                <div className="flex gap-4 text-xs font-mono text-slate-400">
+                                                                    <span>WPM</span>
+                                                                    <span>Words</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="divide-y divide-slate-800/50">
+                                                                {buckets.map((b, i) => (
+                                                                    <div key={i} className="px-6 py-4 flex flex-col gap-2 hover:bg-slate-800/20 transition-colors">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="w-24 text-sm text-slate-400 font-bold shrink-0">{b.intervalLabel}</div>
+                                                                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                                                <div className={`h-full ${b.color} rounded-full`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
+                                                                            </div>
+                                                                            <div className="flex gap-4 w-20 justify-end shrink-0 text-sm font-bold font-mono">
+                                                                                <span className={b.textColor}>{b.wpm}</span>
+                                                                                <span className="text-slate-500">{b.wordCount}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <p className="text-[11px] text-slate-500 pl-24 italic">"{b.question}"</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // 2. TIME-BASED BUCKETS (Fallback / Practice Mode)
                                             const BUCKET_SIZE = 30; // 30 seconds
                                             const words = metrics.words || [];
 
-                                            // Fallback if no words (e.g. from wpmHistory directly?)
-                                            // Ideally we trust 'words' for accurate breakdown.
                                             if (words.length === 0 && metrics.wpmHistory.length > 0) {
-                                                // Fallback to simple mapping if words are missing but history exists
                                                 return (
-                                                    <div className="text-center py-8 text-slate-500 italic">
-                                                        Detailed interval data unavailable (using legacy mode).
+                                                    <div className="space-y-4">
                                                         <PacingChart dataPoints={wpmDataPoints} />
                                                     </div>
                                                 );
@@ -599,50 +643,26 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             const buckets = Array.from({ length: totalBuckets }, (_, i) => {
                                                 const startTime = i * BUCKET_SIZE;
                                                 const endTime = (i + 1) * BUCKET_SIZE;
-
-                                                // Find words in this bucket
                                                 const bucketWords = words.filter(w =>
                                                     (w.startTime >= startTime && w.startTime < endTime) ||
                                                     (w.endTime > startTime && w.endTime <= endTime)
                                                 );
-
                                                 const count = bucketWords.length;
                                                 const wpm = Math.round((count / BUCKET_SIZE) * 60);
 
-                                                // Color logic
                                                 let color = "bg-green-500";
                                                 let textColor = "text-green-500";
                                                 if (wpm < 110 || wpm > 155) { color = "bg-red-500"; textColor = "text-red-500"; }
                                                 else if (wpm < 130 || wpm > 155) { color = "bg-amber-500"; textColor = "text-amber-500"; }
 
-                                                return {
-                                                    intervalLabel: `${startTime}s – ${endTime}s`,
-                                                    wpm,
-                                                    wordCount: count,
-                                                    color,
-                                                    textColor,
-                                                    time: endTime // for chart
-                                                };
+                                                return { intervalLabel: `${startTime}s – ${endTime}s`, wpm, wordCount: count, color, textColor, time: endTime };
                                             });
-
-                                            const chartData = buckets.map(b => ({
-                                                time: b.time,
-                                                wpm: b.wpm,
-                                                wordCount: b.wordCount
-                                            }));
 
                                             return (
                                                 <div className="space-y-8">
-                                                    {/* Chart */}
                                                     <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                                                        {chartData.length > 0 ? (
-                                                            <PacingChart dataPoints={chartData} />
-                                                        ) : (
-                                                            <div className="text-center text-slate-500">Not enough data for chart</div>
-                                                        )}
+                                                        <PacingChart dataPoints={wpmDataPoints} />
                                                     </div>
-
-                                                    {/* Interval Breakdown Table */}
                                                     <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
                                                         <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
                                                             <h4 className="text-sm font-bold text-slate-300 uppercase">Interval Breakdown</h4>
@@ -655,16 +675,9 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                                             {buckets.map((b, i) => (
                                                                 <div key={i} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-800/20 transition-colors">
                                                                     <div className="w-24 text-sm text-slate-400 font-mono shrink-0">{b.intervalLabel}</div>
-
-                                                                    {/* Progress Bar */}
                                                                     <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                                        <div
-                                                                            className={`h-full ${b.color} rounded-full`}
-                                                                            style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }}
-                                                                        />
+                                                                        <div className={`h-full ${b.color} rounded-full`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
                                                                     </div>
-
-                                                                    {/* Values */}
                                                                     <div className="flex gap-4 w-20 justify-end shrink-0 text-sm font-bold font-mono">
                                                                         <span className={b.textColor}>{b.wpm}</span>
                                                                         <span className="text-slate-500">{b.wordCount}</span>
@@ -677,8 +690,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             );
                                         })()
                                     }
-                                </div>
-                            </div>
+                                </div >
+                            </div >
 
                             {/* Vocal Dynamics & Pause Breakdown */}
                             < div className="space-y-6" >
@@ -705,16 +718,9 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                                         <div className="text-2xl font-bold text-white">{audioStats.stats.pitchStdDev?.toFixed(1) || 0}</div>
                                                         <div className="text-xs text-slate-500">Pitch Variety (st)</div>
                                                         <div className="mt-1 flex gap-0.5 justify-center">
-                                                            {[1, 2, 3, 4, 5].map(i => {
-                                                                const stdDev = audioStats?.stats.pitchStdDev || 0;
-                                                                const active = i < Math.min(5, Math.ceil(stdDev / 2));
-                                                                return (
-                                                                    <div
-                                                                        key={i}
-                                                                        className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-purple-500' : 'bg-white/10'}`}
-                                                                    />
-                                                                )
-                                                            })}
+                                                            {[1, 2, 3, 4, 5].map(i => (
+                                                                <div key={i} className={`w-1.5 h-1.5 rounded-full ${((audioStats.stats.pitchStdDev || 0) / 3) * 5 >= i ? "bg-purple-500" : "bg-white/10"}`} />
+                                                            ))}
                                                         </div>
                                                     </div>
                                                     {/* Volume Consistency */}
@@ -747,7 +753,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div>
+                                </div >
 
                                 {/* Pause Analysis Card (Matches SpeechCoachPage logic) */}
                                 < div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50" >
@@ -810,8 +816,8 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div>
-                            </div>
+                                </div >
+                            </div >
                         </div>
                     )}
 
@@ -875,14 +881,14 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     <div className="text-xs text-slate-400">
                                         {metrics.wpm < 110 ? "Slow Paced" : metrics.wpm > 160 ? "Fast Paced" : "Optimal Pace"}
                                     </div>
-                                </div>
+                                </div >
                                 {/* Total Words */}
                                 < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
                                     <div className="flex items-center gap-2 text-slate-400 mb-2">
-                                        <Type className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
+                                        <TypeIcon className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Total Words</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.totalWords}</div>
-                                </div>
+                                </div >
                                 {/* Filler Words */}
                                 < div className={`p-5 rounded-2xl border bg-slate-800/30 ${fillerTotal > 5 ? 'border-red-500/30' : 'border-green-500/30'}`
                                 }>
@@ -890,15 +896,15 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         <AlertCircle className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Filler Words</span>
                                     </div>
                                     <div className={`text-3xl font-bold mb-1 ${fillerTotal > 5 ? 'text-red-400' : 'text-green-400'}`}>{fillerTotal}</div>
-                                </div>
+                                </div >
                                 {/* Pauses */}
                                 < div className="bg-slate-800/30 p-5 rounded-2xl border border-slate-700/50" >
                                     <div className="flex items-center gap-2 text-slate-400 mb-2">
                                         <Mic className="w-4 h-4" /> <span className="text-xs font-bold uppercase">Pauses</span>
                                     </div>
                                     <div className="text-3xl font-bold text-white mb-1">{metrics.pauseCount}</div>
-                                </div>
-                            </div>
+                                </div >
+                            </div >
 
                             {/* Filler Word Breakdown & Pitch Analysis Columns */}
                             < div className="grid md:grid-cols-2 gap-6" >
@@ -931,7 +937,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             </div>
                                         )
                                     }
-                                </div>
+                                </div >
 
                                 {/* Pause Analysis Breakdown */}
                                 <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
@@ -1062,6 +1068,69 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </h3>
                                 {/* Interval logic */}
                                 {(() => {
+                                    if (answers && answers.length > 0) {
+                                        const buckets = answers.map((a, i) => {
+                                            const isSkipped = a.wordCount === 0 || a.answer === "(Skipped)";
+                                            let color = "bg-green-500";
+                                            let textColor = "text-green-500";
+
+                                            if (isSkipped) {
+                                                color = "bg-slate-700";
+                                                textColor = "text-slate-500";
+                                            } else if (a.wpm < 110 || a.wpm > 155) {
+                                                color = "bg-red-500";
+                                                textColor = "text-red-500";
+                                            } else if (a.wpm < 130 || a.wpm > 155) {
+                                                color = "bg-amber-500";
+                                                textColor = "text-amber-500";
+                                            }
+
+                                            return {
+                                                intervalLabel: `Question ${i + 1}`,
+                                                wpm: a.wpm,
+                                                wordCount: a.wordCount,
+                                                color,
+                                                textColor,
+                                                question: a.question,
+                                                isSkipped
+                                            };
+                                        });
+
+                                        return (
+                                            <div className="space-y-8">
+                                                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                                                    <PacingChart dataPoints={wpmDataPoints} questionMarkers={questionMarkers} />
+                                                </div>
+                                                <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
+                                                    <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+                                                        <h4 className="text-sm font-bold text-slate-300 uppercase">Question Breakdown</h4>
+                                                        <div className="flex gap-4 text-xs font-mono text-slate-400">
+                                                            <span>WPM</span>
+                                                            <span>Words</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="divide-y divide-slate-800/50">
+                                                        {buckets.map((b, i) => (
+                                                            <div key={i} className={`px-6 py-4 flex flex-col gap-2 hover:bg-slate-800/20 transition-colors ${b.isSkipped ? 'opacity-50' : ''}`}>
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-24 text-sm text-slate-400 font-bold shrink-0">{b.intervalLabel}</div>
+                                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                                        <div className={`h-full ${b.color} rounded-full`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
+                                                                    </div>
+                                                                    <div className="flex gap-4 w-20 justify-end shrink-0 text-sm font-bold font-mono">
+                                                                        <span className={b.textColor}>{b.isSkipped ? "Skipped" : b.wpm}</span>
+                                                                        <span className="text-slate-500">{b.wordCount}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-[11px] text-slate-500 pl-24 italic">"{b.question}"</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
                                     const BUCKET_SIZE = 30; // 30 seconds
                                     const words = metrics.words || [];
                                     if (words.length === 0 && metrics.wpmHistory.length > 0) {
@@ -1091,7 +1160,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     return (
                                         <div className="space-y-8">
                                             <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                                                <PacingChart dataPoints={buckets.map(b => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))} />
+                                                <PacingChart dataPoints={wpmDataPoints} />
                                             </div>
                                             <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
                                                 <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
@@ -1119,7 +1188,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                         </div>
                                     );
                                 })()}
-                            </div>
+                            </div >
                         </div>
                     )}
 
@@ -1130,7 +1199,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                                     Posture & Presence
                                 </h1>
-                                <p className="text-slate-400 text-sm">Body language and postural alignment</p>
+                                <p className="text-slate-400 text-sm">Body language, alignment, and eye contact</p>
                             </div>
 
                             {/* Posture Coach Summary & Score */}
@@ -1204,7 +1273,6 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 }
                             </div>
 
-
                         </div>
                     )}
 
@@ -1212,10 +1280,10 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             {/* 1. Header */}
                             <div className="text-center space-y-2 pb-6 border-b border-slate-800">
-                                <h1 className={`text-3xl font-bold bg-clip-text text-transparent ${data.lectureAnalysis ? "bg-gradient-to-r from-amber-400 to-orange-400" : "bg-gradient-to-r from-green-400 to-teal-400"}`}>
-                                    {data.lectureAnalysis ? "Lecture Analysis" : "Content Analysis"}
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-400 bg-clip-text text-transparent">
+                                    Content Analysis
                                 </h1>
-                                <p className="text-slate-400 text-sm">{data.lectureAnalysis ? "Specialized feedback for teaching and instruction" : "Review and analyze your speech script"}</p>
+                                <p className="text-slate-400 text-sm">Review and analyze your speech script</p>
                                 {metrics.topic && (
                                     <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mt-2">
                                         <span className="text-emerald-400 text-xs font-medium">Topic:</span>
@@ -1223,64 +1291,6 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     </div>
                                 )}
                             </div>
-
-                            {/* Lecture-Specific Insights (Moved to top of combined tab) */}
-                            {data.lectureAnalysis && (
-                                <div className="space-y-8">
-                                    {/* Teaching Score & Overall Clarity */}
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-amber-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                        <div className="flex-1 space-y-4">
-                                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
-                                                <Sparkles className="w-4 h-4" /> Instructional Clarity
-                                            </h3>
-                                            <p className="text-slate-200 leading-relaxed text-lg italic">
-                                                "{data.lectureAnalysis.clarityFeedback}"
-                                            </p>
-                                        </div>
-                                        <div className="flex-shrink-0">
-                                            <CircularScoreChart
-                                                score={data.lectureAnalysis.teachingScore}
-                                                label="Clarity Score"
-                                                color="text-amber-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        {/* Potential Confusions */}
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                ⚠️ Student Blindspots
-                                            </h3>
-                                            <p className="text-xs text-slate-400 mb-4">Areas that might be confusing for someone new to the material.</p>
-                                            <ul className="space-y-3">
-                                                {data.lectureAnalysis.potentialConfusion.map((item, i) => (
-                                                    <li key={i} className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-xs font-bold">!</span>
-                                                        <p className="text-sm text-slate-200">{item}</p>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-
-                                        {/* Analogy Suggestions */}
-                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                💡 Power Analogies
-                                            </h3>
-                                            <p className="text-xs text-slate-400 mb-4">AI-suggested comparisons to make complex parts stick.</p>
-                                            <ul className="space-y-3">
-                                                {data.lectureAnalysis.analogies.map((analogy, i) => (
-                                                    <li key={i} className="flex items-start gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
-                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">?</span>
-                                                        <p className="text-sm text-slate-200 italic">{analogy}</p>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Topic Relevance Analysis — Only shown when a topic was selected */}
                             {data.topicAnalysis && (
@@ -1370,202 +1380,135 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </div>
                             )}
 
-                            {/* Rubric Feedback */}
-                            {metrics.rubricFeedback && (
-                                <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500 mb-6">
-                                    <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl p-6 flex flex-col md:flex-row gap-8 items-center shadow-lg shadow-orange-950/10">
-                                        <div className="flex-1 space-y-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-[10px] font-bold text-orange-400 uppercase tracking-wider">
-                                                    {metrics.rubricFeedback.alignmentLevel} alignment
-                                                </div>
-                                                <h4 className="text-xl font-bold text-white">Target Rubric Review</h4>
-                                            </div>
-                                            <p className="text-orange-200/70 text-sm leading-relaxed italic">
-                                                &quot;{metrics.rubricFeedback.overallAssessment}&quot;
+                            {/* Slide Alignment Analysis */}
+                            {data.slideAnalysis && (
+                                <div className="space-y-6">
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-blue-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-3">
+                                            <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                                                <FileText className="w-4 h-4" /> Slide Alignment
+                                            </h3>
+                                            <p className="text-slate-300 text-sm leading-relaxed">
+                                                {data.slideAnalysis.feedback}
                                             </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={data.slideAnalysis.alignmentScore}
+                                                label="Alignment"
+                                                color="text-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ✅ Points Covered
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.slideAnalysis.coveredPoints.map((point, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                ⚠️ Missed Points
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{point}</p>
+                                                    </li>
+                                                )) : <p className="text-slate-500 italic text-sm">All key points were covered!</p>}
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="space-y-8">
-                                {/* Detailed Criteria Breakdown */}
-                                {metrics.rubricFeedback?.criteriaBreakdown && (
-                                    <div className="grid grid-cols-1 gap-4">
-                                        {metrics.rubricFeedback.criteriaBreakdown.map((item: any, i: number) => (
-                                            <div key={i} className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 hover:bg-slate-800/40 transition-colors">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${item.fulfillment === 'full' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
-                                                            item.fulfillment === 'partial' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                                                                'bg-red-500/10 border-red-500/20 text-red-400'
-                                                            }`}>
-                                                            {item.fulfillment === 'full' ? <CheckCircle2 className="w-4 h-4" /> :
-                                                                item.fulfillment === 'partial' ? <AlertCircle className="w-4 h-4" /> :
-                                                                    <XCircle className="w-4 h-4" />}
-                                                        </div>
-                                                        <div>
-                                                            <h5 className="font-bold text-slate-100">{item.criterion}</h5>
-                                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${item.fulfillment === 'full' ? 'text-green-400' :
-                                                                item.fulfillment === 'partial' ? 'text-amber-400' :
-                                                                    'text-red-400'
-                                                                }`}>
-                                                                {item.fulfillment} fulfillment
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-3">
-                                                    <p className="text-sm text-slate-300 leading-relaxed">
-                                                        {item.feedback}
-                                                    </p>
-                                                    {item.evidence && (
-                                                        <div className="p-3 bg-black/40 rounded-lg border border-slate-800/50">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <Search className="w-3 h-3 text-slate-500" />
-                                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Evidence Found</span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-400 italic">
-                                                                &quot;{item.evidence}&quot;
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
+                            {/* Rubric Analysis */}
+                            {data.rubricAnalysis && (
+                                <div className="space-y-6">
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-purple-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-3">
+                                            <h3 className="text-sm font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
+                                                <AlertCircle className="w-4 h-4" /> Rubric Evaluation
+                                            </h3>
+                                            <p className="text-slate-300 text-sm leading-relaxed">
+                                                {data.rubricAnalysis.feedback}
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={data.rubricAnalysis.rubricScore}
+                                                label="Rubric Score"
+                                                color="text-purple-500"
+                                            />
+                                        </div>
                                     </div>
-                                )}
 
-                                {/* Slide Alignment Analysis */}
-                                {data.slideAnalysis && (
-                                    <div className="space-y-6">
-                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-blue-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                            <div className="flex-1 space-y-3">
-                                                <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <FileText className="w-4 h-4" /> Slide Alignment
-                                                </h3>
-                                                <p className="text-slate-300 text-sm leading-relaxed">
-                                                    {data.slideAnalysis.feedback}
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0">
-                                                <CircularScoreChart
-                                                    score={data.slideAnalysis.alignmentScore}
-                                                    label="Alignment"
-                                                    color="text-blue-500"
-                                                />
-                                            </div>
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                🌟 Key Strengths
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.rubricAnalysis.strengths.map((str, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs font-bold">✓</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{str}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </div>
 
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                                <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                    ✅ Points Covered
-                                                </h3>
-                                                <ul className="space-y-3">
-                                                    {data.slideAnalysis.coveredPoints.map((point, i) => (
-                                                        <li key={i} className="flex items-start gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center text-xs font-bold">✓</span>
-                                                            <p className="text-sm text-slate-200 leading-snug">{point}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
+                                        <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                            <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                📉 Areas to Improve
+                                            </h3>
+                                            <ul className="space-y-3">
+                                                {data.rubricAnalysis.weaknesses.map((weakness, i) => (
+                                                    <li key={i} className="flex items-start gap-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
+                                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs font-bold">↓</span>
+                                                        <p className="text-sm text-slate-200 leading-snug">{weakness}</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
-                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                                <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                    ⚠️ Missed Points
-                                                </h3>
-                                                <ul className="space-y-3">
-                                                    {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
-                                                        <li key={i} className="flex items-start gap-3 p-3 bg-amber-500/5 rounded-xl border border-amber-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">!</span>
-                                                            <p className="text-sm text-slate-200 leading-snug">{point}</p>
-                                                        </li>
-                                                    )) : <p className="text-slate-500 italic text-sm">All key points were covered!</p>}
-                                                </ul>
-                                            </div>
+                            <div className="flex flex-col gap-6">
+
+                                {!data.qnaSummary && !data.interviewEvaluation && (
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
+                                        <div className="flex-1 space-y-4">
+                                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Activity className="w-4 h-4" /> Content Heuristic Score
+                                            </h3>
+                                            <p className="text-slate-200 leading-relaxed text-sm">
+                                                This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
+                                            </p>
+                                        </div>
+                                        <div className="flex-shrink-0">
+                                            <CircularScoreChart
+                                                score={localContentScore}
+                                                label="Content Score"
+                                                color="text-green-500"
+                                            />
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Rubric Analysis */}
-                                {data.rubricAnalysis && (
-                                    <div className="space-y-6">
-                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-purple-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                            <div className="flex-1 space-y-3">
-                                                <h3 className="text-sm font-bold text-purple-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <AlertCircle className="w-4 h-4" /> Rubric Evaluation
-                                                </h3>
-                                                <p className="text-slate-300 text-sm leading-relaxed">
-                                                    {data.rubricAnalysis.feedback}
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0">
-                                                <CircularScoreChart
-                                                    score={data.rubricAnalysis.rubricScore}
-                                                    label="Rubric Score"
-                                                    color="text-purple-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                                <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                    🌟 Key Strengths
-                                                </h3>
-                                                <ul className="space-y-3">
-                                                    {data.rubricAnalysis.strengths.map((str, i) => (
-                                                        <li key={i} className="flex items-start gap-3 p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-xs font-bold">✓</span>
-                                                            <p className="text-sm text-slate-200 leading-snug">{str}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-
-                                            <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
-                                                <h3 className="text-sm font-bold text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                                    📉 Areas to Improve
-                                                </h3>
-                                                <ul className="space-y-3">
-                                                    {data.rubricAnalysis.weaknesses.map((weakness, i) => (
-                                                        <li key={i} className="flex items-start gap-3 p-3 bg-rose-500/5 rounded-xl border border-rose-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-xs font-bold">↓</span>
-                                                            <p className="text-sm text-slate-200 leading-snug">{weakness}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="flex flex-col gap-6">
-
-                                    {/* Content Summary & Score Header */}
-                                    {!data.qnaSummary && (
-                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col md:flex-row gap-8 items-center">
-                                            <div className="flex-1 space-y-4">
-                                                <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <Activity className="w-4 h-4" /> Content Heuristic Score
-                                                </h3>
-                                                <p className="text-slate-200 leading-relaxed text-sm">
-                                                    This score is calculated locally based on your transcript length, pacing, and filler word frequency. The AI Coach below will stream specific structural advice.
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0">
-                                                <CircularScoreChart
-                                                    score={localContentScore}
-                                                    label="Content Score"
-                                                    color="text-green-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
+                                {!data.interviewEvaluation && (
                                     <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
                                         <h3 className="text-sm font-bold text-green-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                             <Mic className="w-4 h-4" /> Live Transcript
@@ -1574,114 +1517,344 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             {metrics.transcript || "No transcript recorded for this session."}
                                         </div>
                                     </div>
+                                )}
 
-                                    {/* Q&A Breakdown */}
-                                    {data.qnaSummary && (
-                                        <div className="space-y-6">
-                                            {/* Average Relevance Score */}
-                                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                                <div className="flex-1 space-y-3">
-                                                    <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                                        <Target className="w-4 h-4" /> Average Relevance
-                                                    </h3>
-                                                    <p className="text-slate-300 text-sm leading-relaxed">
-                                                        This score represents how well your answers addressed the specific questions asked during the Q&A session.
-                                                    </p>
-                                                </div>
+                                {/* Interview Section */}
+                                {data.interviewEvaluation && (
+                                    <div className="space-y-8">
+                                        {/* Hiring Recommendation & Overall Score */}
+                                        <div className="bg-slate-800/50 rounded-2xl p-8 border border-slate-700/50">
+                                            <div className="flex flex-col md:flex-row items-center gap-10">
                                                 <div className="flex-shrink-0">
                                                     <CircularScoreChart
-                                                        score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
-                                                        label="Avg Score"
-                                                        color="text-teal-500"
+                                                        score={data.interviewEvaluation.overallScore}
+                                                        label="Executive Score"
+                                                        color="text-indigo-500"
                                                     />
+                                                </div>
+                                                <div className="flex-1 space-y-6">
+                                                    <div>
+                                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Hiring Recommendation</h3>
+                                                        <div className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-full border text-lg font-bold ${data.interviewEvaluation.hiringRecommendation.toLowerCase().includes('strong hire') ? 'text-green-400 bg-green-500/10 border-green-500/20' :
+                                                            data.interviewEvaluation.hiringRecommendation.toLowerCase().includes('hire') ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                                                                data.interviewEvaluation.hiringRecommendation.toLowerCase().includes('maybe') ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
+                                                                    'text-red-400 bg-red-500/10 border-red-500/20'
+                                                            }`}>
+                                                            <Star className="w-5 h-5" />
+                                                            {data.interviewEvaluation.hiringRecommendation}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-slate-200 text-lg leading-relaxed italic">
+                                                        "{data.interviewEvaluation.overallFeedback}"
+                                                    </p>
                                                 </div>
                                             </div>
 
-                                            {/* Questions Breakdown */}
-                                            <div className="space-y-6">
-                                                {data.qnaSummary.map((qna, idx) => (
-                                                    <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
-                                                        <div className="flex items-start justify-between gap-4">
-                                                            <div className="space-y-1">
-                                                                <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
-                                                                <p className="text-slate-300 font-medium">{qna.question}</p>
-                                                            </div>
-                                                            <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
-                                                                <span className="text-xs font-bold text-slate-400">Score</span>
-                                                                <span className={qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}>
-                                                                    {qna.relevanceScore}%
-                                                                </span>
-                                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-10">
+                                                {[
+                                                    { label: "Communication", score: data.interviewEvaluation.communicationScore, color: "bg-blue-500", icon: MessageSquare },
+                                                    { label: "Technical", score: data.interviewEvaluation.technicalScore, color: "bg-purple-500", icon: Brain },
+                                                    { label: "Behavioral", score: data.interviewEvaluation.behavioralScore, color: "bg-amber-500", icon: Users },
+                                                    { label: "Confidence", score: data.interviewEvaluation.confidenceScore, color: "bg-emerald-500", icon: Zap },
+                                                ].map((stat) => (
+                                                    <div key={stat.label} className="bg-slate-900/40 p-4 rounded-xl border border-slate-800/50">
+                                                        <div className="flex items-center gap-2 text-slate-400 mb-2">
+                                                            <stat.icon className="w-3.5 h-3.5" />
+                                                            <span className="text-[10px] font-bold uppercase tracking-widest">{stat.label}</span>
                                                         </div>
-
-                                                        <div className="grid md:grid-cols-2 gap-4 mt-4">
-                                                            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
-                                                                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                                                    <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
-                                                                </div>
-                                                                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
-                                                            </div>
-                                                            <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
-                                                                <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                                                    <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
-                                                                </div>
-                                                                <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
-                                                            </div>
+                                                        <div className="text-2xl font-bold text-white mb-2">{stat.score}</div>
+                                                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                                            <div className={`h-full ${stat.color} rounded-full`} style={{ width: `${stat.score}%` }} />
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
-                                    )}
 
-                                    {!data.qnaSummary && (
-                                        <div className="flex flex-col gap-6">
-                                            {/* AI Analysis Column */}
-                                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                                <div className="flex justify-between items-center mb-4">
-                                                    <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                                        <Activity className="w-4 h-4" /> AI Content Coach
-                                                    </h3>
-                                                    {!contentAnalysis && isAnalyzingContent && (
-                                                        <div className="flex items-center gap-2 text-teal-400 text-sm">
-                                                            <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                                                            Analyzing...
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                                    {isContentLoading && !streamedContentAnalysis && (
-                                                        <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                                                            <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                                                            <p>Analyzing script flow and impact...</p>
-                                                        </div>
-                                                    )}
-                                                    {streamedContentAnalysis && (
-                                                        <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
-                                                            <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
-                                                            {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
-                                                        </div>
-                                                    )}
-                                                    {!isContentLoading && !streamedContentAnalysis && (
-                                                        <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
-                                                            {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                        {/* Top Strengths & Improvements */}
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div className="bg-emerald-500/5 rounded-2xl border border-emerald-500/20 p-6">
+                                                <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    <Target className="w-4 h-4" /> Top Strengths
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {data.interviewEvaluation.topStrengths.map((s, i) => (
+                                                        <li key={i} className="text-sm text-slate-300 flex items-start gap-3">
+                                                            <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                                            <span>{s}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            <div className="bg-amber-500/5 rounded-2xl border border-amber-500/20 p-6">
+                                                <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    <AlertTriangle className="w-4 h-4" /> Areas for Improvement
+                                                </h3>
+                                                <ul className="space-y-3">
+                                                    {data.interviewEvaluation.topImprovements.map((s, i) => (
+                                                        <li key={i} className="text-sm text-slate-300 flex items-start gap-3">
+                                                            <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                                            <span>{s}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </div>
                                         </div>
-                                    )}
-                                </div>
+
+                                        {/* Question Breakdown */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Question Breakdown</h3>
+                                            {data.interviewEvaluation.questionEvaluations.map((qe, idx) => (
+                                                <div key={idx} className="bg-slate-800/20 rounded-2xl border border-slate-800 overflow-hidden">
+                                                    <div className="p-6 space-y-6">
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="space-y-2 flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-black bg-slate-800 text-slate-400 px-2 py-0.5 rounded uppercase tracking-tighter">Q{idx + 1}</span>
+                                                                    <span className="text-sm font-bold text-slate-200">Interview Question</span>
+                                                                </div>
+                                                                <p className="text-lg text-white font-medium leading-relaxed">{qe.question}</p>
+                                                            </div>
+                                                            <div className="text-center bg-slate-800/80 rounded-2xl px-5 py-3 border border-slate-700">
+                                                                <div className="text-2xl font-bold text-indigo-400 leading-none mb-1">{qe.score}</div>
+                                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Score</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid md:grid-cols-2 gap-6">
+                                                            <div className="space-y-4">
+                                                                <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800/50">
+                                                                    <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">
+                                                                        <Mic className="w-3 h-3 text-emerald-400" /> Your Response
+                                                                    </div>
+                                                                    <p className="text-sm text-slate-300 leading-relaxed italic">&ldquo;{qe.answer}&rdquo;</p>
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    {[
+                                                                        { label: "Relevance", score: qe.relevanceScore },
+                                                                        { label: "Depth", score: qe.depthScore },
+                                                                        { label: "Comm.", score: qe.communicationScore },
+                                                                    ].map(s => (
+                                                                        <div key={s.label} className="flex-1 text-center py-2 bg-slate-800/30 rounded-lg border border-slate-700/30">
+                                                                            <div className="text-sm font-bold text-slate-200">{s.score}</div>
+                                                                            <div className="text-[10px] text-slate-500 uppercase tracking-tighter font-semibold">{s.label}</div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-4">
+                                                                <div className="bg-indigo-500/5 rounded-xl p-4 border border-indigo-500/10">
+                                                                    <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-bold uppercase tracking-widest mb-2">
+                                                                        <Sparkles className="w-3 h-3" /> Ideal Answer Concept
+                                                                    </div>
+                                                                    <p className="text-sm text-indigo-100/70 leading-relaxed">{qe.idealAnswer}</p>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div className="space-y-1.5">
+                                                                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1">
+                                                                            <Check className="w-2.5 h-2.5" /> Strengths
+                                                                        </span>
+                                                                        <ul className="space-y-1">
+                                                                            {qe.strengths.slice(0, 2).map((s, i) => (
+                                                                                <li key={i} className="text-[11px] text-slate-400 flex items-start gap-1">
+                                                                                    <span className="text-emerald-500/50 mt-1 flex-shrink-0">•</span>
+                                                                                    <span>{s}</span>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                                                                            <AlertTriangle className="w-2.5 h-2.5" /> Improves
+                                                                        </span>
+                                                                        <ul className="space-y-1">
+                                                                            {qe.improvements.slice(0, 2).map((s, i) => (
+                                                                                <li key={i} className="text-[11px] text-slate-400 flex items-start gap-1">
+                                                                                    <span className="text-amber-500/50 mt-1 flex-shrink-0">•</span>
+                                                                                    <span>{s}</span>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Q&A Breakdown */}
+                                {data.qnaSummary && !data.interviewEvaluation && (
+                                    <div className="space-y-6">
+                                        {/* Average Relevance Score */}
+                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                            <div className="flex-1 space-y-3">
+                                                <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <Target className="w-4 h-4" /> Average Relevance
+                                                </h3>
+                                                <p className="text-slate-300 text-sm leading-relaxed">
+                                                    This score represents how well your answers addressed the specific questions asked during the Q&A session.
+                                                </p>
+                                            </div>
+                                            <div className="flex-shrink-0">
+                                                <CircularScoreChart
+                                                    score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
+                                                    label="Avg Score"
+                                                    color="text-teal-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Questions Breakdown */}
+                                        <div className="space-y-6">
+                                            {data.qnaSummary.map((qna, idx) => (
+                                                <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="space-y-1">
+                                                            <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
+                                                            <p className="text-slate-300 font-medium">{qna.question}</p>
+                                                        </div>
+                                                        <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
+                                                            <span className="text-xs font-bold text-slate-400">Score</span>
+                                                            <span className={`text-sm font-bold ${qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                                {qna.relevanceScore}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="grid md:grid-cols-2 gap-4 mt-4">
+                                                        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800/50">
+                                                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
+                                                            </div>
+                                                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.answer}</p>
+                                                        </div>
+                                                        <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
+                                                            <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                                <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
+                                                            </div>
+                                                            <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* AI Analysis Column */}
+                                {!data.qnaSummary && !data.interviewEvaluation && (
+                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                                <Activity className="w-4 h-4" /> AI Content Coach
+                                            </h3>
+                                            {!contentAnalysis && isAnalyzingContent && (
+                                                <div className="flex items-center gap-2 text-teal-400 text-sm">
+                                                    <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                                                    Analyzing...
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                            {isContentLoading && !streamedContentAnalysis && (
+                                                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
+                                                    <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                                    <p>Analyzing script flow and impact...</p>
+                                                </div>
+                                            )}
+                                            {streamedContentAnalysis && (
+                                                <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
+                                                    <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
+                                                    {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
+                                                </div>
+                                            )}
+                                            {!isContentLoading && !streamedContentAnalysis && (
+                                                <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
+                                                    {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
 
-                </div>
+                    {currentReportIndex === 4 && data.lectureAnalysis && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* 1. Header */}
+                            <div className="text-center space-y-2 pb-6 border-b border-slate-800">
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
+                                    Lecture Mode Analysis
+                                </h1>
+                                <p className="text-slate-400 text-sm">Specialized feedback for teaching and instruction</p>
+                            </div>
 
+                            {/* Teaching Score & Overall Clarity */}
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-amber-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                <div className="flex-1 space-y-4">
+                                    <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4" /> Instructional Clarity
+                                    </h3>
+                                    <p className="text-slate-200 leading-relaxed text-lg italic">
+                                        "{data.lectureAnalysis.clarityFeedback}"
+                                    </p>
+                                </div>
+                                <div className="flex-shrink-0">
+                                    <CircularScoreChart
+                                        score={data.lectureAnalysis.teachingScore}
+                                        label="Clarity Score"
+                                        color="text-amber-500"
+                                    />
+                                </div>
+                            </div>
 
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* Potential Confusions */}
+                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                    <h3 className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        ⚠️ Student Blindspots
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mb-4">Areas that might be confusing for someone new to the material.</p>
+                                    <ul className="space-y-3">
+                                        {data.lectureAnalysis.potentialConfusion.map((item, i) => (
+                                            <li key={i} className="flex items-start gap-3 p-3 bg-orange-500/5 rounded-xl border border-orange-500/10">
+                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center text-xs font-bold">!</span>
+                                                <p className="text-sm text-slate-200">{item}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+
+                                {/* Analogy Suggestions */}
+                                <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        💡 Power Analogies
+                                    </h3>
+                                    <p className="text-xs text-slate-400 mb-4">AI-suggested comparisons to make complex parts stick.</p>
+                                    <ul className="space-y-3">
+                                        {data.lectureAnalysis.analogies.map((analogy, i) => (
+                                            <li key={i} className="flex items-start gap-3 p-3 bg-blue-500/5 rounded-xl border border-blue-500/10">
+                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-xs font-bold">?</span>
+                                                <p className="text-sm text-slate-200 italic">{analogy}</p>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div >
+
+                {/* Session Context Chatbot */}
                 <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
 
+                {/* Share to Forum Modal */}
                 <ShareSessionModal
                     isOpen={isSharing}
                     onClose={() => setIsSharing(false)}
@@ -1700,7 +1873,18 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                         }
                     }}
                 />
-            </motion.div >
+
+            </motion.div>
         </>
     );
-};
+}
+
+function TypeIcon({ className }: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <polyline points="4 7 4 4 20 4 20 7" />
+            <line x1="9" x2="15" y1="20" y2="20" />
+            <line x1="12" x2="12" y1="4" y2="20" />
+        </svg>
+    )
+}

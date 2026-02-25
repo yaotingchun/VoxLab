@@ -60,26 +60,23 @@ export function usePostureAnalysis() {
         };
     }, []);
 
-    const endSession = useCallback((timestampMs?: number) => {
-        setIsSessionActive(false);
-        const now = timestampMs !== undefined ? timestampMs : Date.now();
-        // If we processed video frames with exact timestamps, use the last frame time
-        // fallback to wall clock duration if no frames or live mode
-        const duration = sessionStartTime.current
-            ? ((lastFrameTime.current || now) - sessionStartTime.current) / 1000
-            : 0;
-
+    // Non-destructive snapshot — returns cumulative data without stopping
+    const getSnapshot = useCallback(() => {
+        const duration = sessionStartTime.current ? (Date.now() - sessionStartTime.current) / 1000 : 0;
         const averageScore = sessionStats.current.frameCount > 0
             ? sessionStats.current.totalScore / sessionStats.current.frameCount
             : 0;
-
         return {
             duration,
             averageScore,
-            issueCounts: sessionStats.current.issueCounts,
-            gestureEnergy: sessionStats.current.frameCount > 0 ? (sessionStats.current.gestureEnergy / sessionStats.current.frameCount) * 100 : 0
+            issueCounts: { ...sessionStats.current.issueCounts }
         };
     }, []);
+
+    const endSession = useCallback(() => {
+        setIsSessionActive(false);
+        return getSnapshot();
+    }, [getSnapshot]);
 
     // History for stability analysis (filtering jitter)
     const historyRef = useRef<any[]>([]);
@@ -202,5 +199,5 @@ export function usePostureAnalysis() {
 
     }, [isSessionActive]);
 
-    return { result, analyze, startSession, endSession, isSessionActive };
+    return { result, analyze, startSession, endSession, getSnapshot, isSessionActive };
 }

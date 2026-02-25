@@ -91,6 +91,7 @@ export function useInterview() {
     const [generatingFollowUp, setGeneratingFollowUp] = useState(false);
 
     const answerStartTimeRef = useRef<number>(0);
+    const speechRequestIdRef = useRef(0);
 
     // ── Generate Questions ───────────────────────────────────────────────────
     const startGenerating = useCallback(async () => {
@@ -122,9 +123,14 @@ export function useInterview() {
         async (questionText?: string) => {
             const text = questionText || questions[currentQuestionIndex]?.question;
             if (!text) return;
+
+            const requestId = ++speechRequestIdRef.current;
             setIsSpeaking(true);
             await speakText(text);
-            setIsSpeaking(false);
+
+            if (requestId === speechRequestIdRef.current) {
+                setIsSpeaking(false);
+            }
             answerStartTimeRef.current = Date.now();
         },
         [questions, currentQuestionIndex]
@@ -133,14 +139,54 @@ export function useInterview() {
     // ── Speak Intro ──────────────────────────────────────────────────────────
     const speakIntro = useCallback(async () => {
         if (!interviewerIntro) return;
+
+        const requestId = ++speechRequestIdRef.current;
         setIsSpeaking(true);
         await speakText(interviewerIntro);
-        setIsSpeaking(false);
+
+        if (requestId === speechRequestIdRef.current) {
+            setIsSpeaking(false);
+        }
     }, [interviewerIntro]);
+
+    // ── Evaluation ───────────────────────────────────────────────────────────
+    const doEvaluation = useCallback(
+        async (answersToEvaluate: InterviewAnswer[], visualMetrics?: any, vocalMetrics?: any) => {
+            setPhase("evaluating");
+            const result = await evaluateInterview(
+                answersToEvaluate,
+                resumeText,
+                jobDescriptionText,
+                visualMetrics,
+                vocalMetrics
+            );
+            if ("error" in result) {
+                setError(result.error);
+                setPhase("interview");
+                return;
+            }
+
+            // Include raw metrics for the report
+            const finalEvaluation = {
+                ...result,
+                rawMetrics: {
+                    ...(vocalMetrics?.rawMetrics || {}),
+                    ...(visualMetrics?.rawMetrics || {}),
+                    issueCounts: visualMetrics?.issueCounts,
+                    vocalSummary: result.vocalSummary,
+                    postureSummary: result.postureSummary,
+                }
+            };
+
+            setEvaluation(finalEvaluation);
+            setPhase("results");
+        },
+        [resumeText, jobDescriptionText]
+    );
 
     // ── Submit Answer ────────────────────────────────────────────────────────
     const submitAnswer = useCallback(
-        async (answerText: string) => {
+        async (answerText: string, visualMetrics?: any, vocalMetrics?: any) => {
             const currentQ = questions[currentQuestionIndex];
             if (!currentQ) return;
 
@@ -151,17 +197,13 @@ export function useInterview() {
 
             if (isFollowUp && currentFollowUp) {
                 // This is a follow-up answer — update the last answer
-                setAnswers((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last) {
-                        last.followUpAnswer = answerText;
-                        last.followUpDuration = duration;
-                        last.followUpWordCount = wc;
-                        last.followUpFillerCount = fillers;
-                    }
-                    return updated;
-                });
+                const updatedAnswers = [...answers];
+                const last = updatedAnswers[updatedAnswers.length - 1];
+                if (last) {
+                    last.followUpAnswer = answerText;
+                    last.followUpDuration = duration;
+                }
+                setAnswers(updatedAnswers);
                 setIsFollowUp(false);
                 setCurrentFollowUp(null);
 
@@ -170,7 +212,7 @@ export function useInterview() {
                     setCurrentQuestionIndex((i) => i + 1);
                 } else {
                     // All questions done — evaluate
-                    await runEvaluation();
+                    await doEvaluation(updatedAnswers, visualMetrics, vocalMetrics);
                 }
                 return;
             }
@@ -214,18 +256,19 @@ export function useInterview() {
                 setCurrentQuestionIndex((i) => i + 1);
             } else {
                 // All done
-                await doEvaluation(updatedAnswers);
+                await doEvaluation(updatedAnswers, visualMetrics, vocalMetrics);
             }
         },
-        [questions, currentQuestionIndex, isFollowUp, currentFollowUp, answers, resumeText]
+        [questions, currentQuestionIndex, isFollowUp, currentFollowUp, answers, resumeText, doEvaluation]
     );
 
     // ── Skip Question ────────────────────────────────────────────────────────
-    const skipQuestion = useCallback(() => {
+    const skipQuestion = useCallback((visualMetrics?: any, vocalMetrics?: any) => {
         stopSpeaking();
         const currentQ = questions[currentQuestionIndex];
         if (!currentQ) return;
 
+        let updatedAnswers = answers;
         if (isFollowUp) {
             setIsFollowUp(false);
             setCurrentFollowUp(null);
@@ -240,113 +283,18 @@ export function useInterview() {
                 wpm: 0,
                 fillerWordCount: 0,
             };
-            setAnswers((prev) => [...prev, skippedAnswer]);
+            updatedAnswers = [...answers, skippedAnswer];
+            setAnswers(updatedAnswers);
         }
 
         if (currentQuestionIndex + 1 < questions.length) {
             setCurrentQuestionIndex((i) => i + 1);
         } else {
-            runEvaluation();
+            doEvaluation(updatedAnswers, visualMetrics, vocalMetrics);
         }
-    }, [questions, currentQuestionIndex, isFollowUp]);
+    }, [questions, currentQuestionIndex, isFollowUp, answers, doEvaluation]);
 
-    // ── Evaluation ───────────────────────────────────────────────────────────
-    const doEvaluation = useCallback(
-        async (answersToEvaluate: InterviewAnswer[]) => {
-            setPhase("evaluating");
-            const result = await evaluateInterview(answersToEvaluate, resumeText, jobDescriptionText);
-            if ("error" in result) {
-                setError(result.error);
-                setPhase("interview");
-                return;
-            }
-            setEvaluation(result);
-            setPhase("results");
 
-            // ── Session Saving & Gamification ──────────────────────
-            if (user && result) {
-                (async () => {
-                    try {
-                        const totalDuration = answersToEvaluate.reduce((acc, a) => acc + (a.duration || 0) + (a.followUpDuration || 0), 0);
-                        const totalWords = answersToEvaluate.reduce((acc, a) => acc + (a.wordCount || 0) + (a.followUpWordCount || 0), 0);
-                        const totalFillers = answersToEvaluate.reduce((acc, a) => acc + (a.fillerWordCount || 0) + (a.followUpFillerCount || 0), 0);
-                        const avgWpm = totalDuration > 0 ? Math.round((totalWords / totalDuration) * 60) : 0;
-
-                        const reportData = {
-                            summary: result.overallFeedback,
-                            tips: [...result.topStrengths, ...result.topImprovements],
-                            score: result.overallScore,
-                            qnaSummary: result.questionEvaluations.map(qe => ({
-                                question: qe.question,
-                                userAnswer: qe.answer,
-                                idealAnswer: qe.idealAnswer,
-                                relevanceScore: qe.relevanceScore,
-                            })),
-                            rawMetrics: {
-                                duration: totalDuration,
-                                wpm: avgWpm,
-                                totalWords: totalWords,
-                                fillerCounts: { "total": totalFillers },
-                                transcript: answersToEvaluate.map(a => `Q: ${a.question}\nA: ${a.answer}${a.followUpQuestion ? `\nFollow-up Q: ${a.followUpQuestion}\nFollow-up A: ${a.followUpAnswer}` : ""}`).join("\n\n"),
-                                wpmHistory: [], // Not yet tracked per-interval in interview
-                                pauseCount: 0,
-                            }
-                        };
-
-                        let reportUrl = undefined;
-                        try {
-                            const fileId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${window.crypto.randomUUID()}`;
-                            const gcsRes = await saveSessionToGCS(reportData, user.uid, fileId);
-                            if (gcsRes.success) reportUrl = gcsRes.url;
-                        } catch (e) {
-                            console.error("Failed to save interview report to GCS:", e);
-                        }
-
-                        await saveSession(user.uid, {
-                            duration: totalDuration,
-                            mode: 'interview',
-                            score: result.overallScore,
-                            topics: ["Interview"],
-                            wpm: avgWpm,
-                            totalWords: totalWords,
-                            aiSummary: result.overallFeedback,
-                            tips: [...result.topStrengths, ...result.topImprovements],
-                            fillerCounts: { "total": totalFillers },
-                            reportUrl,
-                            transcript: reportData.rawMetrics.transcript,
-                        });
-
-                        const streakData = await getUserStreak(user.uid);
-                        const newStreak = streakData?.currentStreak || 0;
-                        const sessionStats = await getSessionStats(user.uid);
-
-                        await checkAndAwardBadges(user.uid, {
-                            sessionsCount: sessionStats.sessionsCount,
-                            streakCount: newStreak,
-                            longestStreak: newStreak,
-                            averageScore: result.overallScore,
-                            postsCount: 0,
-                            likesReceived: 0,
-                            followersCount: 0,
-                            sessionDuration: totalDuration,
-                            totalPracticeSeconds: sessionStats.totalPracticeSeconds,
-                            bestScore: sessionStats.bestScore
-                        });
-                    } catch (e) {
-                        console.error("Interview gamification error:", e);
-                    }
-                })();
-            }
-        },
-        [resumeText, jobDescriptionText, user]
-    );
-
-    const runEvaluation = useCallback(() => {
-        setAnswers((current) => {
-            doEvaluation(current);
-            return current;
-        });
-    }, [doEvaluation]);
 
     // ── Reset ────────────────────────────────────────────────────────────────
     const resetInterview = useCallback(() => {

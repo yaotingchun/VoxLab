@@ -69,6 +69,7 @@ export function PresentationCoach() {
                     <UnifiedWebcamView
                         onPoseResults={analyzePosture}
                         onFaceResults={analyzeFace}
+                        isAutoFramed={result.isAutoFramed}
                     />
 
                     {/* Only show overlay when active */}

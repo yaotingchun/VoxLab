@@ -20,7 +20,13 @@ function getWpmZoneColor(wpm: number): string {
     return "#ef4444";                                // red
 }
 
-export function PacingChart({ dataPoints }: { dataPoints: WpmDataPoint[] }) {
+export function PacingChart({
+    dataPoints,
+    questionMarkers = []
+}: {
+    dataPoints: WpmDataPoint[];
+    questionMarkers?: { time: number; label: string }[];
+}) {
     if (dataPoints.length < 2) return null;
 
     const width = 600;
@@ -29,13 +35,15 @@ export function PacingChart({ dataPoints }: { dataPoints: WpmDataPoint[] }) {
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
-    const maxTime = Math.max(...dataPoints.map(d => d.time));
-    const maxWpm = Math.max(WPM_WARNING_HIGH + 20, ...dataPoints.map(d => d.wpm));
-    const minWpm = Math.max(0, Math.min(WPM_WARNING_LOW - 20, ...dataPoints.map(d => d.wpm)));
+    const times = dataPoints.map(d => d.time);
+    const maxTime = Math.max(1, ...times, ...(questionMarkers.map(m => m.time)));
+    const wpms = dataPoints.map(d => d.wpm);
+    const maxWpm = Math.max(WPM_WARNING_HIGH + 20, ...wpms);
+    const minWpm = Math.max(0, Math.min(WPM_WARNING_LOW - 20, ...wpms));
     const wpmRange = maxWpm - minWpm;
 
     const scaleX = (t: number) => padding.left + (t / maxTime) * chartW;
-    const scaleY = (w: number) => padding.top + chartH - ((w - minWpm) / wpmRange) * chartH;
+    const scaleY = (w: number) => padding.top + chartH - ((w - minWpm) / Math.max(1, wpmRange)) * chartH;
 
     // Build SVG path
     const pathData = dataPoints
@@ -68,12 +76,36 @@ export function PacingChart({ dataPoints }: { dataPoints: WpmDataPoint[] }) {
 
     return (
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.02" />
+                </linearGradient>
+            </defs>
+
             {/* Target zone shading */}
             <rect
                 x={padding.left} y={targetTop}
                 width={chartW} height={targetBottom - targetTop}
                 fill="#22c55e" opacity="0.06"
             />
+
+            {/* Question Boundary Markers */}
+            {questionMarkers.map((m, i) => (
+                <g key={`marker-${i}`}>
+                    <line
+                        x1={scaleX(m.time)} y1={padding.top}
+                        x2={scaleX(m.time)} y2={padding.top + chartH}
+                        stroke="#6366f1" strokeWidth="1.5" strokeDasharray="5,5" opacity="0.5"
+                    />
+                    <text
+                        x={scaleX(m.time) + 4} y={padding.top + 10}
+                        fill="#6366f1" fontSize="9" fontWeight="bold" opacity="0.8"
+                    >
+                        {m.label}
+                    </text>
+                </g>
+            ))}
 
             {/* Zone reference lines */}
             {zoneLines.map((z, i) => (
@@ -91,12 +123,6 @@ export function PacingChart({ dataPoints }: { dataPoints: WpmDataPoint[] }) {
 
             {/* Area fill */}
             <path d={areaData} fill="url(#areaGradient)" />
-            <defs>
-                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.02" />
-                </linearGradient>
-            </defs>
 
             {/* Main line */}
             <path d={pathData} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />

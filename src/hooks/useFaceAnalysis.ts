@@ -15,6 +15,7 @@ export interface FaceAnalysisMetrics {
     hasShiftyEyes: boolean;
     // Task 2: Camera clarity / Face tracking stability
     hasPoorCameraClarity: boolean;
+    isAutoFramed: boolean;
 }
 
 export function useFaceAnalysis() {
@@ -28,6 +29,7 @@ export function useFaceAnalysis() {
         hasMouthTension: false,
         hasShiftyEyes: false,
         hasPoorCameraClarity: false,
+        isAutoFramed: true,
     });
 
     // Refs for tracking over time
@@ -76,13 +78,11 @@ export function useFaceAnalysis() {
         // Reset metrics visuals if needed
     }, []);
 
-    const endSession = useCallback((timestampMs?: number) => {
-        isSessionActiveRef.current = false;
-        const now = timestampMs !== undefined ? timestampMs : Date.now();
-        const durationSeconds = (now - sessionStartTimeRef.current) / 1000;
+    // Non-destructive snapshot — returns cumulative data without stopping
+    const getSnapshot = useCallback(() => {
+        const durationSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
         const data = sessionDataRef.current;
 
-        // Calculate Averages
         const smilePercentage = data.frameCount > 0 ? Math.round((data.smileFrameCount / data.frameCount) * 100) : 0;
         const averageEngagement = data.frameCount > 0 ? Math.round(data.totalAttentionScore / data.frameCount) : 0;
         const blinkRateAverage = data.blinkRateSamples > 0 ? Math.round(data.blinkRateSum / data.blinkRateSamples) : 0;
@@ -122,8 +122,16 @@ export function useFaceAnalysis() {
         return maxIndex;
     };
 
+    const endSession = useCallback(() => {
+        isSessionActiveRef.current = false;
+        return getSnapshot();
+    }, [getSnapshot]);
+
     const analyzeFace = useCallback((result: FaceLandmarkerResult, timestampMs?: number) => {
-        if (!result.faceLandmarks || result.faceLandmarks.length === 0) return;
+        if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
+            setMetrics(prev => ({ ...prev, isAutoFramed: false }));
+            return;
+        }
 
         // Task 2: Multi-person detection - find main speaker
         const mainSpeakerIndex = getLargestFaceIndex(result.faceLandmarks);
@@ -308,10 +316,34 @@ export function useFaceAnalysis() {
             hasHighBlinkRate,
             hasMouthTension,
             hasShiftyEyes,
-            hasPoorCameraClarity // Return tracking status
+            hasPoorCameraClarity, // Return tracking status
+            isAutoFramed: eyeContactScore > 0, // Fallback if centering logic fails, but we'll add specific logic below
         });
+
+        // --- E. Centering / Auto-framing Logic ---
+        // Target Oval: Center(0.5, 0.45), Width(0.30), Height(0.40)
+        // Normalized coordinates from MediaPipe are 0-1
+        const faceCenter = {
+            x: (landmarks[FACE_LANDMARKS.LEFT_EYE_LEFT].x + landmarks[FACE_LANDMARKS.RIGHT_EYE_RIGHT].x) / 2,
+            y: (landmarks[FACE_LANDMARKS.LEFT_EYE_TOP].y + landmarks[152].y) / 2 // 152 is Chin
+        };
+
+        const cx = 0.5;
+        const cy = 0.45;
+        const rx = 0.15; // half of 0.30
+        const ry = 0.20; // half of 0.40
+
+        // Ellipsoid inequality: (x-cx)^2/rx^2 + (y-cy)^2/ry^2 <= 1
+        const isAutoFramed = (
+            Math.pow(faceCenter.x - cx, 2) / Math.pow(rx, 2) +
+            Math.pow(faceCenter.y - cy, 2) / Math.pow(ry, 2)
+        ) <= 1;
+        setMetrics(prev => ({
+            ...prev,
+            isAutoFramed
+        }));
 
     }, []);
 
-    return { metrics, analyzeFace, startSession, endSession };
+    return { metrics, analyzeFace, startSession, endSession, getSnapshot };
 }

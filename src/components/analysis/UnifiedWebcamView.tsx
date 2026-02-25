@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import Webcam from "react-webcam";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     FilesetResolver,
     PoseLandmarker,
@@ -16,9 +17,10 @@ interface UnifiedWebcamViewProps {
     isRecording?: boolean;
     audioStream?: MediaStream | null;
     onVideoRecorded?: (blob: Blob) => void;
+    isAutoFramed?: boolean;
 }
 
-export function UnifiedWebcamView({ onPoseResults, onFaceResults, isRecording, audioStream, onVideoRecorded }: UnifiedWebcamViewProps) {
+export function UnifiedWebcamView({ onPoseResults, onFaceResults, isRecording, audioStream, onVideoRecorded, isAutoFramed = true }: UnifiedWebcamViewProps) {
     const webcamRef = useRef<Webcam>(null);
     const [isModelLoaded, setIsModelLoaded] = useState(false);
     const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
@@ -243,6 +245,13 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults, isRecording, a
 
     }, [isModelLoaded, onPoseResults, onFaceResults]);
 
+    // Debug framing status (only if changed to avoid spam)
+    useEffect(() => {
+        if (!isAutoFramed) {
+            console.log("Auto-framing: User out of center, showing guide.");
+        }
+    }, [isAutoFramed]);
+
     if (!hasMounted) return <div className="bg-black w-full h-full" />;
 
     return (
@@ -260,6 +269,30 @@ export function UnifiedWebcamView({ onPoseResults, onFaceResults, isRecording, a
                     facingMode: "user"
                 }}
             />
+
+            {/* Auto-framing Oval Guide */}
+            <AnimatePresence>
+                {!isAutoFramed && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.1 }}
+                        className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center"
+                    >
+                        {/* The Oval */}
+                        <div
+                            className="w-[30%] h-[55%] border-2 border-dashed border-blue-400/60 rounded-[100%] shadow-[0_0_30px_rgba(59,130,246,0.2)]"
+                            style={{
+                                marginTop: "-5%", // Shift slightly up to match face center 0.45 
+                            }}
+                        >
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-blue-500/10 px-3 py-1 rounded-full backdrop-blur-sm">
+                                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest whitespace-nowrap">Center Face Here</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {!isModelLoaded && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white z-50">
