@@ -45,8 +45,8 @@ export const FollowProvider = ({ children }: { children: React.ReactNode }) => {
             getFollowers(user.uid),
             getFollowing(user.uid)
         ]);
-        setFollowersCount(counts.followersCount);
-        setFollowingCount(counts.followingCount);
+        setFollowersCount(followerList.length);
+        setFollowingCount(followingList.length);
         setFollowers(followerList);
         setFollowing(followingList);
     }, [user]);

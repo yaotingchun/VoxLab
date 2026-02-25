@@ -46,7 +46,7 @@ import { speakText, stopSpeaking } from "@/lib/tts-client";
 import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { saveSessionToGCS } from "@/app/actions/saveSession";
-import { updateStreak } from "@/lib/streaks";
+import { getUserStreak } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { Timestamp } from "firebase/firestore";
 
@@ -295,7 +295,8 @@ export function useInterview() {
 
                         let reportUrl = undefined;
                         try {
-                            const gcsRes = await saveSessionToGCS(reportData);
+                            const fileId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${window.crypto.randomUUID()}`;
+                            const gcsRes = await saveSessionToGCS(reportData, user.uid, fileId);
                             if (gcsRes.success) reportUrl = gcsRes.url;
                         } catch (e) {
                             console.error("Failed to save interview report to GCS:", e);
@@ -315,7 +316,8 @@ export function useInterview() {
                             transcript: reportData.rawMetrics.transcript,
                         });
 
-                        const newStreak = await updateStreak(user.uid);
+                        const streakData = await getUserStreak(user.uid);
+                        const newStreak = streakData?.currentStreak || 0;
                         const sessionStats = await getSessionStats(user.uid);
 
                         await checkAndAwardBadges(user.uid, {

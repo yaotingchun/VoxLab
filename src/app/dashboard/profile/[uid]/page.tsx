@@ -14,7 +14,7 @@ import {
     Users, UserPlus, UserMinus, ArrowLeft, X,
     Flame, Trophy, Mic, Award, Clock, MessageSquare,
     ThumbsUp, Eye, Lock, FileText, CornerDownRight,
-    Star, Target, History, BookOpen, Presentation as PresentationIcon, Search
+    Star, Target, History, BookOpen, Presentation as PresentationIcon, Search, TrendingUp
 } from "lucide-react";
 import Link from "next/link";
 import { FollowEntry } from "@/lib/follow";
@@ -25,6 +25,7 @@ import { PracticeSession } from "@/types/gamification";
 import { Post } from "@/types/forum";
 import { formatForumDate } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 const GLASS_CARD = "bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 hover:bg-white/[0.05] transition-all duration-300";
@@ -109,7 +110,7 @@ function BadgeListModal({ badges, onClose }: {
 }
 
 // ─── Tab Types ────────────────────────────────────────────────────────────────
-type ProfileTab = "overview" | "history" | "forum";
+type ProfileTab = "overview" | "history" | "tracker";
 type Tab = ProfileTab;
 
 // ─── Public Profile Interface ─────────────────────────────────────────────────
@@ -121,12 +122,8 @@ interface PublicProfile {
     followingCount: number;
     streakCount: number;
     longestStreak: number;
-    hideForumActivity?: boolean;
-    hideHistory?: boolean;
-    stats?: {
-        postsCount?: number;
-        commentsCount?: number;
-    };
+    shareProgressTracker?: boolean;
+    shareHistory?: boolean;
 }
 
 type ModalType = "followers" | "following" | null;
@@ -180,9 +177,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                 followingCount: data?.followingCount ?? 0,
                 streakCount: data?.streakCount ?? 0,
                 longestStreak: data?.longestStreak ?? 0,
-                hideForumActivity: data?.hideForumActivity ?? false,
-                hideHistory: data?.hideHistory ?? false,
-                stats: data?.stats ?? {}
+                shareProgressTracker: data?.shareProgressTracker ?? false,
+                shareHistory: data?.shareHistory ?? false
             });
             setFollowersCount(data?.followersCount ?? 0);
             setFollowingCount(data?.followingCount ?? 0);
@@ -280,13 +276,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
         loadGamification();
     }, [loadProfile, checkFollowing, loadGamification]);
 
-    // Load posts/comments when tab is activated
     useEffect(() => {
-        if (activeTab === "forum") {
-            loadUserPosts();
-            loadCommentedPosts();
-        }
-    }, [activeTab, loadUserPosts, loadCommentedPosts]);
+        // loadUserPosts(); // Removed for now as per user request to remove forum from public profile
+    }, [activeTab]);
 
     // Helpers
     const formatDate = (d: Date) => d.toLocaleDateString("en-US", {
@@ -365,7 +357,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
         streakCount: profile.streakCount,
         longestStreak: profile.longestStreak,
         averageScore: avgScore,
-        postsCount: profile.stats?.postsCount ?? 0,
+        postsCount: 0,
         likesReceived: 0,
         followersCount,
         sessionDuration: badgeLongestSec,
@@ -375,8 +367,8 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
 
     const TABS = [
         { id: "overview" as Tab, label: "Overview", icon: Star },
-        { id: "history" as Tab, label: "History", icon: History },
-        { id: "forum" as Tab, label: "Forum Activity", icon: MessageSquare }
+        ...(profile.shareHistory ? [{ id: "history" as Tab, label: "History", icon: History }] : []),
+        ...(profile.shareProgressTracker ? [{ id: "tracker" as Tab, label: "Progress Tracker", icon: TrendingUp }] : [])
     ];
 
     return (
@@ -615,7 +607,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                             )}
 
                             {/* ── History Tab ────────────────────────────────────────── */}
-                            {activeTab === "history" && (
+                            {activeTab === "history" && profile.shareHistory && (
                                 <Card className={GLASS_CARD}>
                                     <CardHeader>
                                         <CardTitle className="text-xl font-black text-white flex items-center gap-2">
@@ -627,153 +619,52 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="px-2">
-                                        {profile.hideHistory ? (
-                                            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
-                                                <div className="p-4 rounded-full bg-white/5 border border-white/5"><Lock className="w-8 h-8 opacity-40" /></div>
-                                                <p className="font-black text-xs uppercase tracking-[0.2em]">History Private</p>
-                                                <p className="text-[10px] text-center font-medium opacity-60">This user has chosen to hide their practice history.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {sessions.length === 0 ? (
-                                                    <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-4">
-                                                        <div className="p-4 rounded-full bg-white/5 border border-white/5"><History className="w-10 h-10 opacity-20" /></div>
-                                                        <p className="text-sm font-bold uppercase tracking-widest">No sessions yet</p>
-                                                    </div>
-                                                ) : sessions.map((s, i) => (
-                                                    <div key={s.id || i} className="group relative px-2">
-                                                        <div className="p-5 rounded-3xl border border-white/5 bg-white/[0.02] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300 hover:bg-white/[0.05] hover:border-white/10 shadow-lg">
-                                                            <div className="flex items-center gap-4">
-                                                                {(() => {
-                                                                    const info = getModeInfo(s.mode);
-                                                                    return (
-                                                                        <div className={`w-12 h-12 rounded-xl ${info.bg} border border-white/5 flex items-center justify-center ${info.color} group-hover:scale-110 transition-transform`}>
-                                                                            <info.icon className="w-6 h-6" />
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                                <div>
-                                                                    <p className="font-extrabold text-white group-hover:text-primary transition-colors capitalize">{s.mode || "practice"} Session</p>
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{s.createdAt ? formatDate((s.createdAt as any).toDate()) : "—"}</p>
-                                                                </div>
+                                        <div className="space-y-3">
+                                            {sessions.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-4">
+                                                    <div className="p-4 rounded-full bg-white/5 border border-white/5"><History className="w-10 h-10 opacity-20" /></div>
+                                                    <p className="text-sm font-bold uppercase tracking-widest">No sessions yet</p>
+                                                </div>
+                                            ) : sessions.map((s, i) => (
+                                                <div key={s.id || i} className="group relative px-2">
+                                                    <div className="p-5 rounded-3xl border border-white/5 bg-white/[0.02] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300 hover:bg-white/[0.05] hover:border-white/10 shadow-lg">
+                                                        <div className="flex items-center gap-4">
+                                                            {(() => {
+                                                                const info = getModeInfo(s.mode);
+                                                                return (
+                                                                    <div className={`w-12 h-12 rounded-xl ${info.bg} border border-white/5 flex items-center justify-center ${info.color} group-hover:scale-110 transition-transform`}>
+                                                                        <info.icon className="w-6 h-6" />
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                            <div>
+                                                                <p className="font-extrabold text-white group-hover:text-primary transition-colors capitalize">{s.mode || "practice"} Session</p>
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{s.createdAt ? formatDate((s.createdAt as any).toDate()) : "—"}</p>
                                                             </div>
+                                                        </div>
 
-                                                            <div className="flex items-center gap-6">
-                                                                <div className="text-right">
-                                                                    <p className="text-lg font-black text-white">{formatDuration(s.duration)}</p>
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Duration</p>
-                                                                </div>
-                                                                <div className="text-right min-w-[60px]">
-                                                                    <p className="text-xl font-black text-white">{s.score ?? 0}%</p>
-                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary transition-colors">Score</p>
-                                                                </div>
+                                                        <div className="flex items-center gap-6">
+                                                            <div className="text-right">
+                                                                <p className="text-lg font-black text-white">{formatDuration(s.duration)}</p>
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Duration</p>
+                                                            </div>
+                                                            <div className="text-right min-w-[60px]">
+                                                                <p className="text-xl font-black text-white">{s.score ?? 0}%</p>
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary transition-colors">Score</p>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             )}
 
-                            {/* ── Forum Activity Tab ─────────────────────────────────── */}
-                            {activeTab === "forum" && (
+                            {/* ── Progress Tracker Tab ──────────────────────────────── */}
+                            {activeTab === "tracker" && profile.shareProgressTracker && (
                                 <div className="space-y-6">
-                                    {/* Summary Card */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <Card className={GLASS_CARD}>
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Posts Authored</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 rounded-xl bg-primary/10 text-primary"><FileText className="w-5 h-5" /></div>
-                                                    <p className="text-3xl font-black text-white">{userPosts.length}</p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                        <Card className={GLASS_CARD}>
-                                            <CardHeader className="pb-2">
-                                                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Active Participation</CardTitle>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400"><MessageSquare className="w-5 h-5" /></div>
-                                                    <p className="text-3xl font-black text-white">{commentedPosts.length}</p>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-
-                                    {/* Privacy Check */}
-                                    {profile.hideForumActivity ? (
-                                        <Card className={GLASS_CARD}>
-                                            <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                                                <div className="p-4 rounded-full bg-white/5 border border-white/5"><Lock className="w-8 h-8 opacity-40" /></div>
-                                                <p className="font-black text-xs uppercase tracking-[0.2em]">Activity Private</p>
-                                                <p className="text-[10px] text-center font-medium opacity-60">This user has chosen to hide their forum participation.</p>
-                                            </CardContent>
-                                        </Card>
-                                    ) : (
-                                        <div className="space-y-6">
-                                            {/* Authored Posts */}
-                                            <Card className={GLASS_CARD}>
-                                                <CardHeader>
-                                                    <CardTitle className="text-lg font-black text-white">Created Topics</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    <div className="space-y-3">
-                                                        {userPosts.length === 0 ? (
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 text-center py-8">No topics created yet</p>
-                                                        ) : userPosts.slice(0, 5).map(post => (
-                                                            <Link key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] hover:border-white/10 transition-all group">
-                                                                <div className="flex items-center justify-between gap-4">
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <h3 className="font-bold text-sm text-white group-hover:text-primary transition-colors truncate">{post.title}</h3>
-                                                                        <p className="text-[10px] text-gray-500 mt-1 line-clamp-1">{post.content}</p>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-4 text-[10px] font-black text-gray-600">
-                                                                        <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{post.likes ?? 0}</span>
-                                                                        <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{post.commentCount ?? 0}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </Link>
-                                                        ))}
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-
-                                            {/* Recent Comments */}
-                                            <Card className={GLASS_CARD}>
-                                                <CardHeader>
-                                                    <CardTitle className="text-lg font-black text-white">Recent Contributions</CardTitle>
-                                                </CardHeader>
-                                                <CardContent>
-                                                    <div className="space-y-3">
-                                                        {commentedPosts.length === 0 ? (
-                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 text-center py-8">No contributions yet</p>
-                                                        ) : commentedPosts.slice(0, 5).map(post => (
-                                                            <Link key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] hover:border-white/10 transition-all group">
-                                                                <div className="flex flex-col gap-2">
-                                                                    <div className="flex items-center justify-between gap-4">
-                                                                        <h3 className="font-bold text-[11px] text-gray-400 group-hover:text-white transition-colors truncate">RE: {post.title}</h3>
-                                                                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{post.createdAt ? formatDate((post.createdAt as any).toDate()) : "RECENT"}</span>
-                                                                    </div>
-                                                                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
-                                                                        <div className="flex items-start gap-2">
-                                                                            <CornerDownRight className="w-3 h-3 text-primary mt-0.5" />
-                                                                            <p className="text-xs text-white/90 line-clamp-2 italic font-medium">"{post.userComment}"</p>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </Link>
-                                                        ))}
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </div>
-                                    )}
+                                    <ProgressTrackerTab sessions={sessions} />
                                 </div>
                             )}
                         </motion.div>

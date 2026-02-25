@@ -62,6 +62,7 @@ export default function UploadPracticePage() {
     const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [analysisProgress, setAnalysisProgress] = useState(0);
     const [result, setResult] = useState<ExtendedAnalysisResult | null>(null);
     const [rubricText, setRubricText] = useState<string | null>(null);
     const [rubricFile, setRubricFile] = useState<File | null>(null);
@@ -103,7 +104,7 @@ export default function UploadPracticePage() {
                 const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
                     baseOptions: {
                         modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`,
-                        delegate: "GPU"
+                        delegate: "CPU"
                     },
                     runningMode: "VIDEO",
                     numPoses: 1,
@@ -115,7 +116,7 @@ export default function UploadPracticePage() {
                 const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
                     baseOptions: {
                         modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-                        delegate: "GPU"
+                        delegate: "CPU"
                     },
                     runningMode: "VIDEO",
                     numFaces: 1,
@@ -254,7 +255,9 @@ export default function UploadPracticePage() {
                 const errData = await response.json();
                 throw new Error(errData.error || "Failed to analyze video");
             }
-            return response.json() as Promise<ExtendedAnalysisResult>;
+            const data = await response.json() as ExtendedAnalysisResult;
+            console.log(`[AudioAPI] Returned: transcript=${data.transcript?.length || 0} chars, totalWords=${data.totalWords}, wpm=${data.wpm}, duration=${data.duration}s`);
+            return data;
         });
 
         // Promise 2: Frontend Posture & Face Extractor
@@ -274,7 +277,7 @@ export default function UploadPracticePage() {
 
             const baseTimestamp = performance.now();
             let lastVideoTime = -1;
-            const FRAME_STEP = 1 / 15; // Analyze 15 frames per second for deep coverage
+            const FRAME_STEP = 1 / 2; // Analyze 2 frames per second (sufficient for posture/face on CPU)
 
             startPostureSession(baseTimestamp);
             startFaceSession(baseTimestamp);
@@ -284,14 +287,19 @@ export default function UploadPracticePage() {
                     lastVideoTime = video.currentTime;
                     const shiftedTimestampMs = Math.round(baseTimestamp + (video.currentTime * 1000));
 
-                    const poseResult = poseLandmarkerRef.current?.detectForVideo(video, shiftedTimestampMs);
-                    const faceResult = faceLandmarkerRef.current?.detectForVideo(video, shiftedTimestampMs);
-                    if (poseResult) analyzePosture(poseResult, shiftedTimestampMs);
-                    if (faceResult) analyzeFace(faceResult, shiftedTimestampMs);
+                    try {
+                        const poseResult = poseLandmarkerRef.current?.detectForVideo(video, shiftedTimestampMs);
+                        const faceResult = faceLandmarkerRef.current?.detectForVideo(video, shiftedTimestampMs);
+                        if (poseResult) analyzePosture(poseResult, shiftedTimestampMs);
+                        if (faceResult) analyzeFace(faceResult, shiftedTimestampMs);
+                    } catch (e) {
+                        // detectForVideo can throw during GPU→CPU fallback or if the frame isn't decoded yet; skip this frame
+                        console.warn(`[DeepAnalysis] Skipped frame at ${video.currentTime.toFixed(2)}s:`, e);
+                    }
 
-                    // Update UI Progress (if we had a progress state, but for now we log)
+                    // Update UI progress bar
                     const percent = Math.round((video.currentTime / video.duration) * 100);
-                    if (percent % 10 === 0) console.log(`[DeepAnalysis] Progress: ${percent}%`);
+                    setAnalysisProgress(percent);
                 }
 
                 if (video.currentTime < video.duration) {
@@ -339,8 +347,9 @@ export default function UploadPracticePage() {
             };
 
             video.onloadedmetadata = () => {
-                // Kick off the loop
-                analyzeFrame();
+                // Kick off the loop by seeking to 0; onseeked will call analyzeFrame
+                // (calling analyzeFrame directly here crashes because the first frame isn't decoded yet)
+                video.currentTime = 0;
             };
 
             video.onerror = () => {
@@ -450,7 +459,7 @@ export default function UploadPracticePage() {
 
                         await saveSession(user.uid, {
                             duration: audioData.duration,
-                            score: Math.round(posture.score),
+                            score: (aiSummary as any).score || Math.round(posture.score),
                             topics,
                             wpm: audioWpm,
                             totalWords: audioTotalWords,
@@ -480,7 +489,7 @@ export default function UploadPracticePage() {
                             sessionsCount: sessionStats.sessionsCount,
                             streakCount: newStreak,
                             longestStreak: streakData?.longestStreak || 0,
-                            averageScore: Math.round(posture.score),
+                            averageScore: (aiSummary as any).score || Math.round(posture.score),
                             postsCount: 0,
                             likesReceived: 0,
                             followersCount: 0,
@@ -589,7 +598,7 @@ export default function UploadPracticePage() {
 
     return (
         <div className="flex flex-col min-h-screen bg-black text-white p-4 gap-6">
-            <video ref={hiddenVideoRef} className="hidden" playsInline crossOrigin="anonymous" />
+            <video ref={hiddenVideoRef} style={{ position: 'fixed', left: '-9999px', width: '640px', height: '480px', opacity: 0 }} playsInline crossOrigin="anonymous" />
 
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
@@ -826,18 +835,23 @@ export default function UploadPracticePage() {
                             <div className="relative w-32 h-32 mx-auto">
                                 <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-xl animate-pulse" />
                                 <div className="relative bg-black border border-white/10 w-full h-full rounded-full flex items-center justify-center shadow-2xl">
-                                    <Loader2 className="w-12 h-12 text-orange-400 animate-spin" />
+                                    <span className="text-3xl font-bold text-orange-400">{analysisProgress}%</span>
                                 </div>
                             </div>
                             <div>
                                 <h2 className="text-2xl font-bold tracking-tight mb-2">Analyzing Video</h2>
-                                <p className="text-white/50 text-sm">Extracting audio, checking pitch, measuring words per minute...</p>
+                                <p className="text-white/50 text-sm">
+                                    {analysisProgress < 100
+                                        ? "Scanning posture, expressions & extracting audio..."
+                                        : "Generating AI coaching report..."}
+                                </p>
                             </div>
-                            <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden relative">
+                            <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
                                 <motion.div
-                                    animate={{ left: ["-50%", "100%"] }}
-                                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                                    className="absolute top-0 bottom-0 bg-gradient-to-r from-orange-500 to-purple-500 w-1/2 rounded-full"
+                                    initial={{ width: "0%" }}
+                                    animate={{ width: `${analysisProgress}%` }}
+                                    transition={{ duration: 0.3, ease: "easeOut" }}
+                                    className="h-full bg-gradient-to-r from-orange-500 to-purple-500 rounded-full"
                                 />
                             </div>
                         </motion.div>

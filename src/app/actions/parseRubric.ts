@@ -1,7 +1,6 @@
 "use server";
 
-import * as _pdf from 'pdf-parse';
-const pdf = (_pdf as any).default || _pdf;
+import { extractPdfText } from './interview';
 
 export async function parseRubric(formData: FormData): Promise<{ text: string; error?: string }> {
     try {
@@ -10,11 +9,16 @@ export async function parseRubric(formData: FormData): Promise<{ text: string; e
             return { text: "", error: "No file provided" };
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const data = await pdf(buffer);
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const { text, error } = await extractPdfText(base64);
+
+        if (error) {
+            throw new Error(error);
+        }
 
         return {
-            text: data.text
+            text: text || ""
         };
     } catch (error: any) {
         console.error("PDF Parsing Error:", error);

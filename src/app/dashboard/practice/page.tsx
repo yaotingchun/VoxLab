@@ -80,6 +80,7 @@ function PracticePageInner() {
     // Video Recording State
     const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
     const videoResolveRef = useRef<((blob: Blob) => void) | null>(null);
+    const [isCoachHovered, setIsCoachHovered] = useState(false);
 
     const handleVideoRecorded = useCallback((blob: Blob) => {
         if (videoResolveRef.current) {
@@ -93,38 +94,45 @@ function PracticePageInner() {
         const mode = searchParams.get("mode");
         if (mode !== "lecture") return;
 
-        let objectUrl: string | null = null;
+        console.log("Lecture Mode: Initializing slide viewer...");
         const storedSlideB64 = sessionStorage.getItem("lecture_slide_b64");
         const storedSlideType = sessionStorage.getItem("lecture_slide_type");
         const storedSlideName = sessionStorage.getItem("lecture_slide_name");
 
-        if (storedSlideB64) {
-            setSlideFile({
-                name: storedSlideName || "slides.pdf",
-                type: storedSlideType || "application/pdf"
-            });
-
-            if (storedSlideType === "application/pdf" || storedSlideName?.toLowerCase().endsWith(".pdf")) {
-                try {
-                    const byteCharacters = atob(storedSlideB64);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], { type: "application/pdf" });
-                    objectUrl = URL.createObjectURL(blob);
-                    setPdfUrl(objectUrl);
-                } catch (e) {
-                    console.error("Failed to create PDF blob URL", e);
-                }
-            }
+        if (!storedSlideB64) {
+            console.warn("Lecture Mode: No slide data found in sessionStorage");
+            return;
         }
 
+        setSlideFile({
+            name: storedSlideName || "slides.pdf",
+            type: storedSlideType || "application/pdf"
+        });
+
+        let objectUrl: string | null = null;
+        if (storedSlideType === "application/pdf" || storedSlideName?.toLowerCase().endsWith(".pdf")) {
+            try {
+                // Efficient base64 to blob conversion
+                const binaryString = atob(storedSlideB64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: "application/pdf" });
+                objectUrl = URL.createObjectURL(blob);
+                setPdfUrl(objectUrl);
+                console.log("Lecture Mode: Slide PDF loaded successfully", { name: storedSlideName, size: blob.size });
+            } catch (e) {
+                console.error("Lecture Mode: Failed to load slide PDF", e);
+            }
+        }
         return () => {
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            if (objectUrl) {
+                console.log("Lecture Mode: Revoking slide object URL");
+                URL.revokeObjectURL(objectUrl);
+            }
         };
-    }, [searchParams]);
+    }, []); // Run only once to prevent searchParams updates from revoking the URL
 
     // Auto-scroll transcript
     const transcriptRef = useRef<HTMLDivElement>(null);
@@ -284,6 +292,10 @@ function PracticePageInner() {
                                 duration: data.duration,
                                 mode: (searchParams.get("mode") as any) || 'practice',
                                 score: Math.round(data.averageScore),
+                                vocalScore: 'error' in vocalSummary ? 0 : (vocalSummary as any).score || 0,
+                                postureScore: 'error' in postureSummary ? 0 : (postureSummary as any).score || 0,
+                                facialScore: data.faceMetrics?.eyeContactScore || 0,
+                                contentScore: (aiSummary as any).topicAnalysis?.relevanceScore || Math.round(data.averageScore),
                                 topics,
                                 wpm,
                                 totalWords,
@@ -297,6 +309,7 @@ function PracticePageInner() {
                                 pauseStats: finalPauseStats ?? null,
                                 faceMetrics: data.faceMetrics,
                                 postureSummary: 'error' in postureSummary ? null : postureSummary,
+                                vocalSummary: 'error' in vocalSummary ? null : vocalSummary,
                                 videoUrl: videoUrl ?? null,
                                 audioMetrics: audioResult?.stats ?? undefined,
                                 lectureAnalysis: (aiSummary as any).lectureAnalysis ?? null,
@@ -383,7 +396,9 @@ function PracticePageInner() {
                     )}
                     <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
                         <Sparkles className="w-4 h-4 text-purple-400" />
-                        <span className="text-sm font-semibold tracking-wide">AI Practice Mode</span>
+                        <span className="text-sm font-semibold tracking-wide">
+                            {searchParams.get("mode") === "lecture" ? "AI Lecture Mode" : "AI Practice Mode"}
+                        </span>
                     </div>
                 </div>
             </header>
@@ -397,9 +412,9 @@ function PracticePageInner() {
                     {/* Top Container: Webcam & Slides Area */}
                     <div className={`w-full relative bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col flex-none transition-all duration-500 ease-in-out ${isSlidesExpanded ? 'h-[65vh]' : 'aspect-video'}`}>
 
-                        {/* Slide Webview Layer */}
-                        {isSlidesExpanded && pdfUrl && (
-                            <div className="absolute inset-0 z-0 bg-slate-900 flex items-center justify-center">
+                        {/* Slide View Logic: Full Screen Slide when expanded */}
+                        {pdfUrl && isSlidesExpanded && (
+                            <div className="absolute inset-0 z-0 bg-slate-900 flex items-center justify-center transition-all duration-500 ease-in-out">
                                 <iframe
                                     src={`${pdfUrl}#toolbar=0&navpanes=0`}
                                     className="w-full h-full border-none"
@@ -408,7 +423,7 @@ function PracticePageInner() {
                             </div>
                         )}
 
-                        {/* Webcam Layer (Shrinks into PiP when expanded) */}
+                        {/* Webcam Layer */}
                         <div className={`bg-black transition-all duration-500 ease-in-out ${isSlidesExpanded ? 'absolute bottom-3 right-4 w-56 aspect-video z-50 rounded-2xl shadow-2xl border-2 border-slate-700/80 overflow-hidden' : 'relative flex-1'}`}>
                             <UnifiedWebcamView
                                 onPoseResults={analyzePosture}
@@ -419,7 +434,7 @@ function PracticePageInner() {
                             />
 
                             {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}
-                            {isStarted && (
+                            {isStarted && !isSlidesExpanded && (
                                 <FeedbackOverlay
                                     isNervous={result.isNervous}
                                     isDistracted={result.isDistracted}
@@ -459,29 +474,38 @@ function PracticePageInner() {
                                     className="rounded-full shadow-lg flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white border-none"
                                 >
                                     <Square className="w-4 h-4 fill-current" />
-                                    End Session
+                                    {searchParams.get("mode") === "lecture" ? "End Lecture" : "End Session"}
                                 </Button>
                             </div>
                         )}
 
                         {/* Speech Coach Widget - Floating Bottom Overlay */}
                         {isStarted && (
-                            <div className="absolute bottom-6 left-0 right-0 z-[60] flex items-end justify-center pointer-events-none">
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3 }}
-                                    className="pointer-events-auto"
-                                >
-                                    <SpeechCoachWidget
-                                        isListening={isListening}
-                                        wpm={wpm}
-                                        elapsedTime={elapsedTime}
-                                        transcript={transcript}
-                                        onToggleListening={isListening ? stopListening : startListening}
-                                        onReset={handleReset}
-                                    />
-                                </motion.div>
+                            <div
+                                className="absolute bottom-0 left-0 right-0 h-32 z-[60] flex items-end justify-center pb-6 transition-all"
+                                onMouseEnter={() => setIsCoachHovered(true)}
+                                onMouseLeave={() => setIsCoachHovered(false)}
+                            >
+                                <AnimatePresence>
+                                    {(isCoachHovered || !isSlidesExpanded) && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 20 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="pointer-events-auto"
+                                        >
+                                            <SpeechCoachWidget
+                                                isListening={isListening}
+                                                wpm={wpm}
+                                                elapsedTime={elapsedTime}
+                                                transcript={transcript}
+                                                onToggleListening={isListening ? stopListening : startListening}
+                                                onReset={handleReset}
+                                            />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         )}
 
@@ -503,10 +527,32 @@ function PracticePageInner() {
                                     </div>
 
                                     <div>
-                                        <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">Practice Session</h1>
-                                        <p className="text-sm text-gray-400 max-w-xs mx-auto">
+                                        <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">
+                                            {searchParams.get("mode") === "lecture" ? "Lecture Session" : "Practice Session"}
+                                        </h1>
+                                        <p className="text-sm text-gray-400 max-w-xs mx-auto mb-4">
                                             Real-time analysis of your posture, expression, and speech pacing.
                                         </p>
+
+                                        {searchParams.get("mode") === "lecture" && (
+                                            <div className="flex items-center gap-3 mb-6 bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700 shadow-xl backdrop-blur-sm justify-center mx-auto w-fit">
+                                                {!slideFile ? (
+                                                    <div className="flex items-center gap-2 text-rose-400">
+                                                        <AlertTriangle className="w-4 h-4" />
+                                                        <span className="text-xs font-medium">Slide data missing. Please re-upload.</span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                                                        <span className="text-xs font-medium text-slate-300">Ready</span>
+                                                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 border-l border-slate-700 pl-3">
+                                                            <FileText className="w-3.5 h-3.5 text-blue-400" />
+                                                            <span className="truncate max-w-[150px]">{slideFile.name}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="pt-2 flex justify-center">
@@ -515,7 +561,7 @@ function PracticePageInner() {
                                             onClick={handleToggleSession}
                                             className="w-full max-w-[200px] text-base h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/20 hover:scale-[1.02] transition-all"
                                         >
-                                            Start Practice
+                                            {searchParams.get("mode") === "lecture" ? "Start Lecture" : "Start Practice"}
                                         </Button>
                                     </div>
                                 </motion.div>

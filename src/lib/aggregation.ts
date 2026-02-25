@@ -38,6 +38,7 @@ export interface ChartDataPoint {
  */
 function getMonday(d: string | Date) {
     const date = new Date(d);
+    if (isNaN(date.getTime())) return null;
     const day = date.getDay();
     const diff = date.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(date.setDate(diff));
@@ -56,6 +57,8 @@ export function aggregateSessionsByWeek(sessions: SessionData[]): WeeklyAggregat
 
     sessions.forEach(session => {
         const monday = getMonday(session.savedAt);
+        if (!monday) return; // Skip invalid dates
+
         const weekKey = monday.toISOString();
         if (!weeksMap.has(weekKey)) {
             weeksMap.set(weekKey, []);
@@ -108,12 +111,14 @@ export function aggregateSessionsByWeek(sessions: SessionData[]): WeeklyAggregat
 export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) {
     const today = new Date();
     const monday = getMonday(today);
+    if (!monday) return { label: "Invalid Date", data: [] };
+
     monday.setDate(monday.getDate() + (weekOffset * 7));
 
     // Determine the 7 days (Timezone safe using local dates instead of raw ISO slicing)
     const weekDays: Date[] = [];
     for (let i = 0; i < 7; i++) {
-        const d = new Date(monday);
+        const d = new Date(monday.getTime());
         d.setDate(monday.getDate() + i);
         weekDays.push(d);
     }
@@ -180,7 +185,7 @@ export function getWeeklyChartData(sessions: SessionData[], weekOffset: number) 
     });
 
     const weekStartLabel = monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const sunday = new Date(monday);
+    const sunday = new Date(monday.getTime());
     sunday.setDate(monday.getDate() + 6);
     const weekEndLabel = sunday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 

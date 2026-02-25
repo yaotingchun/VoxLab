@@ -52,6 +52,10 @@ export interface PracticeSession {
     wpm?: number;
     totalWords?: number;
     aiSummary?: string;
+    vocalScore?: number;
+    postureScore?: number;
+    facialScore?: number;
+    contentScore?: number;
     // Rich report fields (saved from v2 onwards)
     tips?: string[];
     fillerCounts?: Record<string, number>;

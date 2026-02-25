@@ -81,7 +81,7 @@ export const saveSession = async (
 /**
  * Get recent sessions for a user, ordered by most recent first.
  */
-export const getRecentSessions = async (uid: string, count = 20): Promise<PracticeSession[]> => {
+export const getRecentSessions = async (uid: string, count = 100): Promise<PracticeSession[]> => {
     const q = query(
         collection(db, "users", uid, "sessions"),
         orderBy("createdAt", "desc"),

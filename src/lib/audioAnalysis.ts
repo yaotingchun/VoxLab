@@ -144,22 +144,33 @@ export async function analyzeAudio(wavBuffer: Buffer): Promise<AudioAnalysisResu
     const fillerCounts: Record<string, number> = {};
     const FILLERS = new Set(["um", "uh", "like", "so", "you know", "actually", "basically"]);
 
+    // --- Attempt 1: Google Cloud Speech-to-Text ---
     try {
         const audio = { content: wavBuffer.toString('base64') };
-        const request = {
-            audio,
-            config: {
-                encoding: 'LINEAR16' as const,
-                sampleRateHertz: 16000,
-                languageCode: 'en-US',
-                enableWordTimeOffsets: true,
-                enableAutomaticPunctuation: true,
-            },
+        const config = {
+            encoding: 'LINEAR16' as const,
+            sampleRateHertz: 16000,
+            languageCode: 'en-US',
+            enableWordTimeOffsets: true,
+            enableAutomaticPunctuation: true,
         };
 
-        const [response] = await speechClient.recognize(request);
+        let results: any[] = [];
 
-        for (const result of response.results || []) {
+        if (duration <= 60) {
+            console.log(`[AudioAnalysis] Using synchronous recognize() for ${duration.toFixed(1)}s audio`);
+            const [response] = await speechClient.recognize({ audio, config });
+            results = response.results || [];
+        } else {
+            console.log(`[AudioAnalysis] Using longRunningRecognize() for ${duration.toFixed(1)}s audio`);
+            const [operation] = await speechClient.longRunningRecognize({ audio, config });
+            const [response] = await operation.promise();
+            results = response.results || [];
+        }
+
+        console.log(`[AudioAnalysis] Speech API returned ${results.length} result(s)`);
+
+        for (const result of results) {
             if (result.alternatives && result.alternatives[0]) {
                 const alt = result.alternatives[0];
                 transcript += (transcript ? " " : "") + alt.transcript;
@@ -177,15 +188,76 @@ export async function analyzeAudio(wavBuffer: Buffer): Promise<AudioAnalysisResu
                         endTime: endSec + endNano / 1e9,
                     });
 
-                    // Track Fillers
                     if (FILLERS.has(cleanWord)) {
                         fillerCounts[cleanWord] = (fillerCounts[cleanWord] || 0) + 1;
                     }
                 }
             }
         }
-    } catch (error) {
-        console.error("GCP Speech Recognition failed. Falling back to simple metrics.", error);
+    } catch (error: any) {
+        console.error("[AudioAnalysis] GCP Speech Recognition failed:", error?.message || error);
+    }
+
+    // --- Attempt 2: Gemini Fallback if Speech API returned nothing ---
+    if (transcript.trim().length === 0) {
+        console.log("[AudioAnalysis] Speech API returned empty transcript. Attempting Gemini fallback...");
+        try {
+            const { vertex } = await import('@ai-sdk/google-vertex');
+            const { generateObject } = await import('ai');
+            const { z } = await import('zod');
+
+            const { object: geminiResult } = await generateObject({
+                model: vertex('gemini-2.5-flash'),
+                schema: z.object({
+                    transcript: z.string().describe('The full verbatim transcript of everything spoken in the audio'),
+                    wordCount: z.number().describe('Total number of words spoken'),
+                    fillerWords: z.record(z.string(), z.number()).describe('Map of filler word to count, e.g. {"um": 3, "uh": 2}'),
+                }),
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'Transcribe this audio accurately. Return the full verbatim transcript, total word count, and a count of filler words (um, uh, like, so, you know, actually, basically). Be precise with the transcript — include every word spoken.',
+                            },
+                            {
+                                type: 'file',
+                                data: wavBuffer,
+                                mediaType: 'audio/wav',
+                            },
+                        ],
+                    },
+                ],
+            });
+
+            console.log(`[AudioAnalysis] Gemini fallback returned: ${geminiResult.wordCount} words`);
+            transcript = geminiResult.transcript || "";
+
+            // Since Gemini doesn't provide word-level timing, approximate word positions evenly across the duration
+            const geminiWords = transcript.split(/\s+/).filter(Boolean);
+            const avgWordDuration = geminiWords.length > 0 ? duration / geminiWords.length : 0;
+            for (let i = 0; i < geminiWords.length; i++) {
+                const w = geminiWords[i].replace(/[^\w\s]/g, '').toLowerCase();
+                words.push({
+                    word: geminiWords[i],
+                    startTime: i * avgWordDuration,
+                    endTime: (i + 1) * avgWordDuration,
+                });
+                if (FILLERS.has(w)) {
+                    fillerCounts[w] = (fillerCounts[w] || 0) + 1;
+                }
+            }
+
+            // Also merge any filler counts from Gemini's own detection
+            if (geminiResult.fillerWords) {
+                for (const [word, count] of Object.entries(geminiResult.fillerWords)) {
+                    fillerCounts[word] = Math.max(fillerCounts[word] || 0, count);
+                }
+            }
+        } catch (geminiError: any) {
+            console.error("[AudioAnalysis] Gemini fallback also failed:", geminiError?.message || geminiError);
+        }
     }
 
     const totalWords = words.length;

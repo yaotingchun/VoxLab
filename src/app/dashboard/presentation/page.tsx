@@ -443,9 +443,8 @@ function PresentationPageInner() {
             // Save to GCS
             let reportUrl = undefined;
             try {
-                const gcsRes = await saveSessionToGCS(finalSummaryData);
+                const gcsRes = await saveSessionToGCS(finalSummaryData, user.uid, Date.now().toString(), sessionStartTime || new Date().toISOString());
                 if (gcsRes.success) reportUrl = gcsRes.url;
-                await saveSessionToGCS(finalSummaryData, user.uid, Date.now().toString(), sessionStartTime || new Date().toISOString());
             } catch (e) {
                 console.error("Failed to save session to GCS:", e);
             }

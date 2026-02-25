@@ -13,13 +13,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
-    Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff, Video,
+    Users, UserCheck, X, Flame, Trophy, History as HistoryIcon, Star, UserPlus, EyeOff, Video,
     MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search, Target,
     BookOpen, Presentation as PresentationIcon
 } from "lucide-react";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { UserSearchModal } from "@/components/profile/UserSearchModal";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
@@ -109,7 +110,7 @@ function BadgeListModal({ badges, onClose }: {
 }
 
 // ─── Tab Types ────────────────────────────────────────────────────────────────
-type Tab = "overview" | "history" | "friends" | "forum";
+type Tab = "overview" | "history" | "friends" | "forum" | "tracker";
 
 export default function ProfilePage() {
     return (
@@ -140,8 +141,8 @@ function ProfileContent() {
     const [dataLoaded, setDataLoaded] = useState(false);
 
     // Privacy settings
-    const [hideForumActivity, setHideForumActivity] = useState(false);
-    const [hideHistory, setHideHistory] = useState(false);
+    const [shareProgressTracker, setShareProgressTracker] = useState(false);
+    const [shareHistory, setShareHistory] = useState(false);
     const [privacySaving, setPrivacySaving] = useState(false);
 
     // Forum activity
@@ -160,7 +161,7 @@ function ProfileContent() {
 
     useEffect(() => {
         const tab = searchParams.get("tab") as Tab;
-        if (tab && ["overview", "history", "friends", "forum"].includes(tab)) {
+        if (tab && ["overview", "history", "friends", "forum", "tracker"].includes(tab)) {
             setActiveTab(tab);
         }
     }, [searchParams]);
@@ -176,44 +177,44 @@ function ProfileContent() {
                 loadMyFollowData(),
                 getUserStreak(user.uid).then(s => { if (s) { setStreakCount(s.currentStreak); setLongestStreak(s.longestStreak); } }),
                 getUserBadges(user.uid).then(setBadges),
-                getRecentSessions(user.uid, 20).then(setSessions),
+                getRecentSessions(user.uid, 100).then(setSessions),
                 getFriends(user.uid).then(setFriends),
                 getDoc(doc(db, "users", user.uid)).then(snap => {
                     if (snap.exists()) {
                         const data = snap.data();
-                        setHideForumActivity(data?.hideForumActivity ?? false);
-                        setHideHistory(data?.hideHistory ?? false);
+                        setShareProgressTracker(data?.shareProgressTracker ?? false);
+                        setShareHistory(data?.shareHistory ?? false);
                     }
                 })
             ]).then(() => setDataLoaded(true));
         }
     }, [user, dataLoaded, loadMyFollowData]);
 
-    const handleToggleHideForumActivity = async () => {
+    const handleToggleShareProgressTracker = async () => {
         if (!user || privacySaving) return;
-        const newValue = !hideForumActivity;
-        setHideForumActivity(newValue);
+        const newValue = !shareProgressTracker;
+        setShareProgressTracker(newValue);
         setPrivacySaving(true);
         try {
-            await setDoc(doc(db, "users", user.uid), { hideForumActivity: newValue }, { merge: true });
+            await setDoc(doc(db, "users", user.uid), { shareProgressTracker: newValue }, { merge: true });
         } catch (err) {
             console.error("Failed to save privacy setting:", err);
-            setHideForumActivity(!newValue);
+            setShareProgressTracker(!newValue);
         } finally {
             setPrivacySaving(false);
         }
     };
 
-    const handleToggleHideHistory = async () => {
+    const handleToggleShareHistory = async () => {
         if (!user || privacySaving) return;
-        const newValue = !hideHistory;
-        setHideHistory(newValue);
+        const newValue = !shareHistory;
+        setShareHistory(newValue);
         setPrivacySaving(true);
         try {
-            await setDoc(doc(db, "users", user.uid), { hideHistory: newValue }, { merge: true });
+            await setDoc(doc(db, "users", user.uid), { shareHistory: newValue }, { merge: true });
         } catch (err) {
             console.error("Failed to save privacy setting:", err);
-            setHideHistory(!newValue);
+            setShareHistory(!newValue);
         } finally {
             setPrivacySaving(false);
         }
@@ -292,13 +293,14 @@ function ProfileContent() {
     const earnedBadges = badges.filter(b => b.earned);
     const totalPracticeMinutes = Math.round(sessions.reduce((a, s) => a + (s.duration ?? 0), 0) / 60);
     const avgScore = sessions.length
-        ? Math.round(sessions.reduce((a, s) => a + (s.score ?? 0), 0) / sessions.length)
+        ? Math.round(sessions.reduce((a, s) => a + (s.score ?? (s as any).averageScore ?? 0), 0) / sessions.length)
         : 0;
 
     const TABS = [
         { id: "overview" as Tab, label: "Overview", icon: Star },
-        { id: "history" as Tab, label: "History", icon: History },
-        { id: "forum" as Tab, label: "Forum Activity", icon: MessageSquare }
+        { id: "forum" as Tab, label: "Forum Activity", icon: MessageSquare },
+        { id: "tracker" as Tab, label: "Progress Tracker", icon: TrendingUp },
+        { id: "history" as Tab, label: "History", icon: HistoryIcon }
     ];
 
     // Trigger lazy loads
@@ -306,7 +308,7 @@ function ProfileContent() {
     if (activeTab === "forum" && !commentedLoaded && !commentedLoading) loadCommentedPosts();
 
     // Badge progress stats (used in overview)
-    const badgeBestScore = sessions.reduce((best, s) => Math.max(best, s.score ?? 0), 0);
+    const badgeBestScore = sessions.reduce((best, s) => Math.max(best, s.score ?? (s as any).averageScore ?? 0), 0);
     const badgeTotalSec = sessions.reduce((t, s) => t + (s.duration ?? 0), 0);
     const badgeLongestSec = sessions.reduce((best, s) => Math.max(best, s.duration ?? 0), 0);
     const badgeLiveStats = {
@@ -510,28 +512,28 @@ function ProfileContent() {
                                             <div className="pt-4 border-t border-white/5">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
-                                                        <EyeOff className="w-4 h-4" />
-                                                        <span>Hide Forum Activity</span>
+                                                        <TrendingUp className="w-4 h-4" />
+                                                        <span>Share Progress Tracker</span>
                                                     </div>
                                                     <button
-                                                        onClick={handleToggleHideForumActivity}
+                                                        onClick={handleToggleShareProgressTracker}
                                                         disabled={privacySaving}
-                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideForumActivity ? "bg-primary" : "bg-white/10"}`}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shareProgressTracker ? "bg-primary" : "bg-white/10"}`}
                                                     >
-                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideForumActivity ? "translate-x-6" : "translate-x-1"}`} />
+                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${shareProgressTracker ? "translate-x-6" : "translate-x-1"}`} />
                                                     </button>
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
-                                                        <History className="w-4 h-4" />
-                                                        <span>Hide Practice History</span>
+                                                        <HistoryIcon className="w-4 h-4" />
+                                                        <span>Share Practice History</span>
                                                     </div>
                                                     <button
-                                                        onClick={handleToggleHideHistory}
+                                                        onClick={handleToggleShareHistory}
                                                         disabled={privacySaving}
-                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideHistory ? "bg-primary" : "bg-white/10"}`}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shareHistory ? "bg-primary" : "bg-white/10"}`}
                                                     >
-                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideHistory ? "translate-x-6" : "translate-x-1"}`} />
+                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${shareHistory ? "translate-x-6" : "translate-x-1"}`} />
                                                     </button>
                                                 </div>
                                             </div>
@@ -651,66 +653,6 @@ function ProfileContent() {
                                 </motion.div>
                             )}
 
-                            {activeTab === "history" && (
-                                <motion.div
-                                    key="history"
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                >
-                                    <Card className={GLASS_CARD}>
-                                        <CardHeader className="border-b border-white/5">
-                                            <CardTitle className="flex items-center gap-3 text-xl font-black">
-                                                <TrendingUp className="w-6 h-6 text-primary" />
-                                                Recent Sessions
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-6">
-                                            {sessions.length === 0 ? (
-                                                <div className="py-20 text-center text-gray-500 bg-black/10 rounded-3xl border border-white/5">
-                                                    <History className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                                                    <p className="font-bold">No history yet</p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-4">
-                                                    {sessions.map((s, i) => (
-                                                        <Link key={s.id ?? i} href={s.id ? `/dashboard/session/${s.id}` : "#"} className="block group">
-                                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 group-hover:bg-white/5 group-hover:border-primary/30 transition-all">
-                                                                {(() => {
-                                                                    const info = getModeInfo(s.mode);
-                                                                    return (
-                                                                        <div className="flex items-center gap-4">
-                                                                            <div className={`w-12 h-12 rounded-xl ${info.bg} border border-white/5 flex items-center justify-center ${info.color} group-hover:scale-110 transition-transform`}>
-                                                                                <info.icon className="w-6 h-6" />
-                                                                            </div>
-                                                                            <div>
-                                                                                <p className="font-extrabold text-white group-hover:text-primary transition-colors capitalize">{s.mode || "practice"} Session</p>
-                                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{s.createdAt ? formatDate((s.createdAt as any).toDate()) : "—"}</p>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                                <div className="flex items-center gap-6">
-                                                                    <div className="text-right">
-                                                                        <p className="text-lg font-black text-white">{formatDuration(s.duration)}</p>
-                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Duration</p>
-                                                                    </div>
-                                                                    <div className="text-right min-w-[60px]">
-                                                                        <p className="text-xl font-black text-white">{s.score ?? 0}%</p>
-                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary transition-colors">Score</p>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </Link>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-                                </motion.div>
-                            )}
-
-
                             {activeTab === "forum" && (
                                 <motion.div
                                     key="forum"
@@ -719,7 +661,6 @@ function ProfileContent() {
                                     exit={{ opacity: 0, y: -10 }}
                                     className="space-y-6"
                                 >
-                                    {/* My Posts Card */}
                                     <Card className={GLASS_CARD}>
                                         <CardHeader className="border-b border-white/5">
                                             <CardTitle className="flex items-center gap-3 text-xl font-black">
@@ -755,7 +696,6 @@ function ProfileContent() {
                                         </CardContent>
                                     </Card>
 
-                                    {/* Participation Card */}
                                     <Card className={GLASS_CARD}>
                                         <CardHeader className="border-b border-white/5">
                                             <CardTitle className="flex items-center gap-3 text-xl font-black">
@@ -780,6 +720,76 @@ function ProfileContent() {
                                                                 <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Commented On</p>
                                                                 <h3 className="font-extrabold text-white group-hover:text-primary transition-colors line-clamp-1">{post.title}</h3>
                                                                 <p className="mt-2 text-sm text-gray-400 italic line-clamp-1">"{post.userComment}"</p>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+                            {activeTab === "tracker" && (
+                                <motion.div
+                                    key="tracker"
+                                    initial={{ opacity: 0, x: 10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -10 }}
+                                >
+                                    <ProgressTrackerTab sessions={sessions} />
+                                </motion.div>
+                            )}
+
+                            {activeTab === "history" && (
+                                <motion.div
+                                    key="history"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                >
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader className="border-b border-white/5">
+                                            <CardTitle className="flex items-center gap-3 text-xl font-black">
+                                                <TrendingUp className="w-6 h-6 text-primary" />
+                                                Recent Sessions
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-6">
+                                            {sessions.length === 0 ? (
+                                                <div className="py-20 text-center text-gray-500 bg-black/10 rounded-3xl border border-white/5">
+                                                    <HistoryIcon className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                                                    <p className="font-bold">No history yet</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {sessions.map((s, i) => (
+                                                        <Link key={s.id ?? i} href={s.id ? `/dashboard/session/${s.id}` : "#"} className="block group">
+                                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 group-hover:bg-white/5 group-hover:border-primary/30 transition-all">
+                                                                {(() => {
+                                                                    const info = getModeInfo(s.mode);
+                                                                    return (
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className={`w-12 h-12 rounded-xl ${info.bg} border border-white/5 flex items-center justify-center ${info.color} group-hover:scale-110 transition-transform`}>
+                                                                                <info.icon className="w-6 h-6" />
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="font-extrabold text-white group-hover:text-primary transition-colors capitalize">{s.mode || "practice"} Session</p>
+                                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{s.createdAt ? formatDate((s.createdAt as any).toDate()) : "—"}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                                <div className="flex items-center gap-6">
+                                                                    <div className="text-right">
+                                                                        <p className="text-lg font-black text-white">{formatDuration(s.duration)}</p>
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Duration</p>
+                                                                    </div>
+                                                                    <div className="text-right min-w-[60px]">
+                                                                        <p className="text-xl font-black text-white">{s.score ?? 0}%</p>
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary transition-colors">Score</p>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </Link>
                                                     ))}
