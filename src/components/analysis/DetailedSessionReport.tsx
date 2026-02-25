@@ -441,7 +441,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </div>
                                 <div className="flex-shrink-0">
                                     <CircularScoreChart
-                                        score={data.score || Math.round(metrics.wpm > 0 ? 85 : 0)}
+                                        score={data.score ?? 0}
                                         label="Overall Score"
                                         color="text-blue-500"
                                     />

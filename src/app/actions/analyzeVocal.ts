@@ -42,7 +42,12 @@ export async function analyzeVocal(data: VocalData) {
         Provide a "Gemini AI Vocal Coach" summary.
         1. A brief, 2-3 sentence analysis of their vocal performance (Tone: Professional, Encouraging, Insightful). Focus mostly on pacing, fillers, pauses, and pitch.
         2. Three specific, actionable "Quick Tips" to improve their vocal delivery next time.
-        3. An objective 'score' from 0 to 100 evaluating solely their vocal delivery based on clarity, pace stability, and tonal variety. Make it tough but fair.
+        3. An objective 'score' from 0 to 100 evaluating solely their vocal delivery based on clarity, pace stability, and tonal variety. 
+        
+        CRITICAL RULES FOR SCORING:
+        - If Total Words is 0, the score MUST be 0.
+        - If Total Words is very low (e.g. < 20 for a session), heavily penalize the score (max 20).
+        - Do not give "participation points". Be tough but fair.
         `;
 
         const { object } = await generateObject({

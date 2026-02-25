@@ -180,8 +180,83 @@ export function useInterview() {
 
             setEvaluation(finalEvaluation);
             setPhase("results");
+
+            // ── Save Session Logic ──────────────────────────────────────────
+            if (user && finalEvaluation) {
+                (async () => {
+                    try {
+                        const totalDuration = answersToEvaluate.reduce((acc, a) => acc + (a.duration || 0) + (a.followUpDuration || 0), 0);
+                        const totalWords = answersToEvaluate.reduce((acc, a) => acc + (a.wordCount || 0) + (a.followUpWordCount || 0), 0);
+                        const totalFillers = answersToEvaluate.reduce((acc, a) => acc + (a.fillerWordCount || 0) + (a.followUpFillerCount || 0), 0);
+                        const avgWpm = totalDuration > 0 ? Math.round((totalWords / totalDuration) * 60) : 0;
+
+                        const reportData = {
+                            summary: finalEvaluation.overallFeedback,
+                            tips: [...finalEvaluation.topStrengths, ...finalEvaluation.topImprovements],
+                            score: finalEvaluation.overallScore,
+                            qnaSummary: finalEvaluation.questionEvaluations.map(qe => ({
+                                question: qe.question,
+                                userAnswer: qe.answer,
+                                idealAnswer: qe.idealAnswer,
+                                relevanceScore: qe.relevanceScore,
+                            })),
+                            rawMetrics: {
+                                duration: totalDuration,
+                                wpm: avgWpm,
+                                totalWords: totalWords,
+                                fillerCounts: { "total": totalFillers },
+                                transcript: answersToEvaluate.map(a => `Q: ${a.question}\nA: ${a.answer}${a.followUpQuestion ? `\nFollow-up Q: ${a.followUpQuestion}\nFollow-up A: ${a.followUpAnswer}` : ""}`).join("\n\n"),
+                                wpmHistory: [], // Not yet tracked per-interval in interview
+                                pauseCount: 0,
+                            }
+                        };
+
+                        let reportUrl = undefined;
+                        try {
+                            const fileId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${window.crypto.randomUUID()}`;
+                            const gcsRes = await saveSessionToGCS(reportData, user.uid, fileId);
+                            if (gcsRes.success) reportUrl = gcsRes.url;
+                        } catch (e) {
+                            console.error("Failed to save interview report to GCS:", e);
+                        }
+
+                        await saveSession(user.uid, {
+                            duration: totalDuration,
+                            mode: 'interview' as any,
+                            score: finalEvaluation.overallScore,
+                            topics: ["Interview"],
+                            wpm: avgWpm,
+                            totalWords: totalWords,
+                            aiSummary: finalEvaluation.overallFeedback,
+                            tips: [...finalEvaluation.topStrengths, ...finalEvaluation.topImprovements],
+                            fillerCounts: { "total": totalFillers },
+                            reportUrl,
+                            transcript: reportData.rawMetrics.transcript,
+                        });
+
+                        const streakData = await getUserStreak(user.uid);
+                        const newStreak = streakData?.currentStreak || 0;
+                        const sessionStats = await getSessionStats(user.uid);
+
+                        await checkAndAwardBadges(user.uid, {
+                            sessionsCount: sessionStats.sessionsCount,
+                            streakCount: newStreak,
+                            longestStreak: newStreak,
+                            averageScore: finalEvaluation.overallScore,
+                            postsCount: 0,
+                            likesReceived: 0,
+                            followersCount: 0,
+                            sessionDuration: totalDuration,
+                            totalPracticeSeconds: sessionStats.totalPracticeSeconds,
+                            bestScore: sessionStats.bestScore
+                        });
+                    } catch (e) {
+                        console.error("Interview gamification error:", e);
+                    }
+                })();
+            }
         },
-        [resumeText, jobDescriptionText]
+        [resumeText, jobDescriptionText, user]
     );
 
     // ── Submit Answer ────────────────────────────────────────────────────────
@@ -202,6 +277,8 @@ export function useInterview() {
                 if (last) {
                     last.followUpAnswer = answerText;
                     last.followUpDuration = duration;
+                    last.followUpWordCount = wc;
+                    last.followUpFillerCount = fillers;
                 }
                 setAnswers(updatedAnswers);
                 setIsFollowUp(false);

@@ -155,39 +155,44 @@ Follow-up Answer: "${a.followUpAnswer || 'Not answered'}"` : ''}
 `).join('\n---\n');
 
         const prompt = `You are a senior hiring manager and interview expert. Evaluate this complete mock interview critically but fairly.
-
+ 
 --- CANDIDATE'S RESUME ---
 ${resumeText.slice(0, 3000)}
-
+ 
 --- JOB DESCRIPTION ---
 ${jobDescriptionText.slice(0, 2000)}
-
+ 
 --- INTERVIEW TRANSCRIPT ---
 ${qaPairs}
-
+ 
 Evaluate each answer on:
 1. **Relevance** (0-100): Does the answer address what was asked?
 2. **Depth** (0-100): Is it superficial or thorough?
 3. **Communication** (0-100): Clarity, structure, conciseness
-
+ 
 For each answer, identify:
 - Specific strengths (what they said well)
 - Specific improvements (what they should do differently)
 - A brief model/ideal answer for comparison
-
+ 
 Also provide:
 - Overall scores for Communication, Technical Knowledge, Behavioral/Soft Skills, and Confidence
 - Top 3 strengths across the full interview
 - Top 3 areas for improvement
 - A hiring recommendation (Strong Hire / Hire / Maybe / No Hire) with brief justification
-
+ 
 NOTE ON VISUAL/VOCAL CUES:
 The candidate was monitored via camera and microphone.
 Vocal data summary: ${JSON.stringify(vocalMetrics || {})}
 Posture/Face data summary: ${JSON.stringify(visualMetrics || {})}
 Incorporate these observations into your qualitative feedback (e.g. if their eye contact was poor, mention it in improvements).
+ 
+Be tough but constructive. A real interviewer would notice if answers are vague, off-topic, or lack specific examples. Reward concrete examples, clear structure (STAR method), and genuine enthusiasm.
 
-Be tough but constructive. A real interviewer would notice if answers are vague, off-topic, or lack specific examples. Reward concrete examples, clear structure (STAR method), and genuine enthusiasm.`;
+CRITICAL RULES FOR SCORING INDIVIDUAL ANSWERS:
+- If an answer is "(Skipped)" or empty, that 'questionEvaluation' score MUST be 0.
+- If an answer is extremely short or irrelevant, its score MUST be very low (e.g. < 20).
+- Be highly critical of vague or generic responses.`;
 
         const schema = z.object({
             overallScore: z.number().min(0).max(100).describe('Overall interview performance score'),
@@ -223,8 +228,24 @@ Be tough but constructive. A real interviewer would notice if answers are vague,
         const vocalSummary = vocalMetrics ? await analyzeVocal(vocalMetrics as any) : null;
         const postureSummary = visualMetrics ? await analyzePosture(visualMetrics as any) : null;
 
+        // ── Programmatic Weighted Scoring ─────────────────────────────────────
+        // 50% Content, 25% Vocal, 25% Posture
+        const contentAvg = object.questionEvaluations.length > 0
+            ? object.questionEvaluations.reduce((acc, q) => acc + q.score, 0) / object.questionEvaluations.length
+            : 0;
+
+        const vocalScore = (vocalSummary && !('error' in vocalSummary)) ? (vocalSummary as any).score : 0;
+        const postureScore = (postureSummary && !('error' in postureSummary)) ? (postureSummary as any).score : 0;
+
+        const calculatedOverallScore = Math.round(
+            (contentAvg * 0.50) +
+            (vocalScore * 0.25) +
+            (postureScore * 0.25)
+        );
+
         return {
             ...object,
+            overallScore: calculatedOverallScore, // Overwrite with programmatic score
             vocalSummary: 'error' in (vocalSummary || {}) ? null : vocalSummary,
             postureSummary: 'error' in (postureSummary || {}) ? null : postureSummary,
         } as InterviewEvaluation;

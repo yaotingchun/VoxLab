@@ -4,6 +4,8 @@ import { vertex } from '@ai-sdk/google-vertex';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { PauseStats } from '@/lib/pause-analysis';
+import { analyzeVocal } from './analyzeVocal';
+import { analyzePosture } from './analyzePosture';
 
 interface SessionData {
     duration: number; // in seconds
@@ -122,7 +124,12 @@ export async function analyzeSession(data: SessionData) {
         Provide a "Gemini AI Coach" summary.
         1. A brief, 2-3 sentence analysis of their overall performance, encompassing their script, posture, and VOCAL delivery.${hasTopic ? ' Specifically mention how well their content addressed the topic.' : ''}
         2. Three specific, actionable "Quick Tips" to improve next time (make sure to include vocal tips if needed).${hasTopic ? ' At least one tip should be about content/topic coverage.' : ''}
-        3. An objective 'score' from 0 to 100 evaluating their overall performance across all these pillars. Make it tough but fair.
+        3. An objective 'score' from 0 to 100 evaluating their overall performance (preliminary score).
+        
+        CRITICAL RULES FOR SCORING:
+        - If Total Words is 0, the content score MUST be 0.
+        - If no posture issues are detected but engagement is 0, posture score MUST reflect this.
+        - Be tough and eliminate "participation points".
         
         ${data.rubricText ? `
         4. Provide a rubric-specific score (0-100) reflecting the average fulfillment of the identified criteria.
@@ -161,7 +168,37 @@ export async function analyzeSession(data: SessionData) {
             prompt: prompt,
         });
 
-        return object;
+        // Generate specific sub-summaries for UI tabs
+        const vocalSummary = await analyzeVocal({
+            speechMetrics: data.speechMetrics,
+            audioMetrics: data.audioMetrics as any
+        });
+        const postureSummary = await analyzePosture({
+            issueCounts: data.issueCounts,
+            faceMetrics: data.faceMetrics
+        });
+
+        // ── Programmatic Weighted Scoring ─────────────────────────────────────
+        // 50% Content, 25% Vocal, 25% Posture
+        const contentScore = hasMaterial
+            ? ((object as any).lectureAnalysis?.teachingScore || object.score)
+            : (hasTopic ? ((object as any).topicAnalysis?.relevanceScore || object.score) : object.score);
+
+        const vocalScore = (vocalSummary && !('error' in vocalSummary)) ? (vocalSummary as any).score : 0;
+        const postureScore = (postureSummary && !('error' in postureSummary)) ? (postureSummary as any).score : 0;
+
+        const calculatedOverallScore = Math.round(
+            (contentScore * 0.50) +
+            (vocalScore * 0.25) +
+            (postureScore * 0.25)
+        );
+
+        return {
+            ...object,
+            score: calculatedOverallScore, // Overwrite with programmatic score
+            vocalSummary: 'error' in (vocalSummary || {}) ? null : vocalSummary,
+            postureSummary: 'error' in (postureSummary || {}) ? null : postureSummary,
+        };
 
     } catch (error: any) {
         console.error("Vertex Analysis Error Detailed:", JSON.stringify(error, null, 2));

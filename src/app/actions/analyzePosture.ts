@@ -32,7 +32,12 @@ export async function analyzePosture(data: PostureData) {
         Provide a "Gemini AI Posture Coach" summary.
         1. A brief, 2-3 sentence analysis of their physical performance (Tone: Professional, Encouraging, Insightful). Focus on body language, alignment, and facial expressions.
         2. Three specific, actionable "Quick Tips" to improve physical presence next time.
-        3. An objective 'score' from 0 to 100 evaluating solely their posture, eye contact, and engagement. Heavily penalize specific posture issues.
+        3. An objective 'score' from 0 to 100 evaluating solely their posture, eye contact, and engagement. 
+        
+        CRITICAL RULES FOR SCORING:
+        - If engagement is 0 or eye contact is 0, the score MUST be close to 0.
+        - Heavily penalize specific posture issues.
+        - If no data is detected, the score MUST be 0.
         `;
 
         const { object } = await generateObject({

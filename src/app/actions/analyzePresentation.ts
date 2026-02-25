@@ -4,6 +4,8 @@ import { generateObject } from 'ai';
 import { vertex } from '@ai-sdk/google-vertex';
 import { z } from 'zod';
 import { PauseStats } from '@/lib/pause-analysis';
+import { analyzeVocal } from './analyzeVocal';
+import { analyzePosture } from './analyzePosture';
 
 interface SessionData {
     duration: number; // in seconds
@@ -94,7 +96,12 @@ export async function analyzePresentation(data: SessionData) {
         Provide a detailed "Gemini AI Coach" summary based on all the data above.
         1. A brief, 2-3 sentence analysis of their overall delivery, encompassing script, posture, and VOCAL delivery.
         2. Three specific, actionable "Quick Tips" to improve next time.
-        3. An objective 'score' from 0 to 100 evaluating their overall performance.
+        3. An objective 'score' from 0 to 100 evaluating their overall performance (preliminary score).
+        
+        CRITICAL RULES FOR SCORING:
+        - If Total Words is 0, the content score MUST be 0.
+        - If alignment with slides is poor or missing, penalize heavily.
+        - Be tough and eliminate "participation points".
         `;
 
         // Helper to strip the Next.js/Browser Data URI prefix if present
@@ -164,7 +171,37 @@ export async function analyzePresentation(data: SessionData) {
             messages: messages
         });
 
-        return object;
+        // Generate specific sub-summaries for UI tabs
+        const vocalSummary = await analyzeVocal({
+            speechMetrics: data.speechMetrics,
+            audioMetrics: data.audioMetrics as any
+        });
+        const postureSummary = await analyzePosture({
+            issueCounts: data.issueCounts,
+            faceMetrics: data.faceMetrics
+        });
+
+        // ── Programmatic Weighted Scoring ─────────────────────────────────────
+        // 50% Content, 25% Vocal, 25% Posture
+        const contentScore = hasRubric
+            ? ((object as any).rubricAnalysis?.rubricScore || object.score)
+            : (hasSlides ? ((object as any).slideAnalysis?.alignmentScore || object.score) : object.score);
+
+        const vocalScore = (vocalSummary && !('error' in vocalSummary)) ? (vocalSummary as any).score : 0;
+        const postureScore = (postureSummary && !('error' in postureSummary)) ? (postureSummary as any).score : 0;
+
+        const calculatedOverallScore = Math.round(
+            (contentScore * 0.50) +
+            (vocalScore * 0.25) +
+            (postureScore * 0.25)
+        );
+
+        return {
+            ...object,
+            score: calculatedOverallScore, // Overwrite with programmatic score
+            vocalSummary: 'error' in (vocalSummary || {}) ? null : vocalSummary,
+            postureSummary: 'error' in (postureSummary || {}) ? null : postureSummary,
+        };
 
     } catch (error: any) {
         console.error("Vertex Presentation Analysis Error:", error);

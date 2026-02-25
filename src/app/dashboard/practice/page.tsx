@@ -291,7 +291,7 @@ function PracticePageInner() {
                             await saveSession(user.uid, {
                                 duration: data.duration,
                                 mode: (searchParams.get("mode") as any) || 'practice',
-                                score: Math.round(data.averageScore),
+                                score: (aiSummary as any).score ?? Math.round(data.averageScore),
                                 vocalScore: 'error' in vocalSummary ? 0 : (vocalSummary as any).score || 0,
                                 postureScore: 'error' in postureSummary ? 0 : (postureSummary as any).score || 0,
                                 facialScore: data.faceMetrics?.eyeContactScore || 0,
@@ -325,7 +325,7 @@ function PracticePageInner() {
                                 sessionsCount: sessionStats.sessionsCount,
                                 streakCount: newStreak,
                                 longestStreak: newStreak,
-                                averageScore: Math.round(data.averageScore),
+                                averageScore: (aiSummary as any).score ?? Math.round(data.averageScore),
                                 postsCount: 0,
                                 likesReceived: 0,
                                 followersCount: 0,
