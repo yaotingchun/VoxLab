@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, ExternalLink, UserPlus, UserMinus, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
+import { createPortal } from "react-dom";
 
 interface ForumAuthorHoverProps {
     authorId: string;
@@ -43,6 +43,12 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
     const router = useRouter();
     const { user } = useAuth();
     const { followUser, unfollowUser, isFollowing } = useFollow();
+    const [mounted, setMounted] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchProfile = async () => {
         if (profile || loading) return;
@@ -107,6 +113,13 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
     const handleMouseEnter = () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
+            if (hoverRef.current) {
+                const rect = hoverRef.current.getBoundingClientRect();
+                setCoords({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX
+                });
+            }
             setIsOpen(true);
             fetchProfile();
         }, 400);
@@ -132,10 +145,17 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
         >
             {children}
 
-            {isOpen && (
+            {isOpen && mounted && createPortal(
                 <div
-                    className="absolute left-0 top-full mt-2 z-50 w-64 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-150"
-                    onMouseEnter={handleMouseEnter}
+                    className="fixed z-[100] w-64 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-5 animate-in fade-in zoom-in-95 duration-150"
+                    style={{
+                        top: `${coords.top - window.scrollY + 8}px`,
+                        left: `${coords.left - window.scrollX}px`,
+                    }}
+                    onMouseEnter={() => {
+                        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                        setIsOpen(true);
+                    }}
                     onMouseLeave={handleMouseLeave}
                 >
                     <div className="flex items-center gap-3 mb-3">
@@ -187,9 +207,9 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
                         <button
                             onClick={handleFollowToggle}
                             disabled={followLoading}
-                            className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-bold transition-all ${isFollowingAuthor
-                                    ? "bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-400"
-                                    : "bg-primary/20 text-primary hover:bg-primary/30"
+                            className={`flex items-center justify-center gap-1.5 w-full py-2.5 rounded-lg text-xs font-bold transition-all ${isFollowingAuthor
+                                ? "bg-white/10 text-white/90 border border-white/10 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-400"
+                                : "bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/10"
                                 }`}
                         >
                             {followLoading ? (
@@ -201,7 +221,8 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
                             )}
                         </button>
                     )}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

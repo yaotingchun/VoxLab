@@ -99,7 +99,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
     return (
         <>
-            <div className="group relative bg-[#111] hover:bg-[#161616] rounded-2xl border border-white/5 transition-all duration-300 hover:border-white/10 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-0.5 overflow-hidden">
+            <div className="group relative bg-[#111] hover:bg-[#161616] rounded-2xl border border-white/5 transition-all duration-300 hover:border-white/10 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-0.5">
                 <Link href={`/forum/${post.id}`} className="block relative p-5 sm:p-7">
 
                     {/* Header: Avatar, Name, Time, More */}

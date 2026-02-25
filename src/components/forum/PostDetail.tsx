@@ -185,7 +185,7 @@ export default function PostDetail({ postId }: { postId: string }) {
                     {/* Main Discussion Column */}
                     <div className="lg:col-span-8 h-full overflow-y-auto pr-2 pb-20 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         {/* Main Post Card */}
-                        <div className="group relative bg-[#111]/80 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl shadow-primary/5">
+                        <div className="group relative bg-[#111]/80 backdrop-blur-sm border border-white/10 rounded-2xl shadow-2xl shadow-primary/5">
                             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
                             <div className="p-6 relative">
