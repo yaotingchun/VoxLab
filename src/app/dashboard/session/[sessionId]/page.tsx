@@ -79,7 +79,7 @@ export default function SessionReportPage() {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4 text-white">
                 <p className="text-xl font-bold">Session not found.</p>
-                <Link href="/dashboard/profile" className="text-blue-400 hover:underline flex items-center gap-1">
+                <Link href="/dashboard/profile?tab=history" className="text-blue-400 hover:underline flex items-center gap-1">
                     <ArrowLeft className="w-4 h-4" /> Back to Profile
                 </Link>
             </div>
@@ -125,7 +125,7 @@ export default function SessionReportPage() {
             {/* Minimal header */}
             <header className="flex items-center gap-3 p-4 border-b border-slate-800">
                 <Link
-                    href="/dashboard/profile"
+                    href="/dashboard/profile?tab=history"
                     className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm"
                 >
                     <ArrowLeft className="w-4 h-4" />
@@ -137,7 +137,7 @@ export default function SessionReportPage() {
             <div className="flex-1 flex items-start justify-center p-4">
                 <DetailedSessionReport
                     data={reportData}
-                    onClose={() => router.push("/dashboard/profile")}
+                    onClose={() => router.push("/dashboard/profile?tab=history")}
                 />
             </div>
         </div>

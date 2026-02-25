@@ -2,8 +2,8 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/contexts/FollowContext";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { doc, getDoc, setDoc, collection, collectionGroup, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
     Users, UserCheck, X, Flame, Trophy, History, Star, UserPlus, EyeOff, Video,
-    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search, Target
+    MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search, Target,
+    BookOpen, Presentation as PresentationIcon
 } from "lucide-react";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { UserSearchModal } from "@/components/profile/UserSearchModal";
@@ -27,30 +28,33 @@ import { getFriends } from "@/lib/friends";
 import { Post } from "@/types/forum";
 import { PracticeSession } from "@/types/gamification";
 
-// ─── Rarity Styles ───────────────────────────────────────────────────────────
+// ─── Design Tokens ──────────────────────────────────────────────────────────
+const GLASS_CARD = "bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 hover:bg-white/[0.05] transition-all duration-300";
+const ICON_BOX = "p-2.5 rounded-2xl shadow-inner-white";
+
 const RARITY_STYLES = {
-    common: "border-slate-600 bg-slate-800/50",
-    rare: "border-blue-500/60 bg-blue-900/20",
-    epic: "border-purple-500/60 bg-purple-900/20",
-    legendary: "border-yellow-500/60 bg-yellow-900/20"
+    common: "border-slate-500/30 bg-slate-500/10",
+    rare: "border-blue-500/40 bg-blue-500/10",
+    epic: "border-purple-500/40 bg-purple-500/10",
+    legendary: "border-yellow-500/40 bg-yellow-500/10"
 };
 
-const RARITY_GLOW = {
-    common: "",
-    rare: "shadow-blue-900/30",
-    epic: "shadow-purple-900/30",
-    legendary: "shadow-yellow-900/30 shadow-lg"
+const RARITY_LEVEL: Record<string, string> = {
+    common: "LEVEL 1", rare: "LEVEL 2", epic: "LEVEL 3", legendary: "LEVEL 4"
 };
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
-function FollowListModal({ title, list, onClose, onNavigate }: {
-    title: string; list: FollowEntry[]; onClose: () => void; onNavigate: (uid: string) => void;
+function FollowListModal({ title, list, onClose, onNavigate, description }: {
+    title: string; list: FollowEntry[]; onClose: () => void; onNavigate: (uid: string) => void; description?: string;
 }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
             <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-5 border-b">
-                    <h2 className="text-lg font-semibold">{title}</h2>
+                    <div>
+                        <h2 className="text-lg font-semibold">{title}</h2>
+                        {description && <p className="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">{description}</p>}
+                    </div>
                     <button onClick={onClose} className="rounded-full p-1 hover:bg-accent transition-colors"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-2">
@@ -72,17 +76,58 @@ function FollowListModal({ title, list, onClose, onNavigate }: {
     );
 }
 
+// ─── Badge List Modal ────────────────────────────────────────────────────────
+function BadgeListModal({ badges, onClose }: {
+    badges: Awaited<ReturnType<typeof getUserBadges>>;
+    onClose: () => void;
+}) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-sm mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-5 border-b">
+                    <h2 className="text-lg font-black tracking-tight">Earned Badges ({badges.length})</h2>
+                    <button onClick={onClose} className="rounded-full p-1 hover:bg-accent transition-colors"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                    {badges.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-8">No badges earned yet.</p>
+                    ) : badges.map(badge => (
+                        <div key={badge.id} className="flex items-center gap-4 p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${RARITY_STYLES[badge.rarity as keyof typeof RARITY_STYLES] || ""}`}>
+                                {badge.icon}
+                            </div>
+                            <div>
+                                <p className="font-black text-white text-sm">{badge.name}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{badge.rarity}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Tab Types ────────────────────────────────────────────────────────────────
 type Tab = "overview" | "history" | "friends" | "forum";
 
 export default function ProfilePage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading search params...</div>}>
+            <ProfileContent />
+        </Suspense>
+    );
+}
+
+function ProfileContent() {
     const { user, loading, logout } = useAuth();
     const { followersCount, followingCount, followers, following, loadMyFollowData } = useFollow();
     const { profile: firestoreProfile } = useUserProfile();
     const router = useRouter();
+    const searchParams = useSearchParams();
 
     const [activeTab, setActiveTab] = useState<Tab>("overview");
-    const [modal, setModal] = useState<"followers" | "following" | null>(null);
+    const [modal, setModal] = useState<"followers" | "following" | "badges" | "friends" | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showSearchModal, setShowSearchModal] = useState(false);
 
@@ -96,6 +141,7 @@ export default function ProfilePage() {
 
     // Privacy settings
     const [hideForumActivity, setHideForumActivity] = useState(false);
+    const [hideHistory, setHideHistory] = useState(false);
     const [privacySaving, setPrivacySaving] = useState(false);
 
     // Forum activity
@@ -106,11 +152,23 @@ export default function ProfilePage() {
     const [commentedLoading, setCommentedLoading] = useState(false);
     const [commentedLoaded, setCommentedLoaded] = useState(false);
     const [showBadgeHover, setShowBadgeHover] = useState(false);
-    const badgeRef = useRef<HTMLDivElement>(null);
+    const [showAllBadges, setShowAllBadges] = useState(false);
 
     useEffect(() => {
         if (!loading && !user) router.push("/");
     }, [user, loading, router]);
+
+    useEffect(() => {
+        const tab = searchParams.get("tab") as Tab;
+        if (tab && ["overview", "history", "friends", "forum"].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
+
+    const handleTabChange = (tab: Tab) => {
+        setActiveTab(tab);
+        router.push(`/dashboard/profile?tab=${tab}`, { scroll: false });
+    };
 
     useEffect(() => {
         if (user && !dataLoaded) {
@@ -121,7 +179,11 @@ export default function ProfilePage() {
                 getRecentSessions(user.uid, 20).then(setSessions),
                 getFriends(user.uid).then(setFriends),
                 getDoc(doc(db, "users", user.uid)).then(snap => {
-                    if (snap.exists()) setHideForumActivity(snap.data()?.hideForumActivity ?? false);
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        setHideForumActivity(data?.hideForumActivity ?? false);
+                        setHideHistory(data?.hideHistory ?? false);
+                    }
                 })
             ]).then(() => setDataLoaded(true));
         }
@@ -136,7 +198,22 @@ export default function ProfilePage() {
             await setDoc(doc(db, "users", user.uid), { hideForumActivity: newValue }, { merge: true });
         } catch (err) {
             console.error("Failed to save privacy setting:", err);
-            setHideForumActivity(!newValue); // revert on error
+            setHideForumActivity(!newValue);
+        } finally {
+            setPrivacySaving(false);
+        }
+    };
+
+    const handleToggleHideHistory = async () => {
+        if (!user || privacySaving) return;
+        const newValue = !hideHistory;
+        setHideHistory(newValue);
+        setPrivacySaving(true);
+        try {
+            await setDoc(doc(db, "users", user.uid), { hideHistory: newValue }, { merge: true });
+        } catch (err) {
+            console.error("Failed to save privacy setting:", err);
+            setHideHistory(!newValue);
         } finally {
             setPrivacySaving(false);
         }
@@ -188,7 +265,27 @@ export default function ProfilePage() {
     }, [user, commentedLoaded]);
 
     // Helpers
-    const formatDate = (d: Date) => d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    const formatDate = (d: Date) => d.toLocaleDateString("en-US", {
+        year: "numeric", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true
+    });
+
+    const formatDuration = (seconds?: number) => {
+        if (!seconds) return "0s";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        if (mins === 0) return `${secs}s`;
+        return `${mins}m ${secs}s`;
+    };
+
+    const getModeInfo = (mode?: string) => {
+        switch (mode?.toLowerCase()) {
+            case "lecture": return { icon: BookOpen, color: "text-blue-400", bg: "bg-blue-500/10" };
+            case "interview": return { icon: Mic, color: "text-purple-400", bg: "bg-purple-500/10" };
+            case "presentation": return { icon: PresentationIcon, color: "text-green-400", bg: "bg-green-500/10" };
+            default: return { icon: Target, color: "text-primary", bg: "bg-primary/10" };
+        }
+    };
 
     if (loading || !user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
@@ -198,11 +295,9 @@ export default function ProfilePage() {
         ? Math.round(sessions.reduce((a, s) => a + (s.score ?? 0), 0) / sessions.length)
         : 0;
 
-
     const TABS = [
         { id: "overview" as Tab, label: "Overview", icon: Star },
         { id: "history" as Tab, label: "History", icon: History },
-        { id: "friends" as Tab, label: `Friends (${friends.length})`, icon: Users },
         { id: "forum" as Tab, label: "Forum Activity", icon: MessageSquare }
     ];
 
@@ -226,14 +321,13 @@ export default function ProfilePage() {
         totalPracticeSeconds: badgeTotalSec,
         bestScore: badgeBestScore
     };
-    const RARITY_LEVEL: Record<string, string> = {
-        common: "LEVEL 1", rare: "LEVEL 2", epic: "LEVEL 3", legendary: "LEVEL 4"
-    };
 
     return (
         <>
             {modal === "followers" && <FollowListModal title={`Followers (${followersCount})`} list={followers} onClose={() => setModal(null)} onNavigate={uid => router.push(`/dashboard/profile/${uid}`)} />}
             {modal === "following" && <FollowListModal title={`Following (${followingCount})`} list={following} onClose={() => setModal(null)} onNavigate={uid => router.push(`/dashboard/profile/${uid}`)} />}
+            {modal === "friends" && <FollowListModal title={`Friends (${friends.length})`} list={friends} onClose={() => setModal(null)} onNavigate={uid => router.push(`/dashboard/profile/${uid}`)} description="Users who follow each other" />}
+            {modal === "badges" && <BadgeListModal badges={earnedBadges} onClose={() => setModal(null)} />}
             {showEditModal && firestoreProfile && <EditProfileModal profile={firestoreProfile} onClose={() => setShowEditModal(false)} />}
             {showSearchModal && <UserSearchModal onClose={() => setShowSearchModal(false)} />}
 
@@ -258,112 +352,103 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Profile Hero Card */}
-                    <Card>
-                        <CardContent className="p-6">
-                            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                                <Avatar className="h-24 w-24 flex-shrink-0">
-                                    <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} />
-                                    <AvatarFallback className="text-4xl">
-                                        {(user.displayName?.[0] || user.email?.[0] || "U").toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <Card className={`${GLASS_CARD} overflow-hidden relative group`}>
+                            {/* Animated Background Orbs */}
+                            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-primary/20 rounded-full blur-[120px] pointer-events-none group-hover:bg-primary/30 transition-colors duration-700" />
+                            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-                                <div className="flex-1 text-center md:text-left">
-                                    <h2 className="text-2xl font-bold">{user.displayName || "VoxLab User"}</h2>
-                                    {firestoreProfile?.username && (
-                                        <p className="text-xs text-primary/70 font-mono mt-0.5">@{firestoreProfile.username}</p>
-                                    )}
-                                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                                    {firestoreProfile?.bio && (
-                                        <p className="text-sm italic text-muted-foreground/80 mt-2 max-w-sm border-l-2 border-primary/30 pl-3 leading-relaxed">
-                                            {firestoreProfile.bio}
-                                        </p>
-                                    )}
+                            <CardContent className="p-8 md:p-10 relative z-10">
+                                <div className="flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
+                                    <div className="relative group/avatar">
+                                        <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-110 group-hover/avatar:scale-125 transition-transform duration-500" />
+                                        <Avatar className="h-32 w-32 border-4 border-white/10 ring-4 ring-primary/5 shadow-2xl relative">
+                                            <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} className="object-cover" />
+                                            <AvatarFallback className="text-5xl bg-gradient-to-br from-gray-800 to-gray-950 font-black text-white">
+                                                {(user.displayName?.[0] || user.email?.[0] || "U").toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </div>
 
-                                    {/* Streak Banner */}
-                                    {streakCount > 0 && (
-                                        <div className="inline-flex items-center gap-2 mt-2 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-1">
-                                            <Flame className="w-4 h-4 text-orange-500" />
-                                            <span className="text-sm font-bold text-orange-500">{streakCount} day streak</span>
-                                        </div>
-                                    )}
-
-                                    {/* Social Stats Row */}
-                                    <div className="flex gap-6 mt-4 justify-center md:justify-start">
-                                        <button onClick={() => setModal("followers")} className="flex flex-col items-center group">
-                                            <span className="text-xl font-bold group-hover:text-primary transition-colors">{followersCount}</span>
-                                            <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Followers</span>
-                                        </button>
-                                        <button onClick={() => setModal("following")} className="flex flex-col items-center group">
-                                            <span className="text-xl font-bold group-hover:text-primary transition-colors">{followingCount}</span>
-                                            <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Following</span>
-                                        </button>
-                                        <div
-                                            className="flex flex-col items-center cursor-default relative"
-                                            onMouseEnter={() => setShowBadgeHover(true)}
-                                            onMouseLeave={() => setShowBadgeHover(false)}
-                                            ref={badgeRef}
-                                        >
-                                            <span className="text-xl font-bold hover:text-primary transition-colors">{earnedBadges.length}</span>
-                                            <span className="text-xs text-muted-foreground">Badges</span>
-
-                                            <AnimatePresence>
-                                                {showBadgeHover && earnedBadges.length > 0 && (
-                                                    <motion.div
-                                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                        className="absolute top-full mt-2 z-50 p-4 bg-card/90 backdrop-blur-md border rounded-xl shadow-2xl min-w-[240px]"
-                                                    >
-                                                        <p className="text-[10px] font-bold text-muted-foreground mb-3 tracking-widest uppercase">Earned Badges</p>
-                                                        <div className="grid grid-cols-4 gap-2">
-                                                            {earnedBadges.map(b => (
-                                                                <div key={b.id} className="flex flex-col items-center gap-1 group/item">
-                                                                    <div
-                                                                        className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shadow-sm border border-white/5"
-                                                                        style={{ background: b.color || '#6366f1' }}
-                                                                    >
-                                                                        {b.icon}
-                                                                    </div>
-                                                                    <span className="text-[9px] text-center font-medium truncate w-full">{b.name}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center">
-                                                            <span className="text-[10px] text-muted-foreground">Total Earned</span>
-                                                            <span className="text-xs font-bold text-primary">{earnedBadges.length} / {badges.length}</span>
-                                                        </div>
-                                                    </motion.div>
+                                    <div className="flex-1 space-y-4">
+                                        <div>
+                                            <h2 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/60">
+                                                {user.displayName || "VoxLab User"}
+                                            </h2>
+                                            <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
+                                                {firestoreProfile?.username && (
+                                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-mono">
+                                                        @{firestoreProfile.username}
+                                                    </Badge>
                                                 )}
-                                            </AnimatePresence>
+                                                <Badge variant="secondary" className="bg-white/5 border-white/10 text-white/70">
+                                                    {user.email}
+                                                </Badge>
+                                            </div>
+                                        </div>
+
+                                        {firestoreProfile?.bio && (
+                                            <p className="text-base text-gray-300 leading-relaxed max-w-xl italic">
+                                                "{firestoreProfile.bio}"
+                                            </p>
+                                        )}
+
+                                        <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2 text-center md:text-left">
+                                            <button onClick={() => setModal("followers")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{followersCount}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Followers</p>
+                                            </button>
+                                            <button onClick={() => setModal("following")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{followingCount}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Following</p>
+                                            </button>
+
+                                            <button onClick={() => setModal("friends")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{friends.length}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Friends</p>
+                                            </button>
+
+                                            <button
+                                                className="cursor-pointer group/stat relative text-center"
+                                                onClick={() => setModal("badges")}
+                                            >
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{earnedBadges.length}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Badges</p>
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Quick Stats */}
-                                <div className="grid grid-cols-3 gap-3 md:gap-4">
-                                    {[
-                                        { label: "Sessions", value: sessions.length, icon: Mic, color: "text-blue-500", bg: "bg-blue-500/10" },
-                                        { label: "Avg Score", value: avgScore ? `${avgScore}%` : "—", icon: Award, color: "text-amber-500", bg: "bg-amber-500/10" },
-                                        { label: "Practice", value: `${totalPracticeMinutes}m`, icon: Clock, color: "text-green-500", bg: "bg-green-500/10" }
-                                    ].map(s => (
-                                        <div key={s.label} className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-card">
-                                            <div className={`p-2 rounded-lg ${s.bg}`}><s.icon className={`w-5 h-5 ${s.color}`} /></div>
-                                            <p className="text-lg font-bold">{s.value}</p>
-                                            <p className="text-xs text-muted-foreground">{s.label}</p>
-                                        </div>
-                                    ))}
+                                    {/* Score Card Overlay */}
+                                    <div className="flex flex-col gap-3 min-w-[140px]">
+                                        {[
+                                            { label: "Practice", value: `${totalPracticeMinutes}m`, icon: Clock, color: "text-green-400", bg: "bg-green-500/10" },
+                                            { label: "Avg Score", value: avgScore ? `${avgScore}%` : "—", icon: Award, color: "text-amber-400", bg: "bg-amber-500/10" },
+                                            { label: "Streak", value: streakCount, icon: Flame, color: "text-orange-400", bg: "bg-orange-500/10" }
+                                        ].map(s => (
+                                            <div key={s.label} className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                                                <div className={`p-2 rounded-xl ${s.bg}`}><s.icon className={`w-5 h-5 ${s.color}`} /></div>
+                                                <div>
+                                                    <p className="text-lg font-black leading-none">{s.value}</p>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{s.label}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
 
                     {/* Tabs */}
-                    <div className="flex gap-1 border-b">
+                    <div className="flex gap-1 border-b text-white-50">
                         {TABS.map(t => (
                             <button
                                 key={t.id}
-                                onClick={() => setActiveTab(t.id)}
+                                onClick={() => handleTabChange(t.id)}
                                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === t.id
                                     ? "border-primary text-primary"
                                     : "border-transparent text-muted-foreground hover:text-foreground"
@@ -375,322 +460,354 @@ export default function ProfilePage() {
                         ))}
                     </div>
 
-                    {/* ── Overview Tab ────────────────────────────────────────── */}
-                    {activeTab === "overview" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Streak Card */}
-                            <Card>
-                                <CardHeader><CardTitle className="flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" />Streak</CardTitle></CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex items-center justify-around">
-                                        <div className="text-center">
-                                            <p className="text-4xl font-black text-orange-500">{streakCount}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">Current Streak</p>
-                                        </div>
-                                        <div className="w-px h-12 bg-border" />
-                                        <div className="text-center">
-                                            <p className="text-4xl font-black text-amber-400">{longestStreak}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">Longest Streak</p>
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-center text-muted-foreground">Practice daily to keep your streak alive!</p>
-                                </CardContent>
-                            </Card>
-
-                            {/* Achievements — full-width Duolingo-style list */}
-                            <Card className="md:col-span-2">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" />Achievements</CardTitle>
-                                    <CardDescription>
-                                        {earnedBadges.length === 0 ? "Complete a session to earn your first badge!" : `${earnedBadges.length} / ${badges.length} earned`}
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="divide-y divide-border">
-                                        {badges.map(b => {
-                                            const def = BADGE_DEFINITIONS.find(d => d.id === b.id);
-                                            const prog = def ? def.progress(badgeLiveStats) : { current: b.earned ? 1 : 0, max: 1 };
-                                            const pct = Math.min(100, Math.round((prog.current / prog.max) * 100));
-                                            const tileColor = b.earned ? (def?.color ?? "#6366f1") : "#374151";
-                                            return (
-                                                <div key={b.id} className={`flex items-center gap-5 px-5 py-4 hover:bg-accent/20 transition-colors ${!b.earned ? "opacity-60" : ""}`}>
-                                                    <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl gap-0.5" style={{ background: tileColor }}>
-                                                        <span className="text-2xl leading-none">{b.icon}</span>
-                                                        <span className="text-[8px] font-black text-white/90 tracking-wider">{RARITY_LEVEL[b.rarity]}</span>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <p className={`font-bold text-sm ${b.earned ? "text-foreground" : "text-muted-foreground"}`}>{b.name}</p>
-                                                            <span className="text-xs text-muted-foreground ml-3 flex-shrink-0">{prog.current}/{prog.max}</span>
-                                                        </div>
-                                                        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden mb-1.5">
-                                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: b.earned ? (def?.color ?? "#6366f1") : "#ca8a04" }} />
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground leading-tight">{b.description}</p>
-                                                    </div>
+                    {/* Tab Content Area */}
+                    <div className="relative">
+                        <AnimatePresence mode="wait">
+                            {activeTab === "overview" && (
+                                <motion.div
+                                    key="overview"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                                >
+                                    {/* Streak Card */}
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader><CardTitle className="flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" />Streak</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4 text-center">
+                                            <div className="flex items-center justify-around py-4">
+                                                <div>
+                                                    <p className="text-5xl font-black text-orange-500">{streakCount}</p>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-2">Current</p>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Account Details */}
-                            <Card className="md:col-span-2">
-                                <CardHeader><CardTitle>Account</CardTitle></CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" /><span>Joined</span></div>
-                                        <span>{user.metadata.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : "N/A"}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2 text-muted-foreground"><Mail className="w-4 h-4" /><span>Email Status</span></div>
-                                        <Badge variant={user.emailVerified ? "default" : "secondary"}>
-                                            {user.emailVerified ? "Verified" : "Unverified"}
-                                        </Badge>
-                                    </div>
-
-                                    {/* Privacy Toggle */}
-                                    <div className="flex items-center justify-between py-1">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <EyeOff className="w-4 h-4" />
-                                            <span>Hide forum activity (posts &amp; comments) from public profile</span>
-                                        </div>
-                                        <button
-                                            onClick={handleToggleHideForumActivity}
-                                            disabled={privacySaving}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${hideForumActivity ? "bg-primary" : "bg-muted-foreground/30"
-                                                }`}
-                                            aria-label="Toggle forum activity visibility"
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${hideForumActivity ? "translate-x-6" : "translate-x-1"
-                                                }`} />
-                                        </button>
-                                    </div>
-
-                                    <Button variant="destructive" className="w-full mt-2" onClick={async () => { await logout(); router.push("/"); }}>
-                                        <LogOut className="w-4 h-4 mr-2" />Sign Out
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
-
-
-                    {/* ── History Tab ─────────────────────────────────────────── */}
-                    {activeTab === "history" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><TrendingUp className="w-5 h-5 text-primary" />Practice History</CardTitle>
-                                <CardDescription>Your last {sessions.length} sessions.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {sessions.length === 0 ? (
-                                    <div className="text-center py-12 text-muted-foreground">
-                                        <Mic className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                        <p>No sessions yet. Start practicing to see your history!</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {sessions.map((s, i) => (
-                                            <a
-                                                key={s.id ?? i}
-                                                href={s.id ? `/dashboard/session/${s.id}` : undefined}
-                                                className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border bg-card transition-colors ${s.id ? "hover:bg-accent/5 hover:border-primary/30 cursor-pointer group" : ""}`}
-                                            >
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`p-1.5 rounded-md ${s.mode === 'interview' ? 'bg-purple-500/10 text-purple-500' :
-                                                            s.mode === 'presentation' ? 'bg-blue-500/10 text-blue-500' :
-                                                                s.mode === 'lecture' ? 'bg-amber-500/10 text-amber-500' :
-                                                                    'bg-green-500/10 text-green-500'}`}>
-                                                            {s.mode === 'interview' ? <Mic className="w-3.5 h-3.5" /> :
-                                                                s.mode === 'presentation' ? <Video className="w-3.5 h-3.5" /> :
-                                                                    s.mode === 'lecture' ? <FileText className="w-3.5 h-3.5" /> :
-                                                                        <Target className="w-3.5 h-3.5" />}
-                                                        </div>
-                                                        <span className="font-semibold">
-                                                            {s.mode === 'interview' ? 'Interview' :
-                                                                s.mode === 'presentation' ? 'Presentation' :
-                                                                    s.mode === 'lecture' ? 'Lecture Practice' :
-                                                                        'Practice'} Session
-                                                        </span>
-                                                        <Badge variant="outline" className="text-xs font-normal">
-                                                            {Math.floor((s.duration ?? 0) / 60)}m {Math.floor((s.duration ?? 0) % 60)}s
-                                                        </Badge>
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {(() => {
-                                                            const endTime = (s.createdAt as any)?.toDate?.();
-                                                            if (!endTime) return "—";
-                                                            const duration = s.duration ?? 0;
-                                                            const startTime = new Date(endTime.getTime() - duration * 1000);
-                                                            const formatLocalTime = (date: Date) => date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                                                            return `${formatDate(endTime)} • ${formatLocalTime(startTime)} - ${formatLocalTime(endTime)}`;
-                                                        })()}
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-1 mt-1">
-                                                        {(s.topics ?? []).slice(0, 3).map(t => (
-                                                            <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
-                                                        ))}
-                                                        {s.videoUrl && (
-                                                            <Badge variant="outline" className="text-xs gap-1 border-blue-500/30 text-blue-500">
-                                                                <Video className="w-3 h-3" /> Video
-                                                            </Badge>
-                                                        )}
-                                                    </div>
+                                                <div className="w-px h-16 bg-white/5" />
+                                                <div>
+                                                    <p className="text-5xl font-black text-purple-400">{longestStreak}</p>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-2">Best</p>
                                                 </div>
-                                                <div className="flex items-center gap-3 mt-3 sm:mt-0">
-                                                    {s.id && (
-                                                        <span className="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-                                                            View Report →
-                                                        </span>
-                                                    )}
-                                                    <div className={`flex items-center justify-center w-12 h-12 rounded-full font-bold text-sm border-2 flex-shrink-0 ${(s.score ?? 0) >= 80 ? "border-green-500 text-green-500 bg-green-500/10" :
-                                                        (s.score ?? 0) >= 60 ? "border-amber-500 text-amber-500 bg-amber-500/10" :
-                                                            "border-red-500 text-red-500 bg-red-500/10"
-                                                        }`}>{s.score ?? "—"}</div>
-                                                </div>
-                                            </a>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* ── Friends Tab ─────────────────────────────────────────── */}
-                    {activeTab === "friends" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-primary" />Friends</CardTitle>
-                                <CardDescription>Users you mutually follow.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {friends.length === 0 ? (
-                                    <div className="text-center py-12 text-muted-foreground">
-                                        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                                        <p>No friends yet. Follow someone who follows you back!</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {friends.map(f => (
-                                            <div key={f.uid} className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors">
-                                                <button onClick={() => router.push(`/dashboard/profile/${f.uid}`)} className="flex items-center gap-3 text-left">
-                                                    <Avatar className="h-10 w-10">
-                                                        <AvatarImage src={f.photoURL || ""} alt={f.displayName} />
-                                                        <AvatarFallback>{(f.displayName?.[0] || "U").toUpperCase()}</AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="font-medium">{f.displayName}</span>
-                                                </button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled
-                                                    className="gap-2 opacity-50 cursor-not-allowed"
-                                                >
-                                                    <UserPlus className="w-4 h-4" />
-                                                    Practice Room
-                                                </Button>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
+                                            <p className="text-sm text-gray-400 font-medium">Practice daily to maintain your growth!</p>
+                                        </CardContent>
+                                    </Card>
 
-                    {/* ── Forum Activity Tab ──────────────────────────────────── */}
-                    {activeTab === "forum" && (
-                        <div className="space-y-6">
-                            {/* My Posts */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><FileText className="w-5 h-5 text-primary" />My Posts</CardTitle>
-                                    <CardDescription>Posts you have authored in the forum</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {postsLoading ? (
-                                        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-muted/50 animate-pulse" />)}</div>
-                                    ) : userPosts.length === 0 ? (
-                                        <div className="flex flex-col items-center py-12 gap-3 text-muted-foreground">
-                                            <FileText className="w-10 h-10 opacity-30" />
-                                            <p>You haven&apos;t posted anything yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {userPosts.map(post => (
-                                                <a key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
-                                                            {post.tags && post.tags.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                    {post.tags.slice(0, 3).map(tag => (
-                                                                        <span key={tag} className="text-[10px] font-medium bg-primary/5 text-primary/80 border border-primary/10 px-1.5 py-0.5 rounded">{tag}</span>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground flex-shrink-0">{post.createdAt ? formatDate(post.createdAt.toDate()) : ""}</span>
+                                    {/* Account Quick Stats */}
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-5 h-5 text-primary" />Account Activity</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Joined</p>
+                                                    <p className="text-lg font-black">{user.metadata.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : "N/A"}</p>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Verification</p>
+                                                    <Badge variant={user.emailVerified ? "default" : "secondary"} className="mt-1">
+                                                        {user.emailVerified ? "Verified" : "Pending"}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            {/* Privacy Settings */}
+                                            <div className="pt-4 border-t border-white/5">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
+                                                        <EyeOff className="w-4 h-4" />
+                                                        <span>Hide Forum Activity</span>
                                                     </div>
-                                                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
-                                                        <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
-                                                        <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
+                                                    <button
+                                                        onClick={handleToggleHideForumActivity}
+                                                        disabled={privacySaving}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideForumActivity ? "bg-primary" : "bg-white/10"}`}
+                                                    >
+                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideForumActivity ? "translate-x-6" : "translate-x-1"}`} />
+                                                    </button>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
+                                                        <History className="w-4 h-4" />
+                                                        <span>Hide Practice History</span>
                                                     </div>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                                    <button
+                                                        onClick={handleToggleHideHistory}
+                                                        disabled={privacySaving}
+                                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hideHistory ? "bg-primary" : "bg-white/10"}`}
+                                                    >
+                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hideHistory ? "translate-x-6" : "translate-x-1"}`} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <Button variant="destructive" className="w-full mt-2 rounded-xl h-11 font-bold" onClick={async () => { await logout(); router.push("/"); }}>
+                                                <LogOut className="w-4 h-4 mr-2" /> Sign Out
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
 
-                            {/* My Comments */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" />My Comments</CardTitle>
-                                    <CardDescription>Posts you have commented on</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {commentedLoading ? (
-                                        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-24 rounded-xl bg-muted/50 animate-pulse" />)}</div>
-                                    ) : commentedPosts.length === 0 ? (
-                                        <div className="flex flex-col items-center py-12 gap-3 text-muted-foreground">
-                                            <MessageSquare className="w-10 h-10 opacity-30" />
-                                            <p>You haven&apos;t commented on any posts yet.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-3">
-                                            {commentedPosts.map(post => (
-                                                <a key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group">
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
-                                                            <div className="flex items-start gap-1.5 mt-2">
-                                                                <CornerDownRight className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
-                                                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed italic">&quot;{post.userComment}&quot;</p>
+                                    {/* Achievements Summary */}
+                                    <motion.div
+                                        className="col-span-1 md:col-span-2"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 }}
+                                    >
+                                        <Card className={GLASS_CARD}>
+                                            <CardHeader className="border-b border-white/5">
+                                                <div className="flex justify-between items-center">
+                                                    <div>
+                                                        <CardTitle className="flex items-center gap-3 text-xl font-black">
+                                                            <Trophy className="w-6 h-6 text-yellow-500" />
+                                                            Achievements
+                                                        </CardTitle>
+                                                        <CardDescription className="text-gray-400 font-medium">
+                                                            {earnedBadges.length} of {badges.length} goals achieved
+                                                        </CardDescription>
+                                                    </div>
+                                                    <div className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                                                        <span className="text-sm font-black text-yellow-500">
+                                                            {Math.round((earnedBadges.length / badges.length) * 100)}%
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="p-6">
+                                                <AnimatePresence mode="wait">
+                                                    {!showAllBadges ? (
+                                                        <motion.div
+                                                            key="summary"
+                                                            initial={{ opacity: 0 }}
+                                                            animate={{ opacity: 1 }}
+                                                            exit={{ opacity: 0 }}
+                                                            className="space-y-6"
+                                                        >
+                                                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                                                                {badges.slice(0, 10).map((b) => (
+                                                                    <div key={b.id} className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${b.earned ? "bg-white/5 border-white/10" : "bg-black/10 border-transparent opacity-30 grayscale"}`}>
+                                                                        <span className="text-3xl">{b.icon}</span>
+                                                                        <span className="text-[10px] font-black text-center uppercase tracking-tighter truncate w-full">{b.name}</span>
+                                                                    </div>
+                                                                ))}
                                                             </div>
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground flex-shrink-0">{post.createdAt ? formatDate(post.createdAt.toDate()) : ""}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-                                                        <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
-                                                        <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
-                                                        <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
-                                                    </div>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
+                                                            <button
+                                                                onClick={() => setShowAllBadges(true)}
+                                                                className="w-full py-3 rounded-2xl bg-white/5 border border-white/5 text-xs font-black uppercase tracking-widest text-gray-400 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center gap-2 group"
+                                                            >
+                                                                <span>View More Badges</span>
+                                                                <TrendingUp className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                                            </button>
+                                                        </motion.div>
+                                                    ) : (
+                                                        <motion.div
+                                                            key="detailed"
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: "auto" }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            className="space-y-4"
+                                                        >
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                {badges.map((b) => {
+                                                                    const def = BADGE_DEFINITIONS.find(d => d.id === b.id);
+                                                                    const prog = def ? def.progress(badgeLiveStats) : { current: b.earned ? 1 : 0, max: 1 };
+                                                                    const pct = Math.min(100, Math.round((prog.current / prog.max) * 100));
+
+                                                                    return (
+                                                                        <div key={b.id} className={`p-4 rounded-2xl border transition-all ${b.earned ? "bg-white/5 border-white/10" : "bg-black/20 border-white/5 opacity-60"}`}>
+                                                                            <div className="flex items-center gap-4">
+                                                                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${RARITY_STYLES[b.rarity]}`}>
+                                                                                    {b.icon}
+                                                                                </div>
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <p className="font-black text-white text-sm truncate">{b.name}</p>
+                                                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{b.rarity}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="mt-4 space-y-2">
+                                                                                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                                                                                    <span className="text-gray-500">Progress</span>
+                                                                                    <span className="text-white">{prog.current} / {prog.max}</span>
+                                                                                </div>
+                                                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                                                    <motion.div
+                                                                                        initial={{ width: 0 }}
+                                                                                        animate={{ width: `${pct}%` }}
+                                                                                        className={`h-full rounded-full bg-gradient-to-r from-primary to-purple-500`}
+                                                                                    />
+                                                                                </div>
+                                                                                <p className="text-[11px] text-gray-400 line-clamp-2 mt-1 font-medium">{b.description}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => setShowAllBadges(false)}
+                                                                className="w-full py-3 rounded-2xl bg-white/5 border border-white/5 text-xs font-black uppercase tracking-widest text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                                                            >
+                                                                Show Less
+                                                            </button>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                </motion.div>
+                            )}
+
+                            {activeTab === "history" && (
+                                <motion.div
+                                    key="history"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                >
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader className="border-b border-white/5">
+                                            <CardTitle className="flex items-center gap-3 text-xl font-black">
+                                                <TrendingUp className="w-6 h-6 text-primary" />
+                                                Recent Sessions
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-6">
+                                            {sessions.length === 0 ? (
+                                                <div className="py-20 text-center text-gray-500 bg-black/10 rounded-3xl border border-white/5">
+                                                    <History className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                                                    <p className="font-bold">No history yet</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {sessions.map((s, i) => (
+                                                        <Link key={s.id ?? i} href={s.id ? `/dashboard/session/${s.id}` : "#"} className="block group">
+                                                            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 group-hover:bg-white/5 group-hover:border-primary/30 transition-all">
+                                                                {(() => {
+                                                                    const info = getModeInfo(s.mode);
+                                                                    return (
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className={`w-12 h-12 rounded-xl ${info.bg} border border-white/5 flex items-center justify-center ${info.color} group-hover:scale-110 transition-transform`}>
+                                                                                <info.icon className="w-6 h-6" />
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="font-extrabold text-white group-hover:text-primary transition-colors capitalize">{s.mode || "practice"} Session</p>
+                                                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{s.createdAt ? formatDate((s.createdAt as any).toDate()) : "—"}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                                <div className="flex items-center gap-6">
+                                                                    <div className="text-right">
+                                                                        <p className="text-lg font-black text-white">{formatDuration(s.duration)}</p>
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Duration</p>
+                                                                    </div>
+                                                                    <div className="text-right min-w-[60px]">
+                                                                        <p className="text-xl font-black text-white">{s.score ?? 0}%</p>
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary transition-colors">Score</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+
+
+                            {activeTab === "forum" && (
+                                <motion.div
+                                    key="forum"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="space-y-6"
+                                >
+                                    {/* My Posts Card */}
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader className="border-b border-white/5">
+                                            <CardTitle className="flex items-center gap-3 text-xl font-black">
+                                                <FileText className="w-6 h-6 text-primary" />
+                                                My Discussions
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-6">
+                                            {postsLoading ? (
+                                                <div className="space-y-4">
+                                                    {[1, 2, 3].map(n => <div key={n} className="h-20 rounded-2xl bg-white/5 animate-pulse" />)}
+                                                </div>
+                                            ) : userPosts.length === 0 ? (
+                                                <div className="py-12 text-center text-gray-500">
+                                                    <p className="font-bold">No posts created yet.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {userPosts.map(post => (
+                                                        <Link key={post.id} href={`/forum/${post.id}`} className="block group">
+                                                            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 group-hover:bg-white/5 group-hover:border-primary/30 transition-all">
+                                                                <h3 className="font-extrabold text-white group-hover:text-primary transition-colors line-clamp-1">{post.title}</h3>
+                                                                <div className="flex items-center gap-4 mt-3 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                                                    <span>{post.likes || 0} Likes</span>
+                                                                    <span>{post.commentCount || 0} Comments</span>
+                                                                    <span className="ml-auto">{post.createdAt ? formatDate((post.createdAt as any).toDate()) : "—"}</span>
+                                                                </div>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Participation Card */}
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader className="border-b border-white/5">
+                                            <CardTitle className="flex items-center gap-3 text-xl font-black">
+                                                <MessageSquare className="w-6 h-6 text-primary" />
+                                                Participation
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-6">
+                                            {commentedLoading ? (
+                                                <div className="space-y-4">
+                                                    {[1, 2, 3].map(n => <div key={n} className="h-24 rounded-2xl bg-white/5 animate-pulse" />)}
+                                                </div>
+                                            ) : commentedPosts.length === 0 ? (
+                                                <div className="py-12 text-center text-gray-500">
+                                                    <p className="font-bold">No community activity yet.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {commentedPosts.map(post => (
+                                                        <Link key={post.id} href={`/forum/${post.id}`} className="block group">
+                                                            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 group-hover:bg-white/5 group-hover:border-primary/30 transition-all">
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Commented On</p>
+                                                                <h3 className="font-extrabold text-white group-hover:text-primary transition-colors line-clamp-1">{post.title}</h3>
+                                                                <p className="mt-2 text-sm text-gray-400 italic line-clamp-1">"{post.userComment}"</p>
+                                                            </div>
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
 
                 </div>
             </div>
         </>
+    );
+}
+
+// Internal Link helper to avoid router.push overhead for simple links
+function Link({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
+    const router = useRouter();
+    return (
+        <a
+            href={href}
+            onClick={(e) => { e.preventDefault(); router.push(href); }}
+            className={className}
+        >
+            {children}
+        </a>
     );
 }

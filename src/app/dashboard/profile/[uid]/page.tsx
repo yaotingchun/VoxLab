@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import {
     Users, UserPlus, UserMinus, ArrowLeft, X,
     Flame, Trophy, Mic, Award, Clock, MessageSquare,
-    ThumbsUp, Eye, Lock, FileText, CornerDownRight
+    ThumbsUp, Eye, Lock, FileText, CornerDownRight,
+    Star, Target, History, BookOpen, Presentation as PresentationIcon, Search
 } from "lucide-react";
 import Link from "next/link";
 import { FollowEntry } from "@/lib/follow";
@@ -23,29 +24,34 @@ import { getStreak } from "@/lib/streaks";
 import { PracticeSession } from "@/types/gamification";
 import { Post } from "@/types/forum";
 import { formatForumDate } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
-// ─── Rarity Level Labels ─────────────────────────────────────────────────────
+// ─── Design Tokens ──────────────────────────────────────────────────────────
+const GLASS_CARD = "bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 hover:bg-white/[0.05] transition-all duration-300";
+
+const RARITY_STYLES = {
+    common: "border-slate-500/30 bg-slate-500/10",
+    rare: "border-blue-500/40 bg-blue-500/10",
+    epic: "border-purple-500/40 bg-purple-500/10",
+    legendary: "border-yellow-500/40 bg-yellow-500/10"
+};
+
 const RARITY_LEVEL: Record<string, string> = {
-    common: "LEVEL 1",
-    rare: "LEVEL 2",
-    epic: "LEVEL 3",
-    legendary: "LEVEL 4"
+    common: "LEVEL 1", rare: "LEVEL 2", epic: "LEVEL 3", legendary: "LEVEL 4"
 };
 
 // ─── Follow List Modal ────────────────────────────────────────────────────────
-function FollowListModal({
-    title, list, onClose, onNavigate
-}: {
-    title: string;
-    list: FollowEntry[];
-    onClose: () => void;
-    onNavigate: (uid: string) => void;
+function FollowListModal({ title, list, onClose, onNavigate, description }: {
+    title: string; list: FollowEntry[]; onClose: () => void; onNavigate: (uid: string) => void; description?: string;
 }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
             <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between p-5 border-b">
-                    <h2 className="text-lg font-semibold">{title}</h2>
+                    <div>
+                        <h2 className="text-lg font-semibold">{title}</h2>
+                        {description && <p className="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">{description}</p>}
+                    </div>
                     <button onClick={onClose} className="rounded-full p-1 hover:bg-accent transition-colors"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-2">
@@ -70,8 +76,41 @@ function FollowListModal({
     );
 }
 
+// ─── Badge List Modal ────────────────────────────────────────────────────────
+function BadgeListModal({ badges, onClose }: {
+    badges: Awaited<ReturnType<typeof getUserBadges>>;
+    onClose: () => void;
+}) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-sm mx-4 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-5 border-b">
+                    <h2 className="text-lg font-black tracking-tight">Earned Badges ({badges.length})</h2>
+                    <button onClick={onClose} className="rounded-full p-1 hover:bg-accent transition-colors"><X className="w-5 h-5" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                    {badges.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-8">No badges earned yet.</p>
+                    ) : badges.map(badge => (
+                        <div key={badge.id} className="flex items-center gap-4 p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${RARITY_STYLES[badge.rarity as keyof typeof RARITY_STYLES] || ""}`}>
+                                {badge.icon}
+                            </div>
+                            <div>
+                                <p className="font-black text-white text-sm">{badge.name}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{badge.rarity}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Tab Types ────────────────────────────────────────────────────────────────
-type ProfileTab = "overview" | "posts" | "comments";
+type ProfileTab = "overview" | "history" | "forum";
+type Tab = ProfileTab;
 
 // ─── Public Profile Interface ─────────────────────────────────────────────────
 interface PublicProfile {
@@ -83,6 +122,7 @@ interface PublicProfile {
     streakCount: number;
     longestStreak: number;
     hideForumActivity?: boolean;
+    hideHistory?: boolean;
     stats?: {
         postsCount?: number;
         commentsCount?: number;
@@ -104,9 +144,10 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
     const [followLoading, setFollowLoading] = useState(false);
     const [followersCount, setFollowersCount] = useState(0);
     const [followingCount, setFollowingCount] = useState(0);
-    const [modal, setModal] = useState<ModalType>(null);
+    const [modal, setModal] = useState<"followers" | "following" | "friends" | "badges" | null>(null);
     const [followersList, setFollowersList] = useState<FollowEntry[]>([]);
     const [followingList, setFollowingList] = useState<FollowEntry[]>([]);
+    const [friendsList, setFriendsList] = useState<FollowEntry[]>([]);
 
     // Gamification data
     const [badges, setBadges] = useState<Awaited<ReturnType<typeof getUserBadges>>>([]);
@@ -140,6 +181,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                 streakCount: data?.streakCount ?? 0,
                 longestStreak: data?.longestStreak ?? 0,
                 hideForumActivity: data?.hideForumActivity ?? false,
+                hideHistory: data?.hideHistory ?? false,
                 stats: data?.stats ?? {}
             });
             setFollowersCount(data?.followersCount ?? 0);
@@ -240,14 +282,45 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
 
     // Load posts/comments when tab is activated
     useEffect(() => {
-        if (activeTab === "posts") loadUserPosts();
-        if (activeTab === "comments") loadCommentedPosts();
+        if (activeTab === "forum") {
+            loadUserPosts();
+            loadCommentedPosts();
+        }
     }, [activeTab, loadUserPosts, loadCommentedPosts]);
 
-    const handleOpenModal = async (type: ModalType) => {
+    // Helpers
+    const formatDate = (d: Date) => d.toLocaleDateString("en-US", {
+        year: "numeric", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true
+    });
+
+    const formatDuration = (seconds?: number) => {
+        if (!seconds) return "0s";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        if (mins === 0) return `${secs}s`;
+        return `${mins}m ${secs}s`;
+    };
+
+    const getModeInfo = (mode?: string) => {
+        switch (mode?.toLowerCase()) {
+            case "lecture": return { icon: BookOpen, color: "text-blue-400", bg: "bg-blue-500/10" };
+            case "interview": return { icon: Mic, color: "text-purple-400", bg: "bg-purple-500/10" };
+            case "presentation": return { icon: PresentationIcon, color: "text-green-400", bg: "bg-green-500/10" };
+            default: return { icon: Target, color: "text-primary", bg: "bg-primary/10" };
+        }
+    };
+
+    const handleOpenModal = async (type: "followers" | "following" | "friends" | "badges") => {
         setModal(type);
         if (type === "followers" && followersList.length === 0) setFollowersList(await getFollowersFor(uid));
         if (type === "following" && followingList.length === 0) setFollowingList(await getFollowingFor(uid));
+        if (type === "friends" && friendsList.length === 0) {
+            const f = await getFollowersFor(uid);
+            const g = await getFollowingFor(uid);
+            const ids = new Set(g.map(u => u.uid));
+            setFriendsList(f.filter(u => ids.has(u.uid)));
+        }
     };
 
     const handleFollow = async () => {
@@ -300,23 +373,21 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
         bestScore: badgeBestScore
     };
 
-    const TABS: { id: ProfileTab; label: string; icon: React.ElementType }[] = [
-        { id: "overview", label: "Overview", icon: Trophy },
-        { id: "posts", label: `Posts (${profile.stats?.postsCount ?? 0})`, icon: FileText },
-        { id: "comments", label: `Comments (${profile.stats?.commentsCount ?? 0})`, icon: MessageSquare }
+    const TABS = [
+        { id: "overview" as Tab, label: "Overview", icon: Star },
+        { id: "history" as Tab, label: "History", icon: History },
+        { id: "forum" as Tab, label: "Forum Activity", icon: MessageSquare }
     ];
 
     return (
         <>
-            {modal === "followers" && (
-                <FollowListModal title={`Followers (${followersCount})`} list={followersList} onClose={() => setModal(null)} onNavigate={(u) => router.push(`/dashboard/profile/${u}`)} />
-            )}
-            {modal === "following" && (
-                <FollowListModal title={`Following (${followingCount})`} list={followingList} onClose={() => setModal(null)} onNavigate={(u) => router.push(`/dashboard/profile/${u}`)} />
-            )}
+            {modal === "followers" && <FollowListModal title={`Followers (${followersCount})`} list={followersList} onClose={() => setModal(null)} onNavigate={u => router.push(`/dashboard/profile/${u}`)} />}
+            {modal === "following" && <FollowListModal title={`Following (${followingCount})`} list={followingList} onClose={() => setModal(null)} onNavigate={u => router.push(`/dashboard/profile/${u}`)} />}
+            {modal === "friends" && <FollowListModal title={`Friends (${friendsList.length})`} list={friendsList} onClose={() => setModal(null)} onNavigate={u => router.push(`/dashboard/profile/${u}`)} description="Users who follow each other" />}
+            {modal === "badges" && <BadgeListModal badges={earnedBadges} onClose={() => setModal(null)} />}
 
             <div className="min-h-screen bg-background p-6 md:p-10">
-                <div className="max-w-4xl mx-auto space-y-6">
+                <div className="max-w-5xl mx-auto space-y-6">
 
                     {/* Back Button */}
                     <Button variant="ghost" onClick={() => router.back()} className="gap-2">
@@ -324,66 +395,95 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                     </Button>
 
                     {/* ── Hero Card ──────────────────────────────────────────── */}
-                    <Card>
-                        <CardContent className="p-6">
-                            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                                <Avatar className="h-24 w-24 flex-shrink-0">
-                                    <AvatarImage src={profile.photoURL || ""} alt={profile.displayName} />
-                                    <AvatarFallback className="text-4xl">{(profile.displayName?.[0] || "U").toUpperCase()}</AvatarFallback>
-                                </Avatar>
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <Card className={`${GLASS_CARD} overflow-hidden relative group`}>
+                            {/* Animated Background Orbs */}
+                            <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-primary/20 rounded-full blur-[120px] pointer-events-none group-hover:bg-primary/30 transition-colors duration-700" />
+                            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-64 h-64 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
-                                <div className="flex-1 text-center md:text-left">
-                                    <h2 className="text-2xl font-bold">{profile.displayName}</h2>
-                                    <Badge variant="secondary" className="mt-1">VoxLab Member</Badge>
-
-                                    {profile.streakCount > 0 && (
-                                        <div className="inline-flex items-center gap-2 mt-3 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-1">
-                                            <Flame className="w-4 h-4 text-orange-500" />
-                                            <span className="text-sm font-bold text-orange-500">{profile.streakCount} day streak</span>
+                            <CardContent className="p-8 md:p-10 relative z-10">
+                                <div className="flex flex-col md:flex-row gap-8 items-center md:items-start text-center md:text-left">
+                                    <div className="flex flex-col items-center gap-4">
+                                        <div className="relative group/avatar">
+                                            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-110 group-hover/avatar:scale-125 transition-transform duration-500" />
+                                            <Avatar className="h-32 w-32 border-4 border-white/10 ring-4 ring-primary/5 shadow-2xl relative">
+                                                <AvatarImage src={profile.photoURL || ""} alt={profile.displayName} className="object-cover" />
+                                                <AvatarFallback className="text-5xl bg-gradient-to-br from-gray-800 to-gray-950 font-black text-white">
+                                                    {(profile.displayName?.[0] || "U").toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
                                         </div>
-                                    )}
+                                        {user && !isOwnProfile && (
+                                            <Button
+                                                onClick={handleFollow}
+                                                disabled={followLoading}
+                                                variant={following ? "outline" : "default"}
+                                                className={`min-w-[140px] h-11 gap-2 rounded-xl font-bold transition-all active:scale-95 ${!following ? 'bg-primary hover:bg-primary/90' : 'border-white/10 hover:bg-white/5'}`}
+                                            >
+                                                {following ? <><UserMinus className="w-3 h-3" />Unfollow</> : <><UserPlus className="w-3 h-3" />Follow</>}
+                                            </Button>
+                                        )}
+                                    </div>
 
-                                    <div className="flex gap-6 mt-4 justify-center md:justify-start">
-                                        <button onClick={() => handleOpenModal("followers")} className="flex flex-col items-center group">
-                                            <span className="text-xl font-bold group-hover:text-primary transition-colors">{followersCount}</span>
-                                            <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Followers</span>
-                                        </button>
-                                        <button onClick={() => handleOpenModal("following")} className="flex flex-col items-center group">
-                                            <span className="text-xl font-bold group-hover:text-primary transition-colors">{followingCount}</span>
-                                            <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors">Following</span>
-                                        </button>
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-xl font-bold">{earnedBadges.length}</span>
-                                            <span className="text-xs text-muted-foreground">Badges</span>
+                                    <div className="flex-1 space-y-4">
+                                        <div>
+                                            <div className="flex flex-col md:flex-row items-center md:items-baseline gap-4">
+                                                <h2 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/60">
+                                                    {profile.displayName}
+                                                </h2>
+                                            </div>
+                                            <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
+                                                <Badge variant="secondary" className="bg-white/5 border-white/10 text-white/70">
+                                                    VoxLab Member
+                                                </Badge>
+                                            </div>
                                         </div>
+
+                                        <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2 text-center md:text-left">
+                                            <button onClick={() => handleOpenModal("followers")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{followersCount}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Followers</p>
+                                            </button>
+                                            <button onClick={() => handleOpenModal("following")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{followingCount}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Following</p>
+                                            </button>
+                                            <button onClick={() => handleOpenModal("friends")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{friendsList.length}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Friends</p>
+                                            </button>
+                                            <button onClick={() => handleOpenModal("badges")} className="group/stat text-center">
+                                                <p className="text-2xl font-black text-white group-hover/stat:text-primary transition-colors">{earnedBadges.length}</p>
+                                                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 group-hover/stat:text-primary/70">Badges</p>
+                                            </button>
+                                        </div>
+
+                                    </div>
+
+                                    {/* Score Card Overlay */}
+                                    <div className="flex flex-col gap-3 min-w-[140px]">
+                                        {[
+                                            { label: "Practice", value: `${totalPracticeMinutes}m`, icon: Clock, color: "text-green-400", bg: "bg-green-500/10" },
+                                            { label: "Avg Score", value: avgScore ? `${avgScore}%` : "—", icon: Award, color: "text-amber-400", bg: "bg-amber-500/10" },
+                                            { label: "Streak", value: profile.streakCount, icon: Flame, color: "text-orange-400", bg: "bg-orange-500/10" }
+                                        ].map(s => (
+                                            <div key={s.label} className="bg-white/5 border border-white/5 rounded-2xl p-3 flex items-center gap-3 hover:bg-white/10 transition-colors">
+                                                <div className={`p-2 rounded-xl ${s.bg}`}><s.icon className={`w-5 h-5 ${s.color}`} /></div>
+                                                <div className="text-left">
+                                                    <p className="text-lg font-black leading-none">{s.value}</p>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-1">{s.label}</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-
-                                {/* Quick Stats */}
-                                <div className="grid grid-cols-3 gap-3">
-                                    {[
-                                        { label: "Sessions", value: sessions.length, icon: Mic, color: "text-blue-500", bg: "bg-blue-500/10" },
-                                        { label: "Avg Score", value: avgScore ? `${avgScore}%` : "—", icon: Award, color: "text-amber-500", bg: "bg-amber-500/10" },
-                                        { label: "Practice", value: `${totalPracticeMinutes}m`, icon: Clock, color: "text-green-500", bg: "bg-green-500/10" }
-                                    ].map(s => (
-                                        <div key={s.label} className="flex flex-col items-center gap-2 p-3 rounded-xl border bg-card">
-                                            <div className={`p-2 rounded-lg ${s.bg}`}><s.icon className={`w-5 h-5 ${s.color}`} /></div>
-                                            <p className="text-lg font-bold">{s.value}</p>
-                                            <p className="text-xs text-muted-foreground">{s.label}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {user && !isOwnProfile && (
-                                <div className="mt-5 flex justify-center md:justify-start">
-                                    <Button onClick={handleFollow} disabled={followLoading} variant={following ? "outline" : "default"} className="min-w-[140px] gap-2">
-                                        {following ? <><UserMinus className="w-4 h-4" />Unfollow</> : <><UserPlus className="w-4 h-4" />Follow</>}
-                                    </Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
 
                     {/* ── Tabs ───────────────────────────────────────────────── */}
                     <div className="flex gap-1 border-b">
@@ -402,215 +502,282 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                         ))}
                     </div>
 
-                    {/* ── Overview Tab ───────────────────────────────────────── */}
-                    {activeTab === "overview" && (
-                        <div className="space-y-6">
-                            {/* Streak Card */}
-                            {(profile.streakCount > 0 || profile.longestStreak > 0) && (
-                                <Card>
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="mt-6"
+                        >
+                            {/* ── Overview Tab ───────────────────────────────────────── */}
+                            {activeTab === "overview" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Streak Card */}
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader><CardTitle className="flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" />Streak</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4 text-center">
+                                            <div className="flex items-center justify-around py-4">
+                                                <div>
+                                                    <p className="text-5xl font-black text-orange-500">{profile.streakCount}</p>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-2">Current</p>
+                                                </div>
+                                                <div className="w-px h-16 bg-white/5" />
+                                                <div>
+                                                    <p className="text-5xl font-black text-purple-400">{profile.longestStreak}</p>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-2">Best</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-sm text-gray-400 font-medium">Practice daily to maintain your growth!</p>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Public Account Info */}
+                                    <Card className={GLASS_CARD}>
+                                        <CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-5 h-5 text-primary" />Member Info</CardTitle></CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Joined VoxLab</p>
+                                                    <p className="text-lg font-black text-white">Community Member</p>
+                                                    <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-bold font-mono">Verified Account</p>
+                                                </div>
+                                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Status</p>
+                                                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">Active</Badge>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-black text-white">{earnedBadges.length}</p>
+                                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Achievements</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="pt-4 border-t border-white/5">
+                                                <p className="text-[10px] text-gray-500 font-medium leading-relaxed">
+                                                    All practice data and forum contributions are managed by VoxLab's gamification system.
+                                                </p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Achievements Grid */}
+                                    <div className="col-span-1 md:col-span-2">
+                                        <Card className={GLASS_CARD}>
+                                            <CardHeader className="flex flex-row items-center justify-between pb-6">
+                                                <div>
+                                                    <CardTitle className="text-xl font-black text-white">Earned Badges</CardTitle>
+                                                    <CardDescription className="text-xs font-medium text-gray-500 mt-1">
+                                                        Showing {earnedBadges.length} earned achievements
+                                                    </CardDescription>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                                    {badges.map(b => {
+                                                        const def = BADGE_DEFINITIONS.find(d => d.id === b.id);
+                                                        const prog = def ? def.progress(badgeLiveStats) : { current: b.earned ? 1 : 0, max: 1 };
+                                                        const pct = Math.min(100, Math.round((prog.current / prog.max) * 100));
+
+                                                        return (
+                                                            <div key={b.id} className={`relative group/badge p-4 rounded-3xl border transition-all duration-300 ${b.earned ? 'bg-white/5 border-white/10' : 'bg-black/20 border-white/5 opacity-40'}`}>
+                                                                <div className="flex flex-col items-center text-center gap-3">
+                                                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-2xl transition-transform duration-500 group-hover/badge:scale-110 ${RARITY_STYLES[b.rarity as keyof typeof RARITY_STYLES]}`}>
+                                                                        <span className={b.earned ? "" : "grayscale"}>{b.icon}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs font-black text-white truncate w-full px-1">{b.name}</p>
+                                                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter mt-0.5">{RARITY_LEVEL[b.rarity]}</p>
+                                                                    </div>
+                                                                    <div className="w-full space-y-1">
+                                                                        <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-gray-500">
+                                                                            <span>Progress</span>
+                                                                            <span>{pct}%</span>
+                                                                        </div>
+                                                                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                                            <motion.div
+                                                                                initial={{ width: 0 }}
+                                                                                animate={{ width: `${pct}%` }}
+                                                                                className={`h-full rounded-full ${b.earned ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]' : 'bg-gray-700'}`}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── History Tab ────────────────────────────────────────── */}
+                            {activeTab === "history" && (
+                                <Card className={GLASS_CARD}>
                                     <CardHeader>
-                                        <CardTitle className="flex items-center gap-2"><Flame className="w-5 h-5 text-orange-500" />Streak</CardTitle>
+                                        <CardTitle className="text-xl font-black text-white flex items-center gap-2">
+                                            <History className="w-5 h-5 text-primary" />
+                                            Practice History
+                                        </CardTitle>
+                                        <CardDescription className="text-xs font-medium text-gray-400 mt-1">
+                                            {sessions.length} sessions recorded
+                                        </CardDescription>
                                     </CardHeader>
-                                    <CardContent>
-                                        <div className="flex items-center justify-around">
-                                            <div className="text-center">
-                                                <p className="text-4xl font-black text-orange-500">{profile.streakCount}</p>
-                                                <p className="text-xs text-muted-foreground mt-1">Current Streak</p>
+                                    <CardContent className="px-2">
+                                        {profile.hideHistory ? (
+                                            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+                                                <div className="p-4 rounded-full bg-white/5 border border-white/5"><Lock className="w-8 h-8 opacity-40" /></div>
+                                                <p className="font-black text-xs uppercase tracking-[0.2em]">History Private</p>
+                                                <p className="text-[10px] text-center font-medium opacity-60">This user has chosen to hide their practice history.</p>
                                             </div>
-                                            <div className="w-px h-12 bg-border" />
-                                            <div className="text-center">
-                                                <p className="text-4xl font-black text-amber-400">{profile.longestStreak}</p>
-                                                <p className="text-xs text-muted-foreground mt-1">Longest Streak</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {sessions.length === 0 ? (
+                                                    <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-4">
+                                                        <div className="p-4 rounded-full bg-white/5 border border-white/5"><History className="w-10 h-10 opacity-20" /></div>
+                                                        <p className="text-sm font-bold uppercase tracking-widest">No sessions yet</p>
+                                                    </div>
+                                                ) : sessions.map((s, i) => (
+                                                    <div key={s.id || i} className="group relative px-2">
+                                                        <div className="p-5 rounded-3xl border border-white/5 bg-white/[0.02] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300 hover:bg-white/[0.05] hover:border-white/10 shadow-lg">
+                                                            <div className="flex items-center gap-4">
+                                                                {(() => {
+                                                                    const info = getModeInfo(s.mode);
+                                                                    return (
+                                                                        <div className={`w-12 h-12 rounded-xl ${info.bg} border border-white/5 flex items-center justify-center ${info.color} group-hover:scale-110 transition-transform`}>
+                                                                            <info.icon className="w-6 h-6" />
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                                <div>
+                                                                    <p className="font-extrabold text-white group-hover:text-primary transition-colors capitalize">{s.mode || "practice"} Session</p>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{s.createdAt ? formatDate((s.createdAt as any).toDate()) : "—"}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-6">
+                                                                <div className="text-right">
+                                                                    <p className="text-lg font-black text-white">{formatDuration(s.duration)}</p>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Duration</p>
+                                                                </div>
+                                                                <div className="text-right min-w-[60px]">
+                                                                    <p className="text-xl font-black text-white">{s.score ?? 0}%</p>
+                                                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-primary transition-colors">Score</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                             )}
 
-                            {/* Achievements */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><Trophy className="w-5 h-5 text-yellow-500" />Achievements</CardTitle>
-                                    <CardDescription>
-                                        {earnedBadges.length === 0 ? "No badges earned yet." : `${earnedBadges.length} / ${badges.length} earned`}
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="divide-y divide-border">
-                                        {badges.map(b => {
-                                            const def = BADGE_DEFINITIONS.find(d => d.id === b.id);
-                                            const prog = def ? def.progress(badgeLiveStats) : { current: b.earned ? 1 : 0, max: 1 };
-                                            const pct = Math.min(100, Math.round((prog.current / prog.max) * 100));
-                                            const tileColor = b.earned ? (def?.color ?? "#6366f1") : "#374151";
-                                            return (
-                                                <div key={b.id} className={`flex items-center gap-5 px-5 py-4 hover:bg-accent/20 transition-colors ${!b.earned ? "opacity-60" : ""}`}>
-                                                    <div className="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl gap-0.5" style={{ background: tileColor }}>
-                                                        <span className="text-2xl leading-none">{b.icon}</span>
-                                                        <span className="text-[8px] font-black text-white/90 tracking-wider">{RARITY_LEVEL[b.rarity]}</span>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <p className={`font-bold text-sm ${b.earned ? "text-foreground" : "text-muted-foreground"}`}>{b.name}</p>
-                                                            <span className="text-xs text-muted-foreground ml-3 flex-shrink-0">{prog.current}/{prog.max}</span>
-                                                        </div>
-                                                        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden mb-1.5">
-                                                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: b.earned ? (def?.color ?? "#6366f1") : "#ca8a04" }} />
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground leading-tight">{b.description}</p>
-                                                    </div>
+                            {/* ── Forum Activity Tab ─────────────────────────────────── */}
+                            {activeTab === "forum" && (
+                                <div className="space-y-6">
+                                    {/* Summary Card */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <Card className={GLASS_CARD}>
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Posts Authored</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 rounded-xl bg-primary/10 text-primary"><FileText className="w-5 h-5" /></div>
+                                                    <p className="text-3xl font-black text-white">{userPosts.length}</p>
                                                 </div>
-                                            );
-                                        })}
+                                            </CardContent>
+                                        </Card>
+                                        <Card className={GLASS_CARD}>
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Active Participation</CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400"><MessageSquare className="w-5 h-5" /></div>
+                                                    <p className="text-3xl font-black text-white">{commentedPosts.length}</p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
 
-                    {/* ── Posts Tab ──────────────────────────────────────────── */}
-                    {activeTab === "posts" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-primary" />
-                                    Forum Posts
-                                </CardTitle>
-                                <CardDescription>
-                                    {profile.hideForumActivity ? "This user has hidden their forum activity." : `${profile.stats?.postsCount ?? 0} posts`}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {/* Hidden by user */}
-                                {profile.hideForumActivity ? (
-                                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                                        <div className="p-4 rounded-full bg-muted"><Lock className="w-8 h-8" /></div>
-                                        <p className="font-medium">Forum activity is private</p>
-                                        <p className="text-sm text-center">This user has chosen to hide their forum posts.</p>
-                                    </div>
-                                ) : postsLoading ? (
-                                    <div className="space-y-3">
-                                        {Array.from({ length: 4 }).map((_, i) => (
-                                            <div key={i} className="h-24 rounded-xl bg-muted/50 animate-pulse" />
-                                        ))}
-                                    </div>
-                                ) : userPosts.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                                        <FileText className="w-10 h-10 opacity-30" />
-                                        <p>No posts yet.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {userPosts.map(post => (
-                                            <Link
-                                                key={post.id}
-                                                href={`/forum/${post.id}`}
-                                                className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
-                                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{post.content}</p>
-                                                        {post.tags && post.tags.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                                {post.tags.slice(0, 3).map(tag => (
-                                                                    <span key={tag} className="text-[10px] font-medium bg-primary/5 text-primary/80 border border-primary/10 px-1.5 py-0.5 rounded">
-                                                                        {tag}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                    {/* Privacy Check */}
+                                    {profile.hideForumActivity ? (
+                                        <Card className={GLASS_CARD}>
+                                            <CardContent className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                                                <div className="p-4 rounded-full bg-white/5 border border-white/5"><Lock className="w-8 h-8 opacity-40" /></div>
+                                                <p className="font-black text-xs uppercase tracking-[0.2em]">Activity Private</p>
+                                                <p className="text-[10px] text-center font-medium opacity-60">This user has chosen to hide their forum participation.</p>
+                                            </CardContent>
+                                        </Card>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {/* Authored Posts */}
+                                            <Card className={GLASS_CARD}>
+                                                <CardHeader>
+                                                    <CardTitle className="text-lg font-black text-white">Created Topics</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="space-y-3">
+                                                        {userPosts.length === 0 ? (
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 text-center py-8">No topics created yet</p>
+                                                        ) : userPosts.slice(0, 5).map(post => (
+                                                            <Link key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] hover:border-white/10 transition-all group">
+                                                                <div className="flex items-center justify-between gap-4">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h3 className="font-bold text-sm text-white group-hover:text-primary transition-colors truncate">{post.title}</h3>
+                                                                        <p className="text-[10px] text-gray-500 mt-1 line-clamp-1">{post.content}</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-4 text-[10px] font-black text-gray-600">
+                                                                        <span className="flex items-center gap-1"><ThumbsUp className="w-3 h-3" />{post.likes ?? 0}</span>
+                                                                        <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{post.commentCount ?? 0}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </Link>
+                                                        ))}
                                                     </div>
-                                                    <span className="text-xs text-muted-foreground flex-shrink-0 mt-0.5">
-                                                        {post.createdAt ? formatForumDate(post.createdAt.toDate()) : "Just now"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-                                                    <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
-                                                    <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
-                                                    <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
+                                                </CardContent>
+                                            </Card>
 
-                    {/* ── Comments Tab ───────────────────────────────────────── */}
-                    {activeTab === "comments" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <MessageSquare className="w-5 h-5 text-primary" />
-                                    Comment Activity
-                                </CardTitle>
-                                <CardDescription>
-                                    {profile.hideForumActivity
-                                        ? "This user has hidden their forum activity."
-                                        : `Posts ${profile.displayName?.split(" ")[0] || "this user"} has commented on`}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {profile.hideForumActivity ? (
-                                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                                        <div className="p-4 rounded-full bg-muted"><Lock className="w-8 h-8" /></div>
-                                        <p className="font-medium">Forum activity is private</p>
-                                        <p className="text-sm text-center">This user has chosen to hide their forum posts.</p>
-                                    </div>
-                                ) : commentedLoading ? (
-                                    <div className="space-y-3">
-                                        {Array.from({ length: 4 }).map((_, i) => (
-                                            <div key={i} className="h-24 rounded-xl bg-muted/50 animate-pulse" />
-                                        ))}
-                                    </div>
-                                ) : commentedPosts.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                                        <MessageSquare className="w-10 h-10 opacity-30" />
-                                        <p>No comments yet.</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {commentedPosts.map(post => (
-                                            <Link
-                                                key={post.id}
-                                                href={`/forum/${post.id}`}
-                                                className="block p-4 rounded-xl border bg-card hover:bg-accent/5 hover:border-border/70 transition-all group"
-                                            >
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="flex-1 min-w-0">
-                                                        <h3 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{post.title}</h3>
-                                                        <div className="flex items-start gap-1.5 mt-2">
-                                                            <CornerDownRight className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
-                                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed italic">"{post.userComment}"</p>
-                                                        </div>
-                                                        {post.tags && post.tags.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                                {post.tags.slice(0, 3).map(tag => (
-                                                                    <span key={tag} className="text-[10px] font-medium bg-primary/5 text-primary/80 border border-primary/10 px-1.5 py-0.5 rounded">
-                                                                        {tag}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                            {/* Recent Comments */}
+                                            <Card className={GLASS_CARD}>
+                                                <CardHeader>
+                                                    <CardTitle className="text-lg font-black text-white">Recent Contributions</CardTitle>
+                                                </CardHeader>
+                                                <CardContent>
+                                                    <div className="space-y-3">
+                                                        {commentedPosts.length === 0 ? (
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600 text-center py-8">No contributions yet</p>
+                                                        ) : commentedPosts.slice(0, 5).map(post => (
+                                                            <Link key={post.id} href={`/forum/${post.id}`} className="block p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.08] hover:border-white/10 transition-all group">
+                                                                <div className="flex flex-col gap-2">
+                                                                    <div className="flex items-center justify-between gap-4">
+                                                                        <h3 className="font-bold text-[11px] text-gray-400 group-hover:text-white transition-colors truncate">RE: {post.title}</h3>
+                                                                        <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{post.createdAt ? formatDate((post.createdAt as any).toDate()) : "RECENT"}</span>
+                                                                    </div>
+                                                                    <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                                                        <div className="flex items-start gap-2">
+                                                                            <CornerDownRight className="w-3 h-3 text-primary mt-0.5" />
+                                                                            <p className="text-xs text-white/90 line-clamp-2 italic font-medium">"{post.userComment}"</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </Link>
+                                                        ))}
                                                     </div>
-                                                    <span className="text-xs text-muted-foreground flex-shrink-0 mt-0.5">
-                                                        {post.createdAt ? formatForumDate(post.createdAt.toDate()) : "Just now"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-                                                    <span className="flex items-center gap-1"><ThumbsUp className="w-3.5 h-3.5" />{post.likes ?? 0}</span>
-                                                    <span className="flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" />{post.commentCount ?? 0}</span>
-                                                    <span className="flex items-center gap-1 ml-auto"><Eye className="w-3.5 h-3.5" />{post.viewCount ?? 0}</span>
-                                                </div>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
-
+                                                </CardContent>
+                                            </Card>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </div>
         </>
