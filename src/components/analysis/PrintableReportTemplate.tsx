@@ -104,14 +104,7 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
         }
     } : null;
 
-    // Chunk transcript for multiple pages if it's very long
-    const charsPerPage = 2500;
-    const transcriptText = metrics.transcript || "";
-    const transcriptChunks = [];
-    for (let i = 0; i < transcriptText.length; i += charsPerPage) {
-        transcriptChunks.push(transcriptText.substring(i, i + charsPerPage));
-    }
-    if (transcriptChunks.length === 0) transcriptChunks.push("");
+
 
     // Smarter chunking for Content Analysis to handle Markdown safely
     const contentAnalysisText = contentAnalysis || "";
@@ -159,6 +152,17 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
     const interviewEval = data.interviewEvaluation;
     const isInterview = !!interviewEval || (!!answers && answers.length > 0);
 
+    // Transcript section calculation (Only for non-interview per user request)
+    const transcriptChunks: string[] = [];
+    if (!isInterview) {
+        const charsPerPage = 2500;
+        const transcriptText = metrics.transcript || "";
+        for (let i = 0; i < transcriptText.length; i += charsPerPage) {
+            transcriptChunks.push(transcriptText.substring(i, i + charsPerPage));
+        }
+        if (transcriptChunks.length === 0) transcriptChunks.push("");
+    }
+
     // Smoothed WPM Data Points for PDF Chart (Matching DetailedSessionReport)
     const wpmDataPoints = (isInterview)
         ? (() => {
@@ -197,12 +201,12 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
         return markers;
     })() : [];
 
-    // Interview Question Breakdown Chunking (2 per page)
+    // Interview Question Breakdown Chunking (1 per page)
     const interviewBreakdownChunks: any[][] = [];
     if (isInterview) {
         const sourceAnswers = interviewEval?.questionEvaluations || answers || [];
-        for (let i = 0; i < sourceAnswers.length; i += 2) {
-            interviewBreakdownChunks.push(sourceAnswers.slice(i, i + 2));
+        for (let i = 0; i < sourceAnswers.length; i += 1) {
+            interviewBreakdownChunks.push(sourceAnswers.slice(i, i + 1));
         }
     }
 
@@ -652,16 +656,27 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                         <div className="flex-1 space-y-4">
                             <div>
                                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Hiring Recommendation</h3>
-                                <div className={`inline-flex items-center gap-2 px-6 py-2 rounded-full border text-lg font-bold ${interviewEval.hiringRecommendation.toLowerCase().includes('hire') ? 'text-green-700 bg-green-50 border-green-200' : 'text-slate-700 bg-slate-50 border-slate-200'
+                                <div className={`inline-flex items-center gap-2 px-6 py-2 rounded-full border text-sm font-bold ${interviewEval.hiringRecommendation.toLowerCase().includes('hire') ? 'text-green-700 bg-green-50 border-green-200' : 'text-slate-700 bg-slate-50 border-slate-200'
                                     }`}>
                                     <Star className="w-5 h-5 fill-current" />
                                     {interviewEval.hiringRecommendation}
                                 </div>
                             </div>
-                            <p className="text-slate-700 text-lg leading-relaxed italic border-l-4 border-indigo-200 pl-6 py-2">
-                                "{interviewEval.overallFeedback}"
-                            </p>
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4 mb-8">
+                        {[
+                            { label: "Communication", score: interviewEval.communicationScore, color: "text-blue-600" },
+                            { label: "Technical", score: interviewEval.technicalScore, color: "text-purple-600" },
+                            { label: "Behavioral", score: interviewEval.behavioralScore, color: "text-amber-600" },
+                            { label: "Confidence", score: interviewEval.confidenceScore, color: "text-emerald-600" },
+                        ].map((stat) => (
+                            <div key={stat.label} className="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-sm">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</div>
+                                <div className={`text-2xl font-bold ${stat.color}`}>{stat.score}</div>
+                            </div>
+                        ))}
                     </div>
 
                     <div className="grid grid-cols-2 gap-6 mb-8">
@@ -685,20 +700,6 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                                 ))}
                             </ul>
                         </MetricCard>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-4">
-                        {[
-                            { label: "Communication", score: interviewEval.communicationScore, color: "text-blue-600" },
-                            { label: "Technical", score: interviewEval.technicalScore, color: "text-purple-600" },
-                            { label: "Behavioral", score: interviewEval.behavioralScore, color: "text-amber-600" },
-                            { label: "Confidence", score: interviewEval.confidenceScore, color: "text-emerald-600" },
-                        ].map((stat) => (
-                            <div key={stat.label} className="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-sm">
-                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</div>
-                                <div className={`text-2xl font-bold ${stat.color}`}>{stat.score}</div>
-                            </div>
-                        ))}
                     </div>
                 </PrintablePage>
             )}
@@ -888,7 +889,7 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                                 </h3>
                                 <div className="space-y-8">
                                     {chunk.map((ans: any, idx: number) => {
-                                        const questionIndex = (chunkIndex * 2) + idx;
+                                        const questionIndex = (chunkIndex) + idx;
                                         const isSkipped = ans.wordCount === 0 || ans.answer === "(Skipped)";
 
                                         return (
@@ -1002,7 +1003,7 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
 
             {/* PAGE 8+: Transcript Elements (NOW AT THE END) */}
             {
-                transcriptChunks.map((chunk, index) => (
+                !isInterview && transcriptChunks.map((chunk, index) => (
                     <PrintablePage key={`chunk-${index}`} pageNum={transcriptStartPage + index} totalPages={pageNumTotal}>
                         <div className="flex-1 flex flex-col min-h-0 mb-6">
                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
