@@ -84,6 +84,7 @@ export function useInterview() {
     const [generatingFollowUp, setGeneratingFollowUp] = useState(false);
 
     const answerStartTimeRef = useRef<number>(0);
+    const speechRequestIdRef = useRef(0);
 
     // ── Generate Questions ───────────────────────────────────────────────────
     const startGenerating = useCallback(async () => {
@@ -115,9 +116,14 @@ export function useInterview() {
         async (questionText?: string) => {
             const text = questionText || questions[currentQuestionIndex]?.question;
             if (!text) return;
+
+            const requestId = ++speechRequestIdRef.current;
             setIsSpeaking(true);
             await speakText(text);
-            setIsSpeaking(false);
+
+            if (requestId === speechRequestIdRef.current) {
+                setIsSpeaking(false);
+            }
             answerStartTimeRef.current = Date.now();
         },
         [questions, currentQuestionIndex]
@@ -126,14 +132,54 @@ export function useInterview() {
     // ── Speak Intro ──────────────────────────────────────────────────────────
     const speakIntro = useCallback(async () => {
         if (!interviewerIntro) return;
+
+        const requestId = ++speechRequestIdRef.current;
         setIsSpeaking(true);
         await speakText(interviewerIntro);
-        setIsSpeaking(false);
+
+        if (requestId === speechRequestIdRef.current) {
+            setIsSpeaking(false);
+        }
     }, [interviewerIntro]);
+
+    // ── Evaluation ───────────────────────────────────────────────────────────
+    const doEvaluation = useCallback(
+        async (answersToEvaluate: InterviewAnswer[], visualMetrics?: any, vocalMetrics?: any) => {
+            setPhase("evaluating");
+            const result = await evaluateInterview(
+                answersToEvaluate,
+                resumeText,
+                jobDescriptionText,
+                visualMetrics,
+                vocalMetrics
+            );
+            if ("error" in result) {
+                setError(result.error);
+                setPhase("interview");
+                return;
+            }
+
+            // Include raw metrics for the report
+            const finalEvaluation = {
+                ...result,
+                rawMetrics: {
+                    ...(vocalMetrics?.rawMetrics || {}),
+                    ...(visualMetrics?.rawMetrics || {}),
+                    issueCounts: visualMetrics?.issueCounts,
+                    vocalSummary: result.vocalSummary,
+                    postureSummary: result.postureSummary,
+                }
+            };
+
+            setEvaluation(finalEvaluation);
+            setPhase("results");
+        },
+        [resumeText, jobDescriptionText]
+    );
 
     // ── Submit Answer ────────────────────────────────────────────────────────
     const submitAnswer = useCallback(
-        async (answerText: string) => {
+        async (answerText: string, visualMetrics?: any, vocalMetrics?: any) => {
             const currentQ = questions[currentQuestionIndex];
             if (!currentQ) return;
 
@@ -144,15 +190,13 @@ export function useInterview() {
 
             if (isFollowUp && currentFollowUp) {
                 // This is a follow-up answer — update the last answer
-                setAnswers((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last) {
-                        last.followUpAnswer = answerText;
-                        last.followUpDuration = duration;
-                    }
-                    return updated;
-                });
+                const updatedAnswers = [...answers];
+                const last = updatedAnswers[updatedAnswers.length - 1];
+                if (last) {
+                    last.followUpAnswer = answerText;
+                    last.followUpDuration = duration;
+                }
+                setAnswers(updatedAnswers);
                 setIsFollowUp(false);
                 setCurrentFollowUp(null);
 
@@ -161,7 +205,7 @@ export function useInterview() {
                     setCurrentQuestionIndex((i) => i + 1);
                 } else {
                     // All questions done — evaluate
-                    await runEvaluation();
+                    await doEvaluation(updatedAnswers, visualMetrics, vocalMetrics);
                 }
                 return;
             }
@@ -205,18 +249,19 @@ export function useInterview() {
                 setCurrentQuestionIndex((i) => i + 1);
             } else {
                 // All done
-                await doEvaluation(updatedAnswers);
+                await doEvaluation(updatedAnswers, visualMetrics, vocalMetrics);
             }
         },
-        [questions, currentQuestionIndex, isFollowUp, currentFollowUp, answers, resumeText]
+        [questions, currentQuestionIndex, isFollowUp, currentFollowUp, answers, resumeText, doEvaluation]
     );
 
     // ── Skip Question ────────────────────────────────────────────────────────
-    const skipQuestion = useCallback(() => {
+    const skipQuestion = useCallback((visualMetrics?: any, vocalMetrics?: any) => {
         stopSpeaking();
         const currentQ = questions[currentQuestionIndex];
         if (!currentQ) return;
 
+        let updatedAnswers = answers;
         if (isFollowUp) {
             setIsFollowUp(false);
             setCurrentFollowUp(null);
@@ -231,38 +276,18 @@ export function useInterview() {
                 wpm: 0,
                 fillerWordCount: 0,
             };
-            setAnswers((prev) => [...prev, skippedAnswer]);
+            updatedAnswers = [...answers, skippedAnswer];
+            setAnswers(updatedAnswers);
         }
 
         if (currentQuestionIndex + 1 < questions.length) {
             setCurrentQuestionIndex((i) => i + 1);
         } else {
-            runEvaluation();
+            doEvaluation(updatedAnswers, visualMetrics, vocalMetrics);
         }
-    }, [questions, currentQuestionIndex, isFollowUp]);
+    }, [questions, currentQuestionIndex, isFollowUp, answers, doEvaluation]);
 
-    // ── Evaluation ───────────────────────────────────────────────────────────
-    const doEvaluation = useCallback(
-        async (answersToEvaluate: InterviewAnswer[]) => {
-            setPhase("evaluating");
-            const result = await evaluateInterview(answersToEvaluate, resumeText, jobDescriptionText);
-            if ("error" in result) {
-                setError(result.error);
-                setPhase("interview");
-                return;
-            }
-            setEvaluation(result);
-            setPhase("results");
-        },
-        [resumeText, jobDescriptionText]
-    );
 
-    const runEvaluation = useCallback(() => {
-        setAnswers((current) => {
-            doEvaluation(current);
-            return current;
-        });
-    }, [doEvaluation]);
 
     // ── Reset ────────────────────────────────────────────────────────────────
     const resetInterview = useCallback(() => {

@@ -50,6 +50,9 @@ export interface InterviewEvaluation {
     topStrengths: string[];
     topImprovements: string[];
     hiringRecommendation: string;
+    vocalSummary?: { summary: string; tips: string[], score?: number } | null;
+    postureSummary?: { summary: string; tips: string[], score?: number } | null;
+    rawMetrics?: Record<string, unknown>;
 }
 
 export type InterviewPhase = 'setup' | 'generating' | 'interview' | 'evaluating' | 'results';

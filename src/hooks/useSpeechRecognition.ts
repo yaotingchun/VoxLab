@@ -38,7 +38,6 @@ export function useSpeechRecognition() {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState("");
     const [interimText, setInterimText] = useState("");
-    const [startTime, setStartTime] = useState<number | null>(null);
     const [elapsedTime, setElapsedTime] = useState(0);
     const [wpm, setWpm] = useState(0);
     const [fillerCounts, setFillerCounts] = useState<Record<string, number>>({});
@@ -57,26 +56,38 @@ export function useSpeechRecognition() {
     const sessionStartRef = useRef<number>(0);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const wpmHistoryRef = useRef<NodeJS.Timeout | null>(null);
+    const [words, setWords] = useState<Word[]>([]);
     const lastWordCountRef = useRef(0);
     const transcriptRef = useRef("");
     const interimTextRef = useRef("");
+    // Persistent full transcript for filler counting — never cleared between questions
+    const allTranscriptRef = useRef("");
 
     const reset = useCallback(() => {
         setTranscript("");
         setInterimText("");
-        setStartTime(null);
         setElapsedTime(0);
         setWpm(0);
         setFillerCounts({});
         setPauseCount(0);
         setWpmHistory([]);
         setPauseStats(null);
+        setWords([]);
         wordsRef.current = [];
         lastWordCountRef.current = 0;
         transcriptRef.current = "";
         interimTextRef.current = "";
+        allTranscriptRef.current = "";
         setError(null);
         isPausedRef.current = false;
+    }, []);
+
+    // Lightweight reset: only clears the answer box text, keeps cumulative metrics
+    const resetTranscriptOnly = useCallback(() => {
+        setTranscript("");
+        setInterimText("");
+        transcriptRef.current = "";
+        interimTextRef.current = "";
     }, []);
 
     const pauseRecording = useCallback(() => {
@@ -89,8 +100,12 @@ export function useSpeechRecognition() {
 
     const stopListening = useCallback(() => {
         setIsListening(false);
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send("stop");
+        if (wsRef.current) {
+            if (wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send("stop");
+            }
+            wsRef.current.close();
+            wsRef.current = null;
         }
 
         // Cleanup resources
@@ -111,11 +126,14 @@ export function useSpeechRecognition() {
     }, []);
 
     const startListening = useCallback(async () => {
+        if (isListening || wsRef.current) return;
         try {
-            reset();
             const now = Date.now();
-            sessionStartRef.current = now;
-            setStartTime(now);
+            // Only reset session start on a fresh session (no prior data)
+            const isContinuation = wordsRef.current.length > 0;
+            if (!isContinuation) {
+                sessionStartRef.current = now;
+            }
 
             // 1. WebSocket Setup
             const ws = new WebSocket(WS_URL);
@@ -144,14 +162,19 @@ export function useSpeechRecognition() {
                         setTranscript(prev => (prev + " " + newTranscriptPart).trim());
                         setInterimText("");
 
+                        // Accumulate into persistent transcript for filler counting
+                        allTranscriptRef.current = (allTranscriptRef.current + " " + newTranscriptPart).trim();
+
                         // Precise word timing from Chirp 2
                         if (data.words && Array.isArray(data.words)) {
-                            const incomingWords: Word[] = data.words.map((w: any) => ({
+                            const incomingWords: Word[] = data.words.map((w: { word: string; startTime: string; endTime: string }) => ({
                                 word: w.word,
                                 startTime: w.startTime,
                                 endTime: w.endTime
                             }));
-                            wordsRef.current = [...wordsRef.current, ...incomingWords];
+                            const updatedWords = [...wordsRef.current, ...incomingWords];
+                            wordsRef.current = updatedWords;
+                            setWords(updatedWords);
 
                             // Analysis
                             const duration = (Date.now() - sessionStartRef.current) / 1000;
@@ -165,8 +188,8 @@ export function useSpeechRecognition() {
                             setPauseCount(currentStats.totalPauses);
                         }
 
-                        // Updated Filler Word counts
-                        const fullText = (transcript + " " + data.transcript).trim();
+                        // Updated Filler Word counts from ALL transcript text (across questions)
+                        const fullText = allTranscriptRef.current;
                         const counts: Record<string, number> = {};
                         const lowerText = fullText.toLowerCase();
 
@@ -200,7 +223,8 @@ export function useSpeechRecognition() {
             });
             mediaStreamRef.current = stream;
 
-            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+            const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+            const audioCtx = new AudioContextClass({ sampleRate: 16000 });
             audioContextRef.current = audioCtx;
             const source = audioCtx.createMediaStreamSource(stream);
 
@@ -229,8 +253,8 @@ export function useSpeechRecognition() {
                 const diff = (Date.now() - sessionStartRef.current) / 1000;
                 setElapsedTime(Math.floor(diff));
 
-                // Live WPM using Refs to avoid stale closure
-                const currentText = (transcriptRef.current + " " + interimTextRef.current).trim();
+                // Live WPM using persistent transcript (survives question resets)
+                const currentText = (allTranscriptRef.current + " " + interimTextRef.current).trim();
                 const wordCount = currentText.split(/\s+/).filter(Boolean).length;
                 if (diff > 0) {
                     setWpm(Math.round((wordCount / diff) * 60));
@@ -238,7 +262,7 @@ export function useSpeechRecognition() {
             }, 1000);
 
             wpmHistoryRef.current = setInterval(() => {
-                const currentText = (transcriptRef.current + " " + interimTextRef.current).trim();
+                const currentText = (allTranscriptRef.current + " " + interimTextRef.current).trim();
                 const currentCount = currentText.split(/\s+/).filter(Boolean).length;
                 const newWords = currentCount - lastWordCountRef.current;
                 const intervalWpm = Math.max(0, Math.round((newWords / 5) * 60));
@@ -251,7 +275,7 @@ export function useSpeechRecognition() {
             setError(err instanceof Error ? err.message : "Initialization failed");
             stopListening();
         }
-    }, [reset, stopListening, transcript, interimText]);
+    }, [stopListening, isListening]);
 
     useEffect(() => {
         transcriptRef.current = transcript;
@@ -270,10 +294,10 @@ export function useSpeechRecognition() {
 
     return {
         isListening,
-        transcript: (transcript + " " + interimText).trim(),
+        transcript: `${transcript} ${interimText}`.trim(),
         wpm,
         elapsedTime,
-        totalWords: transcript.split(/\s+/).filter(Boolean).length,
+        totalWords: allTranscriptRef.current.split(/\s+/).filter(Boolean).length,
         fillerCounts,
         wpmHistory,
         pauseCount,
@@ -284,6 +308,7 @@ export function useSpeechRecognition() {
         pauseRecording,
         resumeRecording,
         reset,
-        words: wordsRef.current
+        resetTranscriptOnly,
+        words
     };
 }

@@ -54,20 +54,23 @@ export function usePostureAnalysis() {
         };
     }, []);
 
-    const endSession = useCallback(() => {
-        setIsSessionActive(false);
+    // Non-destructive snapshot — returns cumulative data without stopping
+    const getSnapshot = useCallback(() => {
         const duration = sessionStartTime.current ? (Date.now() - sessionStartTime.current) / 1000 : 0;
-
         const averageScore = sessionStats.current.frameCount > 0
             ? sessionStats.current.totalScore / sessionStats.current.frameCount
             : 0;
-
         return {
             duration,
             averageScore,
-            issueCounts: sessionStats.current.issueCounts
+            issueCounts: { ...sessionStats.current.issueCounts }
         };
     }, []);
+
+    const endSession = useCallback(() => {
+        setIsSessionActive(false);
+        return getSnapshot();
+    }, [getSnapshot]);
 
     // History for stability analysis (filtering jitter)
     const historyRef = useRef<any[]>([]);
@@ -167,5 +170,5 @@ export function usePostureAnalysis() {
 
     }, [isSessionActive]);
 
-    return { result, analyze, startSession, endSession, isSessionActive };
+    return { result, analyze, startSession, endSession, getSnapshot, isSessionActive };
 }

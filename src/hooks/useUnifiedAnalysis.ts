@@ -25,6 +25,7 @@ export function useUnifiedAnalysis() {
         analyze: analyzePosture,
         startSession: startPostureSession,
         endSession: endPostureSession,
+        getSnapshot: getPostureSnapshot,
         isSessionActive
     } = usePostureAnalysis();
 
@@ -32,7 +33,8 @@ export function useUnifiedAnalysis() {
         metrics: face,
         analyzeFace,
         startSession: startFaceSession,
-        endSession: endFaceSession
+        endSession: endFaceSession,
+        getSnapshot: getFaceSnapshot
     } = useFaceAnalysis();
 
     // ---------------------------------------------------------
@@ -113,6 +115,17 @@ export function useUnifiedAnalysis() {
         };
     }, [endPostureSession, endFaceSession]);
 
+    // Non-destructive snapshot — returns cumulative data without stopping sessions
+    const getUnifiedSnapshot = useCallback(() => {
+        const postureData = getPostureSnapshot();
+        const faceData = getFaceSnapshot();
+
+        return {
+            ...postureData,
+            faceMetrics: faceData.faceMetrics
+        };
+    }, [getPostureSnapshot, getFaceSnapshot]);
+
     const calculateUnifiedScore = useCallback(() => {
         // Weighted Score: 50% Posture, 50% Engagement
         const totalScore = (posture.score * 0.5) + (face.engagementScore * 0.5);
@@ -191,6 +204,7 @@ export function useUnifiedAnalysis() {
         analyzeFace,
         startSession: startUnifiedSession,
         endSession: endUnifiedSession,
+        getSnapshot: getUnifiedSnapshot,
         isSessionActive
     };
 }

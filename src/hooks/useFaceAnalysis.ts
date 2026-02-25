@@ -70,12 +70,11 @@ export function useFaceAnalysis() {
         // Reset metrics visuals if needed
     }, []);
 
-    const endSession = useCallback(() => {
-        isSessionActiveRef.current = false;
+    // Non-destructive snapshot — returns cumulative data without stopping
+    const getSnapshot = useCallback(() => {
         const durationSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
         const data = sessionDataRef.current;
 
-        // Calculate Averages
         const smilePercentage = data.frameCount > 0 ? Math.round((data.smileFrameCount / data.frameCount) * 100) : 0;
         const averageEngagement = data.frameCount > 0 ? Math.round(data.totalAttentionScore / data.frameCount) : 0;
         const blinkRateAverage = data.blinkRateSamples > 0 ? Math.round(data.blinkRateSum / data.blinkRateSamples) : 0;
@@ -91,6 +90,11 @@ export function useFaceAnalysis() {
             }
         };
     }, []);
+
+    const endSession = useCallback(() => {
+        isSessionActiveRef.current = false;
+        return getSnapshot();
+    }, [getSnapshot]);
 
     const analyzeFace = useCallback((result: FaceLandmarkerResult) => {
         if (!result.faceLandmarks || result.faceLandmarks.length === 0) return;
@@ -256,5 +260,5 @@ export function useFaceAnalysis() {
 
     }, []);
 
-    return { metrics, analyzeFace, startSession, endSession };
+    return { metrics, analyzeFace, startSession, endSession, getSnapshot };
 }

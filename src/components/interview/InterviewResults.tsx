@@ -19,8 +19,11 @@ import {
     Star,
     Target,
     TrendingUp,
+    Sparkles,
+    FileText,
 } from "lucide-react";
 import type { InterviewEvaluation, InterviewAnswer } from "@/types/interview";
+import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 
 // ── Score Circle ─────────────────────────────────────────────────────────────
 function ScoreCircle({
@@ -309,6 +312,46 @@ export default function InterviewResults({
     onRetry,
     onReset,
 }: InterviewResultsProps) {
+    const [viewDetailed, setViewDetailed] = useState(false);
+
+    if (viewDetailed) {
+        // Map interview results to DetailedSessionReport structure
+        const totalWords = answers.reduce((acc, a) => acc + a.wordCount, 0);
+        const totalDuration = answers.reduce((acc, a) => acc + a.duration, 0);
+        const avgWpm = totalDuration > 0 ? Math.round((totalWords / totalDuration) * 60) : 0;
+        const totalFiller = answers.reduce((acc, a) => acc + a.fillerWordCount, 0);
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 overflow-y-auto">
+                <div className="w-full max-w-4xl my-auto flex justify-center">
+                    <DetailedSessionReport
+                        data={{
+                            summary: evaluation.overallFeedback,
+                            tips: evaluation.topImprovements,
+                            score: evaluation.overallScore,
+                            interviewEvaluation: evaluation,
+                            vocalSummary: evaluation.vocalSummary,
+                            postureSummary: evaluation.postureSummary,
+                            rawMetrics: {
+                                // Fallback values from per-question reconstruction
+                                duration: totalDuration,
+                                wpm: avgWpm,
+                                totalWords: totalWords,
+                                fillerCounts: { "Overall": totalFiller },
+                                pauseCount: 0,
+                                wpmHistory: answers.map(a => a.wpm),
+                                transcript: answers.map(a => `Q: ${a.question}\nA: ${a.answer}`).join('\n\n'),
+                                // Override with real cumulative session metrics (these take priority)
+                                ...(evaluation.rawMetrics ?? {}),
+                            }
+                        }}
+                        onClose={() => setViewDetailed(false)}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     const getRecommendationStyle = (rec: string) => {
         const lower = rec.toLowerCase();
         if (lower.includes("strong hire")) return "text-green-400 bg-green-500/10 border-green-500/20";
@@ -462,6 +505,15 @@ export default function InterviewResults({
                     transition={{ delay: 0.7 }}
                     className="flex items-center justify-center gap-4 pt-4"
                 >
+                    <Button
+                        variant="secondary"
+                        size="lg"
+                        onClick={() => setViewDetailed(true)}
+                        className="rounded-xl bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20"
+                    >
+                        <FileText className="w-4 h-4 mr-2" />
+                        View Detailed Report
+                    </Button>
                     <Button
                         variant="outline"
                         size="lg"

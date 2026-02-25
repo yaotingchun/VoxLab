@@ -2,13 +2,20 @@
 
 // ── TTS Utility (Google Cloud Text-to-Speech) ────────────────────────────────
 let currentAudio: HTMLAudioElement | null = null;
+let currentAbortController: AbortController | null = null;
+let lastRequestId = 0;
+let pendingResolve: (() => void) | null = null;
 
 /**
  * Speaks text using the Google Cloud TTS API, falling back to browser TTS if needed.
  */
 export async function speakText(text: string): Promise<void> {
-    // Stop any ongoing speech
+    // Stop any ongoing speech and cancel pending requests
     stopSpeaking();
+
+    const requestId = ++lastRequestId;
+    const abortController = new AbortController();
+    currentAbortController = abortController;
 
     try {
         // Call our TTS API
@@ -16,41 +23,68 @@ export async function speakText(text: string): Promise<void> {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text }),
+            signal: abortController.signal
         });
 
         if (!response.ok) {
             console.error('TTS API failed, falling back to browser TTS');
-            return fallbackBrowserTTS(text);
+            if (requestId === lastRequestId) {
+                return fallbackBrowserTTS(text);
+            }
+            return;
         }
 
         // Get audio blob
         const audioBlob = await response.blob();
+
+        // Check if a newer request has started
+        if (requestId !== lastRequestId) {
+            return;
+        }
+
         const audioUrl = URL.createObjectURL(audioBlob);
 
         // Play audio
         return new Promise((resolve) => {
+            pendingResolve = resolve;
             currentAudio = new Audio(audioUrl);
             currentAudio.onended = () => {
                 URL.revokeObjectURL(audioUrl);
                 currentAudio = null;
+                pendingResolve = null;
                 resolve();
             };
             currentAudio.onerror = () => {
                 URL.revokeObjectURL(audioUrl);
                 currentAudio = null;
+                pendingResolve = null;
                 console.error('Audio playback failed, falling back to browser TTS');
-                fallbackBrowserTTS(text).then(resolve);
+                if (requestId === lastRequestId) {
+                    fallbackBrowserTTS(text).then(resolve);
+                } else {
+                    resolve();
+                }
             };
             currentAudio.play().catch((err) => {
                 console.error('Audio play failed:', err);
                 URL.revokeObjectURL(audioUrl);
                 currentAudio = null;
-                fallbackBrowserTTS(text).then(resolve);
+                pendingResolve = null;
+                if (requestId === lastRequestId) {
+                    fallbackBrowserTTS(text).then(resolve);
+                } else {
+                    resolve();
+                }
             });
         });
-    } catch (error) {
+    } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'AbortError') {
+            return;
+        }
         console.error('TTS error:', error);
-        return fallbackBrowserTTS(text);
+        if (requestId === lastRequestId) {
+            return fallbackBrowserTTS(text);
+        }
     }
 }
 
@@ -58,6 +92,21 @@ export async function speakText(text: string): Promise<void> {
  * Stops any current speech immediately.
  */
 export function stopSpeaking() {
+    // Cancel pending fetch
+    if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+    }
+
+    // Resolve any pending promise so the UI can reset
+    if (pendingResolve) {
+        pendingResolve();
+        pendingResolve = null;
+    }
+
+    // Increment request ID to invalidate any lingering callbacks
+    lastRequestId++;
+
     // Stop Google Cloud TTS audio
     if (currentAudio) {
         currentAudio.pause();

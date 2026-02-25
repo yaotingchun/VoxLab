@@ -4,6 +4,8 @@ import { vertex } from '@ai-sdk/google-vertex';
 import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import type { InterviewGenerationResult, InterviewAnswer, InterviewEvaluation } from '@/types/interview';
+import { analyzeVocal } from './analyzeVocal';
+import { analyzePosture } from './analyzePosture';
 
 // ── PDF Text Extraction via Gemini (native PDF understanding) ────────────────
 export async function extractPdfText(base64Data: string): Promise<{ text?: string; error?: string }> {
@@ -79,7 +81,7 @@ CRITICAL RULES FOR REALISM:
                 suggestedFollowUp: z.string().describe('A natural follow-up question based on typical answers'),
                 expectedTopics: z.array(z.string()).describe('Key topics/points expected in a strong answer'),
             })).length(10),
-            interviewerIntro: z.string().describe('A brief, warm professional introduction the interviewer says before starting, e.g. "Hi, thanks for coming in today. I\'m [Name], and I\'ll be conducting your interview for the [Role] position. Let\'s get started."'),
+            interviewerIntro: z.string().describe('A brief, warm professional introduction the interviewer says before starting, e.g. "Hi, thanks for coming in today. I\'m Voxlab, and I\'ll be conducting your interview for the [Role] position. Let\'s get started."'),
             roleSummary: z.string().describe('A one-line summary of the role being interviewed for'),
         });
 
@@ -139,7 +141,9 @@ Rules:
 export async function evaluateInterview(
     answers: InterviewAnswer[],
     resumeText: string,
-    jobDescriptionText: string
+    jobDescriptionText: string,
+    visualMetrics?: Record<string, unknown>,
+    vocalMetrics?: Record<string, unknown>
 ): Promise<InterviewEvaluation | { error: string }> {
     try {
         const qaPairs = answers.map((a, i) => `
@@ -177,6 +181,12 @@ Also provide:
 - Top 3 areas for improvement
 - A hiring recommendation (Strong Hire / Hire / Maybe / No Hire) with brief justification
 
+NOTE ON VISUAL/VOCAL CUES:
+The candidate was monitored via camera and microphone.
+Vocal data summary: ${JSON.stringify(vocalMetrics || {})}
+Posture/Face data summary: ${JSON.stringify(visualMetrics || {})}
+Incorporate these observations into your qualitative feedback (e.g. if their eye contact was poor, mention it in improvements).
+
 Be tough but constructive. A real interviewer would notice if answers are vague, off-topic, or lack specific examples. Reward concrete examples, clear structure (STAR method), and genuine enthusiasm.`;
 
         const schema = z.object({
@@ -204,12 +214,20 @@ Be tough but constructive. A real interviewer would notice if answers are vague,
         });
 
         const { object } = await generateObject({
-            model: vertex('gemini-2.5-pro'),
+            model: vertex('gemini-2.5-flash'),
             schema,
             prompt,
         });
 
-        return object as InterviewEvaluation;
+        // Generate specific sub-summaries for UI tabs
+        const vocalSummary = vocalMetrics ? await analyzeVocal(vocalMetrics as any) : null;
+        const postureSummary = visualMetrics ? await analyzePosture(visualMetrics as any) : null;
+
+        return {
+            ...object,
+            vocalSummary: 'error' in (vocalSummary || {}) ? null : vocalSummary,
+            postureSummary: 'error' in (postureSummary || {}) ? null : postureSummary,
+        } as InterviewEvaluation;
     } catch (error: any) {
         console.error("Interview evaluation error:", error);
         return { error: `Failed to evaluate interview: ${error.message}` };

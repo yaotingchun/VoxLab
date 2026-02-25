@@ -7,7 +7,7 @@ import { useInterview } from "@/hooks/useInterview";
 import InterviewSetup from "@/components/interview/InterviewSetup";
 import InterviewSession from "@/components/interview/InterviewSession";
 import InterviewResults from "@/components/interview/InterviewResults";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 
@@ -118,29 +118,41 @@ export default function InterviewPage() {
     // ── Interview Phase ──────────────────────────────────────────────────────
     if (phase === "interview") {
         return (
-            <InterviewSession
-                questions={questions}
-                currentQuestionIndex={currentQuestionIndex}
-                interviewerIntro={interviewerIntro}
-                roleSummary={roleSummary}
-                isFollowUp={isFollowUp}
-                currentFollowUp={currentFollowUp}
-                isSpeaking={isSpeaking}
-                generatingFollowUp={generatingFollowUp}
-                answers={answers}
-                onSubmitAnswer={submitAnswer}
-                onSkip={skipQuestion}
-                onSpeakQuestion={speakCurrentQuestion}
-                onSpeakIntro={speakIntro}
-                onEnd={() => {
-                    if (answers.length > 0) {
-                        // If some answers exist, evaluate what we have
-                        submitAnswer("(Interview ended early)");
-                    } else {
-                        resetInterview();
-                    }
-                }}
-            />
+            <div className="relative">
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-xl text-sm flex items-center gap-2 backdrop-blur-xl"
+                    >
+                        <AlertTriangle className="w-4 h-4" />
+                        {error}
+                    </motion.div>
+                )}
+                <InterviewSession
+                    questions={questions}
+                    currentQuestionIndex={currentQuestionIndex}
+                    interviewerIntro={interviewerIntro}
+                    roleSummary={roleSummary}
+                    isFollowUp={isFollowUp}
+                    currentFollowUp={currentFollowUp}
+                    isSpeaking={isSpeaking}
+                    generatingFollowUp={generatingFollowUp}
+                    answers={answers}
+                    onSubmitAnswer={submitAnswer}
+                    onSkip={skipQuestion}
+                    onSpeakQuestion={speakCurrentQuestion}
+                    onSpeakIntro={speakIntro}
+                    onEnd={(visualMetrics, vocalMetrics) => {
+                        if (answers.length > 0) {
+                            // If some answers exist, evaluate what we have
+                            submitAnswer("(Interview ended early)", visualMetrics, vocalMetrics);
+                        } else {
+                            resetInterview();
+                        }
+                    }}
+                />
+            </div>
         );
     }
 
@@ -148,6 +160,16 @@ export default function InterviewPage() {
     if (phase === "evaluating") {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white gap-6">
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="fixed top-10 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-xl text-sm flex items-center gap-2 backdrop-blur-xl"
+                    >
+                        <AlertTriangle className="w-4 h-4" />
+                        {error}
+                    </motion.div>
+                )}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
