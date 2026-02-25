@@ -7,6 +7,7 @@ import { useForum } from '@/contexts/ForumContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ReactMarkdown from 'react-markdown';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface CommentThreadProps {
     postId: string;
@@ -54,15 +55,12 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ postId, comment, p
             {/* Comment Header */}
             <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
-                    {comment.authorAvatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={comment.authorAvatar} alt={comment.authorName} className="w-8 h-8 rounded-full" />
-                    ) : (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${comment.isAiGenerated ? 'bg-primary/20 text-primary' : 'bg-gray-800 text-gray-400'
-                            }`}>
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage src={comment.authorAvatar || ""} alt={comment.authorName} className="object-cover" />
+                        <AvatarFallback className={`flex items-center justify-center ${comment.isAiGenerated ? 'bg-primary/20 text-primary' : 'bg-gray-800 text-gray-400'}`}>
                             {comment.isAiGenerated ? <Sparkles className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                        </div>
-                    )}
+                        </AvatarFallback>
+                    </Avatar>
                     <div>
                         <div className="flex items-center gap-2">
                             <span className={`font-semibold text-sm ${comment.isAiGenerated ? 'text-primary' : 'text-white'}`}>

@@ -139,6 +139,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
                 });
 
                 finalMediaUrl = publicUrl;
+
+                // Make the file public after successful upload
+                await fetch("/api/upload/make-public", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ filename: publicUrl }),
+                });
             }
 
             // Detect type for URL if not set

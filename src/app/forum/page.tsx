@@ -10,12 +10,14 @@ import { ForumPostList } from '@/components/forum/ForumPostList';
 import { Button } from '@/components/ui/button';
 import { Plus, Filter, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFollow } from '@/contexts/FollowContext';
 import { useSearchParams } from 'next/navigation';
 
 export default function ForumPage() {
     const searchParams = useSearchParams();
     const { posts, loading } = useForum();
     const { user } = useAuth();
+    const { following, loadMyFollowData } = useFollow();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'new', 'following', 'tag:TagName'
@@ -28,6 +30,13 @@ export default function ForumPage() {
             setActiveFilter(filterParam);
         }
     }, [searchParams]);
+
+    // Ensure follow data is loaded when user is present
+    React.useEffect(() => {
+        if (user) {
+            loadMyFollowData();
+        }
+    }, [user, loadMyFollowData]);
 
     // Compute Data
     const { popularTags, recentPosts, filteredPosts } = useMemo(() => {
@@ -56,9 +65,10 @@ export default function ForumPage() {
             filtered = [...posts].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
         } else if (activeFilter === 'following') {
             if (user) {
+                const followingUids = new Set(following.map(f => f.uid));
                 filtered = posts.filter(p =>
                     p.authorId === user.uid ||
-                    (p.likedBy && p.likedBy.includes(user.uid))
+                    followingUids.has(p.authorId)
                 );
             } else {
                 filtered = [];

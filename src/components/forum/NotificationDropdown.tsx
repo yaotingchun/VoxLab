@@ -4,6 +4,8 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { formatForumDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button'; // Adjust import if needed
 import { AnimatePresence, motion } from 'framer-motion';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User as UserIcon } from 'lucide-react';
 
 export const NotificationDropdown = () => {
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
@@ -76,19 +78,18 @@ export const NotificationDropdown = () => {
                                             <div className="flex gap-3">
                                                 {/* Icon/Avatar */}
                                                 <div className="shrink-0 mt-0.5">
-                                                    {notification.sender?.avatar ? (
-                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                        <img src={notification.sender.avatar} alt="" className="w-8 h-8 rounded-full" />
-                                                    ) : (
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${notification.type === 'like' ? 'bg-pink-500/10 text-pink-500' :
+                                                    <Avatar className="w-8 h-8">
+                                                        <AvatarImage src={notification.sender?.avatar || ""} alt="" className="object-cover" />
+                                                        <AvatarFallback className={`flex items-center justify-center ${notification.type === 'like' ? 'bg-pink-500/10 text-pink-500' :
                                                             notification.type === 'comment' ? 'bg-blue-500/10 text-blue-500' :
                                                                 'bg-gray-500/10 text-gray-500'
                                                             }`}>
                                                             {notification.type === 'like' && <div className="i-lucide-heart w-4 h-4 fill-current" />}
                                                             {notification.type === 'comment' && <div className="i-lucide-message-circle w-4 h-4" />}
                                                             {notification.type === 'system' && <Bell className="w-4 h-4" />}
-                                                        </div>
-                                                    )}
+                                                            {!['like', 'comment', 'system'].includes(notification.type) && <UserIcon className="w-4 h-4" />}
+                                                        </AvatarFallback>
+                                                    </Avatar>
                                                 </div>
 
                                                 {/* Content */}

@@ -48,6 +48,14 @@ export function EditProfileModal({ profile, onClose }: EditProfileModalProps) {
             const { uploadUrl, publicUrl } = await res.json();
 
             await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+
+            // Make the file public after successful upload
+            await fetch("/api/upload/make-public", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename: publicUrl }),
+            });
+
             setPhotoURL(publicUrl);
         } catch (err: any) {
             setError("Avatar upload failed. Please try again.");

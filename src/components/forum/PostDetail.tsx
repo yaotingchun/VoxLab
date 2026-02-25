@@ -14,6 +14,9 @@ import { CreatePostModal } from '@/components/forum/CreatePostModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { useRouter } from 'next/navigation';
 import { ForumAuthorHover } from '@/components/forum/ForumAuthorHover';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function PostDetail({ postId }: { postId: string }) {
     const { post, comments, loading } = useForumPost(postId);
@@ -28,8 +31,31 @@ export default function PostDetail({ postId }: { postId: string }) {
     const [showActions, setShowActions] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [authorAvatar, setAuthorAvatar] = useState<string | null>(null);
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const viewIncremented = React.useRef(false);
+
+    // Fetch latest avatar from user profile to avoid stale denormalized data
+    React.useEffect(() => {
+        if (!post?.authorId) return;
+
+        // Initialize with denormalized photoURL if available
+        if (post.authorAvatar) setAuthorAvatar(post.authorAvatar);
+
+        const fetchLatestAvatar = async () => {
+            try {
+                const userDoc = await getDoc(doc(db, "users", post.authorId));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setAuthorAvatar(data.photoURL || null);
+                }
+            } catch (error) {
+                console.error("Failed to fetch latest avatar:", error);
+            }
+        };
+
+        fetchLatestAvatar();
+    }, [post?.authorId, post?.authorAvatar]);
 
     React.useEffect(() => {
         if (postId && !viewIncremented.current) {
@@ -227,22 +253,22 @@ export default function PostDetail({ postId }: { postId: string }) {
                                     <ForumAuthorHover
                                         authorId={post.authorId}
                                         authorName={post.authorName}
-                                        authorAvatar={post.authorAvatar}
+                                        authorAvatar={authorAvatar}
                                     >
-                                        {post.authorAvatar ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={post.authorAvatar} alt={post.authorName} className="w-8 h-8 rounded-full ring-1 ring-white/10 bg-gray-800 object-cover cursor-pointer hover:ring-primary/50 transition-all" />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300 ring-1 ring-white/10 cursor-pointer">
-                                                <User className="w-4 h-4" />
-                                            </div>
-                                        )}
+                                        <div className="shrink-0 relative cursor-pointer">
+                                            <Avatar className="w-8 h-8 ring-1 ring-white/10 bg-gray-800 hover:ring-primary/50 transition-all">
+                                                <AvatarImage src={authorAvatar || ""} alt={post.authorName} className="object-cover" />
+                                                <AvatarFallback className="bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300">
+                                                    <User className="w-4 h-4" />
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        </div>
                                     </ForumAuthorHover>
                                     <div className="flex items-baseline gap-2">
                                         <ForumAuthorHover
                                             authorId={post.authorId}
                                             authorName={post.authorName}
-                                            authorAvatar={post.authorAvatar}
+                                            authorAvatar={authorAvatar}
                                         >
                                             <div className="font-bold text-gray-200 text-sm cursor-pointer hover:text-primary transition-colors">{post.authorName}</div>
                                         </ForumAuthorHover>
@@ -403,24 +429,20 @@ export default function PostDetail({ postId }: { postId: string }) {
                                         <div className="text-gray-500 text-xs mb-3">Participants</div>
                                         <div className="flex -space-x-2 pl-2">
                                             {/* Author first */}
-                                            {post.authorAvatar ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img src={post.authorAvatar} alt="" className="relative z-30 inline-block h-9 w-9 rounded-full ring-2 ring-[#111] bg-gray-800 object-cover shadow-lg hover:z-40 transition-all hover:scale-110" />
-                                            ) : (
-                                                <div className="relative z-30 flex h-9 w-9 rounded-full ring-2 ring-[#111] bg-gray-800 items-center justify-center text-xs text-white shadow-lg hover:z-40 transition-all hover:scale-110">
+                                            <Avatar className="relative z-30 h-9 w-9 ring-2 ring-[#111] bg-gray-800 shadow-lg hover:z-40 transition-all hover:scale-110">
+                                                <AvatarImage src={authorAvatar || ""} alt="" className="object-cover" />
+                                                <AvatarFallback className="flex items-center justify-center text-xs text-white">
                                                     {post.authorName[0]}
-                                                </div>
-                                            )}
+                                                </AvatarFallback>
+                                            </Avatar>
                                             {/* Then commenters (unique) */}
                                             {Array.from(new Set(comments.map(c => c.authorAvatar))).filter(a => a !== post.authorAvatar).slice(0, 4).map((avatar, i) => (
-                                                avatar ? (
-                                                    // eslint-disable-next-line @next/next/no-img-element
-                                                    <img key={i} src={avatar} alt="" className={`relative inline-block h-9 w-9 rounded-full ring-2 ring-[#111] bg-gray-800 object-cover shadow-lg hover:z-40 transition-all hover:scale-110`} style={{ zIndex: 20 - i }} />
-                                                ) : (
-                                                    <div key={i} className={`relative flex h-9 w-9 rounded-full ring-2 ring-[#111] bg-gray-800 items-center justify-center text-xs text-white shadow-lg hover:z-40 transition-all hover:scale-110`} style={{ zIndex: 20 - i }}>
+                                                <Avatar key={i} className="relative inline-block h-9 w-9 ring-2 ring-[#111] bg-gray-800 shadow-lg hover:z-40 transition-all hover:scale-110" style={{ zIndex: 20 - i }}>
+                                                    <AvatarImage src={avatar || ""} alt="" className="object-cover" />
+                                                    <AvatarFallback className="flex items-center justify-center text-xs text-white">
                                                         C
-                                                    </div>
-                                                )
+                                                    </AvatarFallback>
+                                                </Avatar>
                                             ))}
                                             {(new Set(comments.map(c => c.authorAvatar)).size > 4) && (
                                                 <div className="relative z-10 flex h-9 w-9 rounded-full ring-2 ring-[#111] bg-white/10 items-center justify-center text-[10px] text-white font-medium shadow-lg backdrop-blur-sm">

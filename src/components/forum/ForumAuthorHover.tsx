@@ -6,7 +6,9 @@ import { useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, ExternalLink } from "lucide-react";
+import { User, ExternalLink, UserPlus, UserMinus, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFollow } from "@/contexts/FollowContext";
 
 interface ForumAuthorHoverProps {
     authorId: string;
@@ -34,15 +36,23 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
     const [isOpen, setIsOpen] = useState(false);
     const [profile, setProfile] = useState<AuthorProfile | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isFollowingAuthor, setIsFollowingAuthor] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const hoverRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
+    const { user } = useAuth();
+    const { followUser, unfollowUser, isFollowing } = useFollow();
 
     const fetchProfile = async () => {
         if (profile || loading) return;
         setLoading(true);
         try {
-            const snap = await getDoc(doc(db, "users", authorId));
+            const [snap, followingStatus] = await Promise.all([
+                getDoc(doc(db, "users", authorId)),
+                isFollowing(authorId)
+            ]);
+            setIsFollowingAuthor(followingStatus);
             if (snap.exists()) {
                 const data = snap.data();
                 setProfile({
@@ -68,6 +78,29 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleFollowToggle = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!user || followLoading) return;
+
+        setFollowLoading(true);
+        try {
+            if (isFollowingAuthor) {
+                await unfollowUser(authorId);
+                setIsFollowingAuthor(false);
+                if (profile) setProfile(prev => prev ? { ...prev, followersCount: Math.max(0, prev.followersCount - 1) } : null);
+            } else {
+                await followUser(authorId, profile?.displayName || authorName, profile?.photoURL || authorAvatar || null);
+                setIsFollowingAuthor(true);
+                if (profile) setProfile(prev => prev ? { ...prev, followersCount: prev.followersCount + 1 } : null);
+            }
+        } catch (error) {
+            console.error("Follow action failed:", error);
+        } finally {
+            setFollowLoading(false);
         }
     };
 
@@ -144,11 +177,30 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
 
                     <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/dashboard/profile/${authorId}`); }}
-                        className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-medium text-gray-300 hover:text-white transition-colors"
+                        className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-medium text-gray-300 hover:text-white transition-colors mb-2"
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
                         View Profile
                     </button>
+
+                    {user && user.uid !== authorId && (
+                        <button
+                            onClick={handleFollowToggle}
+                            disabled={followLoading}
+                            className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-bold transition-all ${isFollowingAuthor
+                                    ? "bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-400"
+                                    : "bg-primary/20 text-primary hover:bg-primary/30"
+                                }`}
+                        >
+                            {followLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : isFollowingAuthor ? (
+                                <><UserMinus className="w-3.5 h-3.5" /> Unfollow</>
+                            ) : (
+                                <><UserPlus className="w-3.5 h-3.5" /> Follow</>
+                            )}
+                        </button>
+                    )}
                 </div>
             )}
         </div>

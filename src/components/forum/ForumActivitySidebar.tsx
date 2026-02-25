@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { User, Activity, ArrowRight, Plus, Sparkles } from 'lucide-react';
 import { Post } from '@/types/forum';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface ForumActivitySidebarProps {
     recentPosts: Post[];
@@ -78,14 +79,12 @@ export const ForumActivitySidebar: React.FC<ForumActivitySidebarProps> = ({ rece
                                     </p>
                                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                                         <div className="flex items-center gap-1.5">
-                                            {post.authorAvatar ? (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img src={post.authorAvatar} alt="" className="w-4 h-4 rounded-full" />
-                                            ) : (
-                                                <div className="w-4 h-4 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <User className="w-2.5 h-2.5" />
-                                                </div>
-                                            )}
+                                            <Avatar className="w-4 h-4 ring-1 ring-white/10">
+                                                <AvatarImage src={post.authorAvatar || ""} alt="" className="object-cover" />
+                                                <AvatarFallback className="bg-primary/10 flex items-center justify-center">
+                                                    <User className="w-2.5 h-2.5 text-gray-400" />
+                                                </AvatarFallback>
+                                            </Avatar>
                                             <span className="truncate max-w-[80px] text-gray-400 font-medium">{post.authorName}</span>
                                         </div>
                                         <span className="w-0.5 h-0.5 bg-gray-600 rounded-full" />

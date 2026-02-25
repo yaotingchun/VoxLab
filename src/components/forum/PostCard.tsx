@@ -10,7 +10,10 @@ import { CreatePostModal } from './CreatePostModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { Post } from '@/types/forum';
 import { ForumAuthorHover } from './ForumAuthorHover';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 interface PostCardProps {
     post: Post;
 }
@@ -24,12 +27,34 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
     const [isLiked, setIsLiked] = useState(post.likedBy?.includes(user?.uid || ''));
     const [likeCount, setLikeCount] = useState(post.likes || 0);
+    const [authorAvatar, setAuthorAvatar] = useState(post.authorAvatar);
 
     // Sync state with props
     React.useEffect(() => {
         setIsLiked(post.likedBy?.includes(user?.uid || ''));
         setLikeCount(post.likes || 0);
     }, [post.likedBy, post.likes, user]);
+
+    // Fetch latest avatar from user profile to avoid stale denormalized data
+    React.useEffect(() => {
+        if (!post.authorId) return;
+
+        const fetchLatestAvatar = async () => {
+            try {
+                // We use the forum author hover fetch logic style
+                const userDoc = await getDoc(doc(db, "users", post.authorId));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    // Always update state to reflect the latest user profile (even if null)
+                    setAuthorAvatar(data.photoURL || null);
+                }
+            } catch (error) {
+                console.error("Failed to fetch latest avatar:", error);
+            }
+        };
+
+        fetchLatestAvatar();
+    }, [post.authorId]);
 
     const isAuthor = user?.uid === post.authorId;
 
@@ -60,14 +85,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         // Optimistic Update
         const newIsLiked = !isLiked;
         setIsLiked(newIsLiked);
-        setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1);
+        setLikeCount((prev: number) => newIsLiked ? prev + 1 : prev - 1);
 
         try {
             await likePost(post.id);
         } catch (error) {
             // Revert on error
             setIsLiked(!newIsLiked);
-            setLikeCount(prev => newIsLiked ? prev - 1 : prev + 1);
+            setLikeCount((prev: number) => newIsLiked ? prev - 1 : prev + 1);
             console.error("Failed to like post:", error);
         }
     };
@@ -84,18 +109,16 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                             <ForumAuthorHover
                                 authorId={post.authorId}
                                 authorName={post.authorName}
-                                authorAvatar={post.authorAvatar}
+                                authorAvatar={authorAvatar}
                             >
                                 <div className="shrink-0 relative cursor-pointer">
                                     <div className="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    {post.authorAvatar ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={post.authorAvatar} alt="" className="relative w-8 h-8 rounded-full object-cover ring-1 ring-transparent group-hover:ring-primary/30 transition-all" />
-                                    ) : (
-                                        <div className="relative w-8 h-8 rounded-full bg-white/5 flex items-center justify-center ring-1 ring-white/10 group-hover:ring-white/20 transition-all">
+                                    <Avatar className="relative w-8 h-8 ring-1 ring-transparent group-hover:ring-primary/30 transition-all">
+                                        <AvatarImage src={authorAvatar || ""} alt="" className="object-cover" />
+                                        <AvatarFallback className="bg-white/5 flex items-center justify-center ring-1 ring-white/10 group-hover:ring-white/20 transition-all">
                                             <User className="w-4 h-4 text-gray-400" />
-                                        </div>
-                                    )}
+                                        </AvatarFallback>
+                                    </Avatar>
                                 </div>
                             </ForumAuthorHover>
 
@@ -104,7 +127,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                                 <ForumAuthorHover
                                     authorId={post.authorId}
                                     authorName={post.authorName}
-                                    authorAvatar={post.authorAvatar}
+                                    authorAvatar={authorAvatar}
                                 >
                                     <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors cursor-pointer hover:text-primary">
                                         {post.authorName}

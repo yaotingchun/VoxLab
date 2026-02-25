@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Eye, User, ArrowRight } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Post } from '@/types/forum';
 import { ForumSection } from '@/lib/forum-data';
 
@@ -73,12 +74,12 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    {stat.latestPost.authorAvatar ? (
-                                                        // eslint-disable-next-line @next/next/no-img-element
-                                                        <img src={stat.latestPost.authorAvatar} alt="" className="w-5 h-5 rounded-full opacity-70 object-cover ring-1 ring-white/10" />
-                                                    ) : (
-                                                        <User className="w-4 h-4 text-gray-500" />
-                                                    )}
+                                                    <Avatar className="w-5 h-5 opacity-70 ring-1 ring-white/10">
+                                                        <AvatarImage src={stat.latestPost.authorAvatar || ""} alt="" className="object-cover" />
+                                                        <AvatarFallback className="flex items-center justify-center text-gray-500">
+                                                            <User className="w-3.5 h-3.5" />
+                                                        </AvatarFallback>
+                                                    </Avatar>
                                                     <span className="text-sm text-gray-400 truncate group-hover:text-primary-foreground/80 transition-colors font-medium">
                                                         {stat.latestPost.title}
                                                     </span>
