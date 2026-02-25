@@ -17,6 +17,7 @@ export interface UnifiedAnalysisResult {
     isSmiling: boolean;
     isEyeContactSteady: boolean;
     hasHighBlinkRate: boolean;
+    isAutoFramed: boolean;
 }
 
 export function useUnifiedAnalysis() {
@@ -98,6 +99,36 @@ export function useUnifiedAnalysis() {
             setIsPostureIncorrectBuffered(isNowIncorrect);
         }
     }, [posture.issues, isPostureIncorrectBuffered]);
+
+    // ---------------------------------------------------------
+    // BUFFERING LOGIC for Auto-framing (Leaky Bucket)
+    // ---------------------------------------------------------
+    const [isOutOfFrameBuffered, setIsOutOfFrameBuffered] = useState(false);
+    const framingIntegrator = useRef(0);
+    const lastFramingIntegrationTime = useRef(Date.now());
+
+    useEffect(() => {
+        const now = Date.now();
+        const dt = Math.min(100, now - lastFramingIntegrationTime.current);
+        lastFramingIntegrationTime.current = now;
+
+        const isOutOfFrame = !face.isAutoFramed;
+
+        if (isOutOfFrame) {
+            // Out of frame: Charge the bucket
+            // Threshold: 1.5 seconds (1500 units)
+            framingIntegrator.current = Math.min(2000, framingIntegrator.current + dt);
+        } else {
+            // Centered: Discharge the bucket
+            framingIntegrator.current = Math.max(0, framingIntegrator.current - (dt * 2.0));
+        }
+
+        const isNowOutOfFrame = framingIntegrator.current > 1500;
+
+        if (isNowOutOfFrame !== isOutOfFrameBuffered) {
+            setIsOutOfFrameBuffered(isNowOutOfFrame);
+        }
+    }, [face, isOutOfFrameBuffered]);
 
     // Wrapper to control both sessions
     const startUnifiedSession = useCallback(() => {
@@ -194,7 +225,8 @@ export function useUnifiedAnalysis() {
             // Explicit flags for UI
             isSmiling: face.isSmiling,
             isEyeContactSteady: !isDistractedBuffered, // Use BUFFERED value inverse
-            hasHighBlinkRate: face.hasHighBlinkRate
+            hasHighBlinkRate: face.hasHighBlinkRate,
+            isAutoFramed: !isOutOfFrameBuffered // Return the buffered status for UI (Inverse because flag is "isAutoFramed")
         };
     }, [posture, face, isDistractedBuffered]);
 

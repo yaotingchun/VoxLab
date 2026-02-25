@@ -344,6 +344,7 @@ function PracticePageInner() {
                                 isRecording={isStarted}
                                 audioStream={audioStream}
                                 onVideoRecorded={handleVideoRecorded}
+                                isAutoFramed={result.isAutoFramed}
                             />
 
                             {/* Feedback Overlay - Facial Only (Posture Alerts Suppressed) */}

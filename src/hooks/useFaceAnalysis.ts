@@ -13,6 +13,7 @@ export interface FaceAnalysisMetrics {
     hasHighBlinkRate: boolean;
     hasMouthTension: boolean;
     hasShiftyEyes: boolean;
+    isAutoFramed: boolean;
 }
 
 export function useFaceAnalysis() {
@@ -25,6 +26,7 @@ export function useFaceAnalysis() {
         hasHighBlinkRate: false,
         hasMouthTension: false,
         hasShiftyEyes: false,
+        isAutoFramed: true,
     });
 
     // Refs for tracking over time
@@ -97,7 +99,10 @@ export function useFaceAnalysis() {
     }, [getSnapshot]);
 
     const analyzeFace = useCallback((result: FaceLandmarkerResult) => {
-        if (!result.faceLandmarks || result.faceLandmarks.length === 0) return;
+        if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
+            setMetrics(prev => ({ ...prev, isAutoFramed: false }));
+            return;
+        }
 
         const landmarks = result.faceLandmarks[0];
         const now = Date.now();
@@ -255,8 +260,32 @@ export function useFaceAnalysis() {
             eyeContactScore: Math.round(eyeContactScore),
             hasHighBlinkRate,
             hasMouthTension,
-            hasShiftyEyes
+            hasShiftyEyes,
+            isAutoFramed: eyeContactScore > 0, // Fallback if centering logic fails, but we'll add specific logic below
         });
+
+        // --- E. Centering / Auto-framing Logic ---
+        // Target Oval: Center(0.5, 0.45), Width(0.30), Height(0.40)
+        // Normalized coordinates from MediaPipe are 0-1
+        const faceCenter = {
+            x: (landmarks[FACE_LANDMARKS.LEFT_EYE_LEFT].x + landmarks[FACE_LANDMARKS.RIGHT_EYE_RIGHT].x) / 2,
+            y: (landmarks[FACE_LANDMARKS.LEFT_EYE_TOP].y + landmarks[152].y) / 2 // 152 is Chin
+        };
+
+        const cx = 0.5;
+        const cy = 0.45;
+        const rx = 0.15; // half of 0.30
+        const ry = 0.20; // half of 0.40
+
+        // Ellipsoid inequality: (x-cx)^2/rx^2 + (y-cy)^2/ry^2 <= 1
+        const isAutoFramed = (
+            Math.pow(faceCenter.x - cx, 2) / Math.pow(rx, 2) +
+            Math.pow(faceCenter.y - cy, 2) / Math.pow(ry, 2)
+        ) <= 1;
+        setMetrics(prev => ({
+            ...prev,
+            isAutoFramed
+        }));
 
     }, []);
 

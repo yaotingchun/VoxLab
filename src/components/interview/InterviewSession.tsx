@@ -481,6 +481,7 @@ export default function InterviewSession({
                                 onPoseResults={analyzePosture}
                                 onFaceResults={analyzeFace}
                                 isRecording={isStarted}
+                                isAutoFramed={analysisResult.isAutoFramed}
                             />
 
                             {/* Feedback Overlay */}
