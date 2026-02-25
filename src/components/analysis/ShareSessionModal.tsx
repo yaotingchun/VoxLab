@@ -32,6 +32,7 @@ export const ShareSessionModal: React.FC<ShareSessionModalProps> = ({ isOpen, on
     const [tags, setTags] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [includeVideo, setIncludeVideo] = useState(!!sessionData.videoUrl);
 
     const { createPost } = useForum();
     const { user } = useAuth();
@@ -98,8 +99,8 @@ export const ShareSessionModal: React.FC<ShareSessionModalProps> = ({ isOpen, on
                 title,
                 content,
                 tags,
-                sessionData.videoUrl ? [sessionData.videoUrl] : [],
-                sessionData.videoUrl ? 'video' : undefined
+                (sessionData.videoUrl && includeVideo) ? [sessionData.videoUrl] : [],
+                (sessionData.videoUrl && includeVideo) ? 'video' : undefined
             );
 
             onClose();
@@ -169,18 +170,45 @@ export const ShareSessionModal: React.FC<ShareSessionModalProps> = ({ isOpen, on
                             />
                         </div>
 
-                        {/* Video Preview (if exists) */}
+                        {/* Video Toggle & Preview */}
                         {sessionData.videoUrl && (
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                                    <VideoIcon className="w-4 h-4 text-indigo-400" /> Attached Video
-                                </label>
-                                <div className="rounded-2xl overflow-hidden border border-white/10 bg-black aspect-video relative max-w-sm">
-                                    <video src={sessionData.videoUrl} className="w-full h-full object-contain" />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                        <Sparkles className="w-8 h-8 text-indigo-400 animate-pulse" />
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/10 group hover:border-indigo-500/50 transition-all">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                                            <VideoIcon className="w-5 h-5 text-indigo-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">Include Session Video</p>
+                                            <p className="text-[11px] text-gray-500">Allow the community to watch your performance</p>
+                                        </div>
                                     </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIncludeVideo(!includeVideo)}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${includeVideo ? 'bg-indigo-600' : 'bg-white/10'}`}
+                                    >
+                                        <span
+                                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-all duration-300 ${includeVideo ? 'translate-x-6' : 'translate-x-1'}`}
+                                        />
+                                    </button>
                                 </div>
+
+                                {includeVideo && (
+                                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-1">
+                                            Video Preview
+                                        </label>
+                                        <div className="rounded-2xl overflow-hidden border border-white/10 bg-black aspect-video relative max-w-md group shadow-2xl">
+                                            <video src={sessionData.videoUrl} className="w-full h-full object-contain" />
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="bg-indigo-600/90 backdrop-blur-sm p-3 rounded-full">
+                                                    <VideoIcon className="w-6 h-6 text-white" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
