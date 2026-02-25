@@ -102,6 +102,8 @@ export default function InterviewSession({
     const {
         startAudioAnalysis,
         stopAudioAnalysis,
+        pauseAnalysis,
+        resumeAnalysis,
         audioStats,
         volumeSamples,
         pitchSamples,
@@ -137,7 +139,10 @@ export default function InterviewSession({
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(stream => {
                 setAudioStream(stream);
-                startAudioAnalysis(stream);
+                startAudioAnalysis(stream).then(() => {
+                    // Start paused until user actually starts recording an answer
+                    pauseAnalysis();
+                });
             })
             .catch(err => console.error("Could not get audio stream for analysis:", err));
 
@@ -151,11 +156,14 @@ export default function InterviewSession({
     // startListening is now session-aware: it preserves cumulative metrics on reconnect
     useEffect(() => {
         if (isStarted) {
-            startListening();
+            startListening(audioStream || undefined);
+            // Also resume audio analysis if it was paused
+            resumeAnalysis();
         } else {
             stopListening();
+            pauseAnalysis(); // Pause analysis when not started
         }
-    }, [isStarted, startListening, stopListening]);
+    }, [isStarted, startListening, stopListening, audioStream, resumeAnalysis, pauseAnalysis]);
 
     // Auto-scroll transcript
     useEffect(() => {
@@ -218,11 +226,13 @@ export default function InterviewSession({
         segmentStartRef.current = Date.now(); // Mark segment start
     }, [stopSpeaking]);
 
-    const handleStopRecording = useCallback(() => {
-        setIsRecording(false);
+    const handleStopRecording = () => {
+        if (!isStarted) return;
         setIsStarted(false);
         stopListening();
-    }, [stopListening]);
+        pauseAnalysis(); // Pause samples but don't stop the processor
+        setHasSpoken(true);
+    };
 
     const handleCollectMetrics = useCallback((isFinal: boolean) => {
         // Record the answer segment end time
@@ -276,6 +286,7 @@ export default function InterviewSession({
                 volumeSamples,
                 pitchSamples,
                 transcript,
+                answers,
             }
         };
 

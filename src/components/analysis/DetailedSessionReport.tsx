@@ -15,7 +15,7 @@ import { CircularScoreChart } from "./CircularScoreChart";
 import { SessionChatbot } from "./SessionChatbot";
 import { ShareSessionModal } from "./ShareSessionModal";
 import ReactMarkdown from "react-markdown";
-import { InterviewEvaluation, QuestionEvaluation } from "@/types/interview";
+import { InterviewEvaluation, QuestionEvaluation, InterviewAnswer } from "@/types/interview";
 
 
 interface DetailedSessionReportProps {
@@ -241,12 +241,51 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
 
     const fillerTotal = Object.values(metrics.fillerCounts).reduce((a, b) => a + b, 0);
 
+    // Question Markers for Interview Mode
+    const answers = (metrics as any).answers as InterviewAnswer[] | undefined;
+    const answerSegments = (metrics as any).answerSegments;
+
     // Prepare WPM Data Points for Chart
-    const wpmDataPoints = metrics.wpmHistory.map((val, i) => ({
-        time: (i + 1) * 5, // 5 second intervals
-        wpm: val,
-        wordCount: Math.round((val / 60) * 5) // approximate
-    }));
+    // If in interview mode with per-question data, use the question averages to avoid "spikes" during transitions
+    const wpmDataPoints = (answers && answers.length > 0)
+        ? (() => {
+            let elapsed = 0;
+            const points: { time: number; wpm: number; wordCount: number }[] = [];
+            answers.forEach((a) => {
+                elapsed += a.duration;
+                // Only add a data point if the question wasn't skipped (has words)
+                if (a.wordCount > 0 && a.answer !== "(Skipped)") {
+                    points.push({
+                        time: elapsed,
+                        wpm: a.wpm || 0,
+                        wordCount: a.wordCount || 0
+                    });
+                }
+            });
+            return points;
+        })()
+        : metrics.wpmHistory.map((val, i) => ({
+            time: (i + 1) * 5, // 5 second intervals
+            wpm: val,
+            wordCount: Math.round((val / 60) * 5) // approximate
+        }));
+
+    // Attempt to build markers from answers durations or segments
+    const questionMarkers = (() => {
+        if (!answers || !Array.isArray(answers)) return [];
+
+        // Simpler fallback: just use the sequential durations
+        let elapsed = 0;
+        const markers: { time: number; label: string }[] = [];
+        answers.forEach((a, i) => {
+            elapsed += a.duration;
+            // Only add a marker if the question wasn't skipped
+            if (a.wordCount > 0 && a.answer !== "(Skipped)") {
+                markers.push({ time: elapsed, label: `Q${i + 1}` });
+            }
+        });
+        return markers;
+    })();
 
     const pauseStats = metrics.pauseStats;
     const audioStats = metrics.audioMetrics ? {
@@ -532,16 +571,67 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     {/* Logic to calculate buckets matches speech-coach/page.tsx exactly */}
                                     {
                                         (() => {
+                                            // 1. QUESTION-BASED BREAKDOWN (Preferred for Interviews)
+                                            if (answers && answers.length > 0) {
+                                                const buckets = answers.map((a, i) => {
+                                                    let color = "bg-green-500";
+                                                    let textColor = "text-green-500";
+                                                    if (a.wpm < 110 || a.wpm > 155) { color = "bg-red-500"; textColor = "text-red-500"; }
+                                                    else if (a.wpm < 130 || a.wpm > 155) { color = "bg-amber-500"; textColor = "text-amber-500"; }
+
+                                                    return {
+                                                        intervalLabel: `Question ${i + 1}`,
+                                                        wpm: a.wpm,
+                                                        wordCount: a.wordCount,
+                                                        color,
+                                                        textColor,
+                                                        question: a.question
+                                                    };
+                                                });
+
+                                                return (
+                                                    <div className="space-y-8">
+                                                        <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                                                            <PacingChart dataPoints={wpmDataPoints} questionMarkers={questionMarkers} />
+                                                        </div>
+
+                                                        <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
+                                                            <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+                                                                <h4 className="text-sm font-bold text-slate-300 uppercase">Question Breakdown</h4>
+                                                                <div className="flex gap-4 text-xs font-mono text-slate-400">
+                                                                    <span>WPM</span>
+                                                                    <span>Words</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="divide-y divide-slate-800/50">
+                                                                {buckets.map((b, i) => (
+                                                                    <div key={i} className="px-6 py-4 flex flex-col gap-2 hover:bg-slate-800/20 transition-colors">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="w-24 text-sm text-slate-400 font-bold shrink-0">{b.intervalLabel}</div>
+                                                                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                                                <div className={`h-full ${b.color} rounded-full`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
+                                                                            </div>
+                                                                            <div className="flex gap-4 w-20 justify-end shrink-0 text-sm font-bold font-mono">
+                                                                                <span className={b.textColor}>{b.wpm}</span>
+                                                                                <span className="text-slate-500">{b.wordCount}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <p className="text-[11px] text-slate-500 pl-24 italic">"{b.question}"</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // 2. TIME-BASED BUCKETS (Fallback / Practice Mode)
                                             const BUCKET_SIZE = 30; // 30 seconds
                                             const words = metrics.words || [];
 
-                                            // Fallback if no words (e.g. from wpmHistory directly?)
-                                            // Ideally we trust 'words' for accurate breakdown.
                                             if (words.length === 0 && metrics.wpmHistory.length > 0) {
-                                                // Fallback to simple mapping if words are missing but history exists
                                                 return (
-                                                    <div className="text-center py-8 text-slate-500 italic">
-                                                        Detailed interval data unavailable (using legacy mode).
+                                                    <div className="space-y-4">
                                                         <PacingChart dataPoints={wpmDataPoints} />
                                                     </div>
                                                 );
@@ -553,50 +643,26 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                             const buckets = Array.from({ length: totalBuckets }, (_, i) => {
                                                 const startTime = i * BUCKET_SIZE;
                                                 const endTime = (i + 1) * BUCKET_SIZE;
-
-                                                // Find words in this bucket
                                                 const bucketWords = words.filter(w =>
                                                     (w.startTime >= startTime && w.startTime < endTime) ||
                                                     (w.endTime > startTime && w.endTime <= endTime)
                                                 );
-
                                                 const count = bucketWords.length;
                                                 const wpm = Math.round((count / BUCKET_SIZE) * 60);
 
-                                                // Color logic
                                                 let color = "bg-green-500";
                                                 let textColor = "text-green-500";
                                                 if (wpm < 110 || wpm > 155) { color = "bg-red-500"; textColor = "text-red-500"; }
                                                 else if (wpm < 130 || wpm > 155) { color = "bg-amber-500"; textColor = "text-amber-500"; }
 
-                                                return {
-                                                    intervalLabel: `${startTime}s – ${endTime}s`,
-                                                    wpm,
-                                                    wordCount: count,
-                                                    color,
-                                                    textColor,
-                                                    time: endTime // for chart
-                                                };
+                                                return { intervalLabel: `${startTime}s – ${endTime}s`, wpm, wordCount: count, color, textColor, time: endTime };
                                             });
-
-                                            const chartData = buckets.map(b => ({
-                                                time: b.time,
-                                                wpm: b.wpm,
-                                                wordCount: b.wordCount
-                                            }));
 
                                             return (
                                                 <div className="space-y-8">
-                                                    {/* Chart */}
                                                     <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                                                        {chartData.length > 0 ? (
-                                                            <PacingChart dataPoints={chartData} />
-                                                        ) : (
-                                                            <div className="text-center text-slate-500">Not enough data for chart</div>
-                                                        )}
+                                                        <PacingChart dataPoints={wpmDataPoints} />
                                                     </div>
-
-                                                    {/* Interval Breakdown Table */}
                                                     <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
                                                         <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
                                                             <h4 className="text-sm font-bold text-slate-300 uppercase">Interval Breakdown</h4>
@@ -609,16 +675,9 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                                             {buckets.map((b, i) => (
                                                                 <div key={i} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-800/20 transition-colors">
                                                                     <div className="w-24 text-sm text-slate-400 font-mono shrink-0">{b.intervalLabel}</div>
-
-                                                                    {/* Progress Bar */}
                                                                     <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                                        <div
-                                                                            className={`h-full ${b.color} rounded-full`}
-                                                                            style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }}
-                                                                        />
+                                                                        <div className={`h-full ${b.color} rounded-full`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
                                                                     </div>
-
-                                                                    {/* Values */}
                                                                     <div className="flex gap-4 w-20 justify-end shrink-0 text-sm font-bold font-mono">
                                                                         <span className={b.textColor}>{b.wpm}</span>
                                                                         <span className="text-slate-500">{b.wordCount}</span>
@@ -1009,6 +1068,69 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                 </h3>
                                 {/* Interval logic */}
                                 {(() => {
+                                    if (answers && answers.length > 0) {
+                                        const buckets = answers.map((a, i) => {
+                                            const isSkipped = a.wordCount === 0 || a.answer === "(Skipped)";
+                                            let color = "bg-green-500";
+                                            let textColor = "text-green-500";
+
+                                            if (isSkipped) {
+                                                color = "bg-slate-700";
+                                                textColor = "text-slate-500";
+                                            } else if (a.wpm < 110 || a.wpm > 155) {
+                                                color = "bg-red-500";
+                                                textColor = "text-red-500";
+                                            } else if (a.wpm < 130 || a.wpm > 155) {
+                                                color = "bg-amber-500";
+                                                textColor = "text-amber-500";
+                                            }
+
+                                            return {
+                                                intervalLabel: `Question ${i + 1}`,
+                                                wpm: a.wpm,
+                                                wordCount: a.wordCount,
+                                                color,
+                                                textColor,
+                                                question: a.question,
+                                                isSkipped
+                                            };
+                                        });
+
+                                        return (
+                                            <div className="space-y-8">
+                                                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                                                    <PacingChart dataPoints={wpmDataPoints} questionMarkers={questionMarkers} />
+                                                </div>
+                                                <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
+                                                    <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+                                                        <h4 className="text-sm font-bold text-slate-300 uppercase">Question Breakdown</h4>
+                                                        <div className="flex gap-4 text-xs font-mono text-slate-400">
+                                                            <span>WPM</span>
+                                                            <span>Words</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="divide-y divide-slate-800/50">
+                                                        {buckets.map((b, i) => (
+                                                            <div key={i} className={`px-6 py-4 flex flex-col gap-2 hover:bg-slate-800/20 transition-colors ${b.isSkipped ? 'opacity-50' : ''}`}>
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-24 text-sm text-slate-400 font-bold shrink-0">{b.intervalLabel}</div>
+                                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                                        <div className={`h-full ${b.color} rounded-full`} style={{ width: `${Math.min((b.wpm / 180) * 100, 100)}%` }} />
+                                                                    </div>
+                                                                    <div className="flex gap-4 w-20 justify-end shrink-0 text-sm font-bold font-mono">
+                                                                        <span className={b.textColor}>{b.isSkipped ? "Skipped" : b.wpm}</span>
+                                                                        <span className="text-slate-500">{b.wordCount}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-[11px] text-slate-500 pl-24 italic">"{b.question}"</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
                                     const BUCKET_SIZE = 30; // 30 seconds
                                     const words = metrics.words || [];
                                     if (words.length === 0 && metrics.wpmHistory.length > 0) {
@@ -1038,7 +1160,7 @@ export function DetailedSessionReport({ data, onClose }: DetailedSessionReportPr
                                     return (
                                         <div className="space-y-8">
                                             <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                                                <PacingChart dataPoints={buckets.map(b => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))} />
+                                                <PacingChart dataPoints={wpmDataPoints} />
                                             </div>
                                             <div className="bg-slate-900/50 rounded-xl check-border border border-slate-800 overflow-hidden">
                                                 <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">

@@ -98,6 +98,8 @@ export function useSpeechRecognition() {
         isPausedRef.current = false;
     }, []);
 
+    const isStreamOwnerRef = useRef(false);
+
     const stopListening = useCallback(() => {
         setIsListening(false);
         if (wsRef.current) {
@@ -118,14 +120,17 @@ export function useSpeechRecognition() {
             audioContextRef.current = null;
         }
         if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            // Only stop tracks if we requested them ourselves
+            if (isStreamOwnerRef.current) {
+                mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
             mediaStreamRef.current = null;
         }
         if (timerRef.current) clearInterval(timerRef.current);
         if (wpmHistoryRef.current) clearInterval(wpmHistoryRef.current);
     }, []);
 
-    const startListening = useCallback(async () => {
+    const startListening = useCallback(async (existingStream?: MediaStream) => {
         if (isListening || wsRef.current) return;
         try {
             const now = Date.now();
@@ -218,9 +223,15 @@ export function useSpeechRecognition() {
             ws.onclose = () => setIsListening(false);
 
             // 2. Audio Capture Setup
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: { channelCount: 1, sampleRate: 16000 }
-            });
+            let stream = existingStream;
+            if (!stream) {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { channelCount: 1, sampleRate: 16000 }
+                });
+                isStreamOwnerRef.current = true;
+            } else {
+                isStreamOwnerRef.current = false;
+            }
             mediaStreamRef.current = stream;
 
             const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;

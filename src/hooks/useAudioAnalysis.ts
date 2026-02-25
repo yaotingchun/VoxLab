@@ -11,6 +11,7 @@ import {
 
 export interface UseAudioAnalysisResult {
     isRecording: boolean;
+    isPaused: boolean;
     currentVolume: number;
     currentPitch: number;
     volumeSamples: number[];
@@ -18,10 +19,13 @@ export interface UseAudioAnalysisResult {
     audioStats: { stats: AudioStats; feedback: { message: string; type: "good" | "warn" | "bad" } } | null;
     startAudioAnalysis: (stream: MediaStream) => Promise<void>;
     stopAudioAnalysis: () => void;
+    pauseAnalysis: () => void;
+    resumeAnalysis: () => void;
 }
 
 export function useAudioAnalysis(): UseAudioAnalysisResult {
     const [isRecording, setIsRecording] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
 
     // Real-time metrics
     const [currentVolume, setCurrentVolume] = useState(0);
@@ -35,6 +39,7 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
     const analyserRef = useRef<AnalyserNode | null>(null);
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const analysisIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const isPausedRef = useRef(false);
 
     const startAudioAnalysis = useCallback(async (stream: MediaStream) => {
         try {
@@ -42,6 +47,8 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
             setVolumeSamples([]);
             setPitchSamples([]);
             setCurrentVolume(0);
+            setIsPaused(false);
+            isPausedRef.current = false;
 
             // Create AudioContext
             const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
@@ -64,21 +71,26 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
             analysisIntervalRef.current = setInterval(() => {
                 if (!analyserRef.current) return;
 
-                // Get time domain data for RMS (Volume)
+                // Always update real-time volume for UI feedback if recording
                 analyserRef.current.getFloatTimeDomainData(analysisData);
                 const rms = calculateRMS(analysisData);
                 setCurrentVolume(rms);
-                setVolumeSamples(prev => [...prev, rms]);
 
-                // Detect Pitch
-                const pitch = detectPitch(analysisData, 16000); // 16kHz context
-                if (pitch) {
-                    setCurrentPitch(pitch);
-                    setPitchSamples(prev => [...prev, pitch]);
+                // Only accumulate samples if not paused
+                if (!isPausedRef.current) {
+                    setVolumeSamples(prev => [...prev, rms]);
+
+                    // Detect Pitch
+                    const pitch = detectPitch(analysisData, 16000); // 16kHz context
+                    if (pitch) {
+                        setCurrentPitch(pitch);
+                        setPitchSamples(prev => [...prev, pitch]);
+                    } else {
+                        setPitchSamples(prev => [...prev, 0]);
+                    }
                 } else {
-                    // Keep the last valid pitch for persistence (Real-time UI)
-                    // But record 0 in samples for accurate session data/averages
-                    setPitchSamples(prev => [...prev, 0]);
+                    // Reset pitch if paused
+                    setCurrentPitch(0);
                 }
 
             }, 100);
@@ -103,20 +115,31 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
         }
 
         if (audioContextRef.current) {
-            audioContextRef.current.close();
+            audioContextRef.current.close().catch(() => { });
             audioContextRef.current = null;
         }
 
         setIsRecording(false);
+        setIsPaused(false);
+        isPausedRef.current = false;
         setCurrentVolume(0);
+        setCurrentPitch(0);
+    }, []);
+
+    const pauseAnalysis = useCallback(() => {
+        setIsPaused(true);
+        isPausedRef.current = true;
+    }, []);
+
+    const resumeAnalysis = useCallback(() => {
+        setIsPaused(false);
+        isPausedRef.current = false;
     }, []);
 
     // Calculate final stats when recording stops or when requested
     const audioStats = useEffect(() => {
-        // We calculate stats live or at the end if we want, 
-        // but typically we compute them for the report.
         return undefined;
-    }, []) as any; // logic moved to return
+    }, []) as any;
 
     const getAnalysis = () => {
         if (volumeSamples.length === 0) return null;
@@ -124,6 +147,19 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
         const feedback = getAudioFeedback(stats);
         return { stats, feedback };
     };
+
+    /**
+     * Re-start audio analysis if the stream tracks were stopped and restarted elsewhere
+     */
+    useEffect(() => {
+        if (isRecording && sourceRef.current && sourceRef.current.mediaStream) {
+            const hasActiveTrack = sourceRef.current.mediaStream.getAudioTracks().some(t => t.readyState === 'live');
+            if (!hasActiveTrack) {
+                console.warn("Audio stream tracks stopped. Stopping analysis.");
+                stopAudioAnalysis();
+            }
+        }
+    }, [isRecording, stopAudioAnalysis]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -134,12 +170,15 @@ export function useAudioAnalysis(): UseAudioAnalysisResult {
 
     return {
         isRecording,
+        isPaused,
         currentVolume,
         currentPitch,
         volumeSamples,
         pitchSamples,
         audioStats: getAnalysis(),
         startAudioAnalysis,
-        stopAudioAnalysis
+        stopAudioAnalysis,
+        pauseAnalysis,
+        resumeAnalysis
     };
 }

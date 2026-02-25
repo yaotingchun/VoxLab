@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, Clock, AlertCircle, Mic, TrendingUp, BarChart3, AlertTriangle, FileText, Target, MessageSquareText, Sparkles } from "lucide-react";
+import { Activity, Clock, AlertCircle, Mic, TrendingUp, BarChart3, AlertTriangle, FileText, Target, MessageSquareText, Sparkles, Star, Zap, Mic2, BarChart2, Presentation } from "lucide-react";
 import { PacingChart } from "./PacingChart";
 import { PitchChart } from "@/components/PitchChart";
 
@@ -154,6 +154,58 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
 
     if (analysisChunks.length === 0) analysisChunks.push("");
 
+    // --- INTERVIEW MODE DETECTION ---
+    const answers = (metrics as any).answers as any[] | undefined;
+    const interviewEval = data.interviewEvaluation;
+    const isInterview = !!interviewEval || (!!answers && answers.length > 0);
+
+    // Smoothed WPM Data Points for PDF Chart (Matching DetailedSessionReport)
+    const wpmDataPoints = (isInterview)
+        ? (() => {
+            let elapsed = 0;
+            const points: { time: number; wpm: number; wordCount: number }[] = [];
+            const sourceAnswers = interviewEval?.questionEvaluations || answers || [];
+            sourceAnswers.forEach((a: any) => {
+                elapsed += a.duration || 0;
+                if ((a.wordCount || 0) > 0 && a.answer !== "(Skipped)") {
+                    points.push({
+                        time: elapsed,
+                        wpm: a.wpm || 0,
+                        wordCount: a.wordCount || 0
+                    });
+                }
+            });
+            return points;
+        })()
+        : Array.isArray(metrics.wpmHistory) ? metrics.wpmHistory.map((val: number, i: number) => ({
+            time: (i + 1) * 5,
+            wpm: val,
+            wordCount: Math.round((val / 60) * 5)
+        })) : [];
+
+    // Question Markers for PDF Chart
+    const questionMarkers = isInterview ? (() => {
+        let elapsed = 0;
+        const markers: { time: number; label: string }[] = [];
+        const sourceAnswers = interviewEval?.questionEvaluations || answers || [];
+        sourceAnswers.forEach((a: any, i: number) => {
+            elapsed += a.duration || 0;
+            if ((a.wordCount || 0) > 0 && a.answer !== "(Skipped)") {
+                markers.push({ time: elapsed, label: `Q${i + 1}` });
+            }
+        });
+        return markers;
+    })() : [];
+
+    // Interview Question Breakdown Chunking (2 per page)
+    const interviewBreakdownChunks: any[][] = [];
+    if (isInterview) {
+        const sourceAnswers = interviewEval?.questionEvaluations || answers || [];
+        for (let i = 0; i < sourceAnswers.length; i += 2) {
+            interviewBreakdownChunks.push(sourceAnswers.slice(i, i + 2));
+        }
+    }
+
     // NEW FOR Q&A
     const hasQnA = !!data.qnaSummary && data.qnaSummary.length > 0;
     const qnaChunks = [];
@@ -166,12 +218,8 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
     const hasSlides = !!data.slideAnalysis;
     const hasRubric = !!data.rubricAnalysis;
     // --- Pagination Logic for Slides & Rubrics ---
-    // Instead of chunking by 10/8 items, we strictly dedicate 1 whole page to Covered/Strengths
-    // and 1 whole page to Missed/Weaknesses to prevent mid-page flexbox stretching issues.
-
     const hasSlideCovered = hasSlides && (data.slideAnalysis?.coveredPoints?.length || 0) > 0;
     const hasSlideMissed = hasSlides && (data.slideAnalysis?.missedPoints?.length || 0) > 0;
-
     const hasRubricStrengths = hasRubric && (data.rubricAnalysis?.strengths?.length || 0) > 0;
     const hasRubricWeaknesses = hasRubric && (data.rubricAnalysis?.weaknesses?.length || 0) > 0;
 
@@ -179,15 +227,21 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
 
     const slideCoveredPageNum = hasSlideCovered ? ++currentPageCounter : -1;
     const slideMissedPageNum = hasSlideMissed ? ++currentPageCounter : -1;
-
     const rubricStrengthsPageNum = hasRubricStrengths ? ++currentPageCounter : -1;
     const rubricWeaknessesPageNum = hasRubricWeaknesses ? ++currentPageCounter : -1;
 
+    // --- NEW INTERVIEW SUMMARY PAGE ---
+    const hasInterviewSummary = !!interviewEval;
+    const interviewSummaryPageNum = hasInterviewSummary ? ++currentPageCounter : -1;
+
+    // --- ANALYSIS/Q&A/BREAKDOWN START ---
+    const analysisOrQnAStartPage = currentPageCounter + 1;
+    const analysisSectionPageCount = hasQnA ? qnaChunks.length : (isInterview ? interviewBreakdownChunks.length : analysisChunks.length);
+    currentPageCounter += analysisSectionPageCount;
+
+    // --- TRANSCRIPT START (NOW AFTER ANALYSIS) ---
     const transcriptStartPage = currentPageCounter + 1;
     currentPageCounter += transcriptChunks.length;
-
-    const analysisOrQnAStartPage = currentPageCounter + 1;
-    currentPageCounter += hasQnA ? qnaChunks.length : analysisChunks.length;
 
     const pageNumTotal = currentPageCounter;
 
@@ -516,11 +570,8 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                                 <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">WPM Trend over Q&A</div>
                                 <div className="h-48 w-full relative">
                                     <PacingChart
-                                        dataPoints={
-                                            pacingBuckets.length > 0
-                                                ? pacingBuckets.map((b: any) => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
-                                                : [{ time: 0, wpm: metrics.wpm, wordCount: 0 }, { time: metrics.duration, wpm: metrics.wpm, wordCount: 0 }]
-                                        }
+                                        dataPoints={wpmDataPoints}
+                                        questionMarkers={questionMarkers}
                                     />
                                 </div>
                             </div>
@@ -529,20 +580,25 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                 ) : (
                     <>
                         <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
-                            <BarChart3 className="w-6 h-6 text-green-600" /> Content & Script Analysis
+                            <BarChart3 className="w-6 h-6 text-green-600" /> {isInterview ? "Interview Performance Analysis" : "Content & Script Analysis"}
                         </h2>
 
                         {/* Content Score Summary */}
                         <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
                             <div className="flex-1">
-                                <h3 className="text-xs font-bold text-green-700 uppercase tracking-widest mb-3">Content Heuristic Evaluation</h3>
+                                <h3 className="text-xs font-bold text-green-700 uppercase tracking-widest mb-3">
+                                    {isInterview ? "Interview Evaluation Metrics" : "Content Heuristic Evaluation"}
+                                </h3>
                                 <p className="text-slate-700 text-[15px] leading-relaxed">
-                                    Score calculated locally based on your transcript length, pacing dynamics, and filler word frequency.
+                                    {isInterview
+                                        ? "Visualizing your delivery pacing across the interview session. The chart connects your average WPM per question for a smooth performance trend."
+                                        : "Score calculated locally based on your transcript length, pacing dynamics, and filler word frequency."
+                                    }
                                 </p>
                             </div>
                             {localContentScore !== undefined && (
                                 <div className="flex-shrink-0">
-                                    <CircularScoreChart score={localContentScore} label="Content Score" color="text-green-600" size={120} strokeWidth={10} />
+                                    <CircularScoreChart score={localContentScore} label={isInterview ? "Interview Score" : "Content Score"} color="text-green-600" size={120} strokeWidth={10} />
                                 </div>
                             )}
                         </div>
@@ -550,220 +606,415 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                         {/* Pacing Chart */}
                         <div className="mb-6 p-6 rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-                                <Activity className="w-5 h-5 text-slate-500" /> Pacing Analysis
+                                <Activity className="w-5 h-5 text-slate-500" /> {isInterview ? "Interview Pacing by Question" : "Pacing Analysis"}
                             </h3>
                             <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
-                                <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">WPM Trend</div>
+                                <div className="text-xs text-slate-400 mb-3 font-bold uppercase tracking-wider">{isInterview ? "WPM per Question" : "WPM Trend"}</div>
                                 <div className="h-48 w-full relative">
                                     <PacingChart
-                                        dataPoints={
-                                            pacingBuckets.length > 0
-                                                ? pacingBuckets.map((b: any) => ({ time: b.time, wpm: b.wpm, wordCount: b.wordCount }))
-                                                : [{ time: 0, wpm: metrics.wpm, wordCount: 0 }, { time: metrics.duration, wpm: metrics.wpm, wordCount: 0 }]
-                                        }
+                                        dataPoints={wpmDataPoints}
+                                        questionMarkers={questionMarkers}
                                     />
                                 </div>
+                                {isInterview && (
+                                    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 justify-center">
+                                        {questionMarkers.map((m, i) => (
+                                            <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                                                <div className="w-2 h-2 rounded-full bg-indigo-500 opacity-50"></div>
+                                                <span>{m.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </>
                 )}
             </PrintablePage>
 
-            {/* PAGE X: Slide Alignment - Covered Points */}
-            {hasSlideCovered && (
-                <PrintablePage pageNum={slideCoveredPageNum} totalPages={pageNumTotal}>
+            {/* PAGE: Interview Summary (NEW) */}
+            {hasInterviewSummary && (
+                <PrintablePage pageNum={interviewSummaryPageNum} totalPages={pageNumTotal}>
                     <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
-                        <FileText className="w-6 h-6 text-blue-600" /> Slide Alignment
+                        <Target className="w-6 h-6 text-indigo-600" /> Interview Performance Overview
                     </h2>
 
-                    <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
-                        <div className="flex-1">
-                            <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Slide Alignment Summary</h3>
-                            <p className="text-slate-700 text-[15px] leading-relaxed italic">
-                                "{data.slideAnalysis!.feedback}"
+                    <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 mb-8 flex items-center gap-10 shadow-sm">
+                        <div className="flex-shrink-0">
+                            <CircularScoreChart
+                                score={interviewEval.overallScore}
+                                label="Executive Score"
+                                color="text-indigo-600"
+                                size={140}
+                                strokeWidth={12}
+                            />
+                        </div>
+                        <div className="flex-1 space-y-4">
+                            <div>
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Hiring Recommendation</h3>
+                                <div className={`inline-flex items-center gap-2 px-6 py-2 rounded-full border text-lg font-bold ${interviewEval.hiringRecommendation.toLowerCase().includes('hire') ? 'text-green-700 bg-green-50 border-green-200' : 'text-slate-700 bg-slate-50 border-slate-200'
+                                    }`}>
+                                    <Star className="w-5 h-5 fill-current" />
+                                    {interviewEval.hiringRecommendation}
+                                </div>
+                            </div>
+                            <p className="text-slate-700 text-lg leading-relaxed italic border-l-4 border-indigo-200 pl-6 py-2">
+                                "{interviewEval.overallFeedback}"
                             </p>
                         </div>
-                        {data.slideAnalysis!.alignmentScore !== undefined && (
-                            <div className="flex-shrink-0">
-                                <CircularScoreChart score={data.slideAnalysis!.alignmentScore} label="Alignment" color="text-blue-600" size={120} strokeWidth={10} />
-                            </div>
-                        )}
                     </div>
 
-                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-green-50/50 shadow-sm flex flex-col min-h-0 bg-white">
-                        <h3 className="text-sm font-bold text-green-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-green-200 pb-2 flex-shrink-0">
-                            ✅ Points Covered
-                        </h3>
-                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
-                            {data.slideAnalysis!.coveredPoints.map((point: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-green-100 shadow-sm shrink-0">
-                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">✓</span>
-                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{point}</p>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="grid grid-cols-2 gap-6 mb-8">
+                        <MetricCard title="Top Strengths" icon={Target} className="bg-emerald-50/30 border-emerald-100">
+                            <ul className="space-y-3">
+                                {interviewEval.topStrengths.map((s: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
+                                        <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">✓</div>
+                                        <span>{s}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </MetricCard>
+                        <MetricCard title="Areas for Improvement" icon={AlertTriangle} className="bg-amber-50/30 border-amber-100">
+                            <ul className="space-y-3">
+                                {interviewEval.topImprovements.map((s: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3 text-sm text-slate-700">
+                                        <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">!</div>
+                                        <span>{s}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </MetricCard>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-4">
+                        {[
+                            { label: "Communication", score: interviewEval.communicationScore, color: "text-blue-600" },
+                            { label: "Technical", score: interviewEval.technicalScore, color: "text-purple-600" },
+                            { label: "Behavioral", score: interviewEval.behavioralScore, color: "text-amber-600" },
+                            { label: "Confidence", score: interviewEval.confidenceScore, color: "text-emerald-600" },
+                        ].map((stat) => (
+                            <div key={stat.label} className="bg-white p-4 rounded-xl border border-slate-200 text-center shadow-sm">
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</div>
+                                <div className={`text-2xl font-bold ${stat.color}`}>{stat.score}</div>
+                            </div>
+                        ))}
                     </div>
                 </PrintablePage>
             )}
+
+            {/* PAGE X: Slide Alignment - Covered Points */}
+            {
+                hasSlideCovered && (
+                    <PrintablePage pageNum={slideCoveredPageNum} totalPages={pageNumTotal}>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <FileText className="w-6 h-6 text-blue-600" /> Slide Alignment
+                        </h2>
+
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                            <div className="flex-1">
+                                <h3 className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Slide Alignment Summary</h3>
+                                <p className="text-slate-700 text-[15px] leading-relaxed italic">
+                                    "{data.slideAnalysis!.feedback}"
+                                </p>
+                            </div>
+                            {data.slideAnalysis!.alignmentScore !== undefined && (
+                                <div className="flex-shrink-0">
+                                    <CircularScoreChart score={data.slideAnalysis!.alignmentScore} label="Alignment" color="text-blue-600" size={120} strokeWidth={10} />
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-green-50/50 shadow-sm flex flex-col min-h-0 bg-white">
+                            <h3 className="text-sm font-bold text-green-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-green-200 pb-2 flex-shrink-0">
+                                ✅ Points Covered
+                            </h3>
+                            <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                                {data.slideAnalysis!.coveredPoints.map((point: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-green-100 shadow-sm shrink-0">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">✓</span>
+                                        <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{point}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </PrintablePage>
+                )
+            }
 
             {/* PAGE Y: Slide Alignment - Missed Points */}
-            {hasSlideMissed && (
-                <PrintablePage pageNum={slideMissedPageNum} totalPages={pageNumTotal}>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
-                        <FileText className="w-6 h-6 text-blue-600" /> Slide Alignment (Continued)
-                    </h2>
+            {
+                hasSlideMissed && (
+                    <PrintablePage pageNum={slideMissedPageNum} totalPages={pageNumTotal}>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <FileText className="w-6 h-6 text-blue-600" /> Slide Alignment (Continued)
+                        </h2>
 
-                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-amber-50/50 shadow-sm flex flex-col min-h-0">
-                        <h3 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-amber-200 pb-2 flex-shrink-0">
-                            ⚠️ Missed Points
-                        </h3>
-                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
-                            {data.slideAnalysis!.missedPoints.map((point: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-amber-100 shadow-sm shrink-0">
-                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-xs">!</span>
-                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{point}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </PrintablePage>
-            )}
+                        <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-amber-50/50 shadow-sm flex flex-col min-h-0">
+                            <h3 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-amber-200 pb-2 flex-shrink-0">
+                                ⚠️ Missed Points
+                            </h3>
+                            <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                                {data.slideAnalysis!.missedPoints.map((point: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-amber-100 shadow-sm shrink-0">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-xs">!</span>
+                                        <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{point}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </PrintablePage>
+                )
+            }
 
             {/* PAGE W: Rubric Evaluation - Strengths */}
-            {hasRubricStrengths && (
-                <PrintablePage pageNum={rubricStrengthsPageNum} totalPages={pageNumTotal}>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
-                        <AlertCircle className="w-6 h-6 text-purple-600" /> Rubric Evaluation
-                    </h2>
+            {
+                hasRubricStrengths && (
+                    <PrintablePage pageNum={rubricStrengthsPageNum} totalPages={pageNumTotal}>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <AlertCircle className="w-6 h-6 text-purple-600" /> Rubric Evaluation
+                        </h2>
 
-                    <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
-                        <div className="flex-1">
-                            <h3 className="text-xs font-bold text-purple-700 uppercase tracking-widest mb-3">Rubric Summary</h3>
-                            <p className="text-slate-700 text-[15px] leading-relaxed italic">
-                                "{data.rubricAnalysis!.feedback}"
-                            </p>
-                        </div>
-                        {data.rubricAnalysis!.rubricScore !== undefined && (
-                            <div className="flex-shrink-0">
-                                <CircularScoreChart score={data.rubricAnalysis!.rubricScore} label="Rubric Score" color="text-purple-600" size={120} strokeWidth={10} />
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 mb-8 flex items-center justify-between gap-8 shadow-sm">
+                            <div className="flex-1">
+                                <h3 className="text-xs font-bold text-purple-700 uppercase tracking-widest mb-3">Rubric Summary</h3>
+                                <p className="text-slate-700 text-[15px] leading-relaxed italic">
+                                    "{data.rubricAnalysis!.feedback}"
+                                </p>
                             </div>
-                        )}
-                    </div>
+                            {data.rubricAnalysis!.rubricScore !== undefined && (
+                                <div className="flex-shrink-0">
+                                    <CircularScoreChart score={data.rubricAnalysis!.rubricScore} label="Rubric Score" color="text-purple-600" size={120} strokeWidth={10} />
+                                </div>
+                            )}
+                        </div>
 
-                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-purple-50/50 shadow-sm flex flex-col min-h-0 bg-white">
-                        <h3 className="text-sm font-bold text-purple-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-purple-200 pb-2 flex-shrink-0">
-                            🌟 Key Strengths
-                        </h3>
-                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
-                            {data.rubricAnalysis!.strengths.map((strength: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-purple-100 shadow-sm shrink-0">
-                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">↑</span>
-                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{strength}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </PrintablePage>
-            )}
+                        <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-purple-50/50 shadow-sm flex flex-col min-h-0 bg-white">
+                            <h3 className="text-sm font-bold text-purple-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-purple-200 pb-2 flex-shrink-0">
+                                🌟 Key Strengths
+                            </h3>
+                            <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                                {data.rubricAnalysis!.strengths.map((strength: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-purple-100 shadow-sm shrink-0">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">↑</span>
+                                        <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{strength}</p>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </PrintablePage>
+                )
+            }
 
             {/* PAGE Z: Rubric Evaluation - Weaknesses */}
-            {hasRubricWeaknesses && (
-                <PrintablePage pageNum={rubricWeaknessesPageNum} totalPages={pageNumTotal}>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
-                        <AlertCircle className="w-6 h-6 text-purple-600" /> Rubric Evaluation (Continued)
-                    </h2>
+            {
+                hasRubricWeaknesses && (
+                    <PrintablePage pageNum={rubricWeaknessesPageNum} totalPages={pageNumTotal}>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6 border-b border-slate-200 pb-2 flex items-center gap-2">
+                            <AlertCircle className="w-6 h-6 text-purple-600" /> Rubric Evaluation (Continued)
+                        </h2>
 
-                    <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-rose-50/50 shadow-sm flex flex-col min-h-0">
-                        <h3 className="text-sm font-bold text-rose-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-rose-200 pb-2 flex-shrink-0">
-                            🎯 Areas to Improve
-                        </h3>
-                        <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
-                            {data.rubricAnalysis!.weaknesses.map((weakness: string, i: number) => (
-                                <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-rose-100 shadow-sm shrink-0">
-                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs">↓</span>
-                                    <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{weakness}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </PrintablePage>
-            )}
-
-            {/* PAGE 8+: Transcript Elements */}
-
-            {transcriptChunks.map((chunk, index) => (
-                <PrintablePage key={`chunk-${index}`} pageNum={transcriptStartPage + index} totalPages={pageNumTotal}>
-                    <div className="flex-1 flex flex-col min-h-0 mb-6">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-                            <Mic className="w-5 h-5 text-slate-500" /> Full Transcript {index > 0 ? "(Continued)" : ""}
-                        </h3>
-                        <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 whitespace-pre-wrap font-serif overflow-hidden">
-                            {chunk ? chunk : <em className="text-slate-400">No transcript available for this session.</em>}
-                        </div>
-                    </div>
-                </PrintablePage>
-            ))}
-
-            {/* PAGE 8+n: AI Content Coach Analysis OR Q&A Breakdown */}
-            {hasQnA ? (
-                qnaChunks.map((chunk, chunkIndex) => (
-                    <PrintablePage key={`qna-${chunkIndex}`} pageNum={analysisOrQnAStartPage + chunkIndex} totalPages={pageNumTotal}>
-                        <div className="mb-6">
-                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-200 pb-3">
-                                <MessageSquareText className="w-5 h-5 text-teal-600" /> Q&A Breakdown {chunkIndex > 0 ? "(Continued)" : ""}
+                        <div className="flex-1 p-6 rounded-2xl border border-slate-200 bg-rose-50/50 shadow-sm flex flex-col min-h-0">
+                            <h3 className="text-sm font-bold text-rose-700 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-rose-200 pb-2 flex-shrink-0">
+                                🎯 Areas to Improve
                             </h3>
-                            <div className="space-y-6">
-                                {chunk.map((qna: any, idx: number) => {
-                                    const questionNum = chunkIndex + 1;
-                                    return (
-                                        <div key={idx} className="bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-sm shrink-0 page-break-inside-avoid">
-                                            <div className="flex items-start justify-between gap-4 mb-4">
-                                                <div>
-                                                    <div className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-1 flex items-center gap-1">
-                                                        <MessageSquareText className="w-3 h-3" /> Question {questionNum}
-                                                    </div>
-                                                    <h4 className="text-sm font-bold text-slate-900 leading-snug">{qna.question}</h4>
-                                                </div>
-                                                <div className="flex flex-col items-center justify-center bg-white rounded-xl border border-slate-200 p-2 min-w-[60px] shadow-sm shrink-0">
-                                                    <span className="text-xl font-bold text-teal-600">{Math.round(qna.relevanceScore)}</span>
-                                                    <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Score</span>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                                                    <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">
-                                                        <Mic className="w-3 h-3" /> Your Answer
-                                                    </div>
-                                                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
-                                                </div>
-                                                <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-sm">
-                                                    <div className="flex items-center gap-2 text-teal-700 text-[10px] font-bold uppercase tracking-widest mb-2">
-                                                        <Sparkles className="w-3 h-3" /> Ideal Answer Concept
-                                                    </div>
-                                                    <p className="text-teal-900 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                                {data.rubricAnalysis!.weaknesses.map((weakness: string, i: number) => (
+                                    <li key={i} className="flex items-start gap-3 p-3 bg-white rounded-xl border border-rose-100 shadow-sm shrink-0">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs">↓</span>
+                                        <p className="text-[14px] text-slate-700 leading-snug pt-0.5">{weakness}</p>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     </PrintablePage>
-                ))
-            ) : (
-                analysisChunks.map((chunk, index) => (
-                    <PrintablePage key={`analysis-${index}`} pageNum={analysisOrQnAStartPage + index} totalPages={pageNumTotal}>
+                )
+            }
+
+
+            {/* PAGE: Breakdown (Interview/Q&A/Coach) (MOVE BEFORE TRANSCRIPT) */}
+            {
+                hasQnA ? (
+                    qnaChunks.map((chunk, chunkIndex) => (
+                        <PrintablePage key={`qna-${chunkIndex}`} pageNum={analysisOrQnAStartPage + chunkIndex} totalPages={pageNumTotal}>
+                            <div className="mb-6">
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                    <MessageSquareText className="w-5 h-5 text-teal-600" /> Q&A Breakdown {chunkIndex > 0 ? "(Continued)" : ""}
+                                </h3>
+                                <div className="space-y-6">
+                                    {chunk.map((qna: any, idx: number) => {
+                                        const questionNum = (chunkIndex) + 1;
+                                        return (
+                                            <div key={idx} className="bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-sm shrink-0 page-break-inside-avoid">
+                                                <div className="flex items-start justify-between gap-4 mb-4">
+                                                    <div>
+                                                        <div className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                            <MessageSquareText className="w-3 h-3" /> Question {questionNum}
+                                                        </div>
+                                                        <h4 className="text-sm font-bold text-slate-900 leading-snug">{qna.question}</h4>
+                                                    </div>
+                                                    <div className="flex flex-col items-center justify-center bg-white rounded-xl border border-slate-200 p-2 min-w-[60px] shadow-sm shrink-0">
+                                                        <span className="text-xl font-bold text-teal-600">{Math.round(qna.relevanceScore)}</span>
+                                                        <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Score</span>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                                                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">
+                                                            <Mic className="w-3 h-3" /> Your Answer
+                                                        </div>
+                                                        <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{qna.userAnswer}</p>
+                                                    </div>
+                                                    <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 shadow-sm">
+                                                        <div className="flex items-center gap-2 text-teal-700 text-[10px] font-bold uppercase tracking-widest mb-2">
+                                                            <Sparkles className="w-3 h-3" /> Ideal Answer Concept
+                                                        </div>
+                                                        <p className="text-teal-900 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </PrintablePage>
+                    ))
+                ) : isInterview ? (
+                    interviewBreakdownChunks.map((chunk, chunkIndex) => (
+                        <PrintablePage key={`interview-q-${chunkIndex}`} pageNum={analysisOrQnAStartPage + chunkIndex} totalPages={pageNumTotal}>
+                            <div className="mb-6">
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                    <FileText className="w-5 h-5 text-green-600" /> Question-by-Question Analysis {chunkIndex > 0 ? "(Continued)" : ""}
+                                </h3>
+                                <div className="space-y-8">
+                                    {chunk.map((ans: any, idx: number) => {
+                                        const questionIndex = (chunkIndex * 2) + idx;
+                                        const isSkipped = ans.wordCount === 0 || ans.answer === "(Skipped)";
+
+                                        return (
+                                            <div key={idx} className={`bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-sm shrink-0 page-break-inside-avoid ${isSkipped ? 'opacity-50' : ''}`}>
+                                                <div className="flex items-start justify-between gap-4 mb-4">
+                                                    <div className="flex-1">
+                                                        <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                            <Target className="w-3 h-3" /> Question {questionIndex + 1}
+                                                        </div>
+                                                        <h4 className="text-sm font-bold text-slate-900 leading-snug">{ans.question}</h4>
+                                                    </div>
+                                                    {!isSkipped && (
+                                                        <div className="text-center bg-white rounded-xl border border-slate-200 px-4 py-2 shadow-sm shrink-0">
+                                                            <div className="text-xl font-bold text-indigo-600 leading-none mb-0.5">{ans.score || ans.relevanceScore || 0}</div>
+                                                            <div className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Score</div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-4">
+                                                        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-inner">
+                                                            <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">
+                                                                <Mic className="w-3 h-3" /> {isSkipped ? "Status" : "Your Answer"}
+                                                            </div>
+                                                            {isSkipped ? (
+                                                                <div className="text-slate-400 italic text-sm">Question Skipped</div>
+                                                            ) : (
+                                                                <p className="text-slate-700 text-sm leading-relaxed italic">"{ans.answer}"</p>
+                                                            )}
+                                                        </div>
+                                                        {!isSkipped && (
+                                                            <div className="flex gap-2">
+                                                                {[
+                                                                    { label: "Rel.", score: ans.relevanceScore },
+                                                                    { label: "Depth", score: ans.depthScore },
+                                                                    { label: "Comm.", score: ans.communicationScore },
+                                                                ].map(s => (
+                                                                    s.score !== undefined && (
+                                                                        <div key={s.label} className="flex-1 text-center py-2 bg-slate-100 rounded-lg border border-slate-200">
+                                                                            <div className="text-xs font-bold text-slate-700">{s.score}</div>
+                                                                            <div className="text-[8px] text-slate-500 uppercase tracking-tighter font-black">{s.label}</div>
+                                                                        </div>
+                                                                    )
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {!isSkipped && (
+                                                        <div className="space-y-4">
+                                                            <div className="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100 shadow-sm">
+                                                                <div className="flex items-center gap-2 text-indigo-700 text-[10px] font-bold uppercase tracking-widest mb-2 border-b border-indigo-100 pb-1">
+                                                                    <Sparkles className="w-3 h-3" /> Ideal Concept
+                                                                </div>
+                                                                <p className="text-indigo-900 text-xs leading-relaxed line-clamp-4">{ans.idealAnswer}</p>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                {ans.strengths && (
+                                                                    <div className="space-y-1">
+                                                                        <span className="text-[9px] font-black text-emerald-600 uppercase flex items-center gap-1">✓ Strengths</span>
+                                                                        <div className="text-[10px] text-slate-600 line-clamp-2">{ans.strengths[0]}</div>
+                                                                    </div>
+                                                                )}
+                                                                {ans.improvements && (
+                                                                    <div className="space-y-1">
+                                                                        <span className="text-[9px] font-black text-amber-600 uppercase flex items-center gap-1">! Improves</span>
+                                                                        <div className="text-[10px] text-slate-600 line-clamp-2">{ans.improvements[0]}</div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {!isSkipped && (
+                                                    <div className="mt-4 pt-3 flex gap-6 text-[10px] text-slate-400 font-bold uppercase tracking-widest border-t border-slate-100">
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock className="w-3 h-3" /> {ans.duration}s
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <BarChart3 className="w-3 h-3" /> {ans.wordCount} words
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Activity className="w-3 h-3" /> {ans.wpm} WPM
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </PrintablePage>
+                    ))
+                ) : (
+                    analysisChunks.map((chunk, index) => (
+                        <PrintablePage key={`analysis-${index}`} pageNum={analysisOrQnAStartPage + index} totalPages={pageNumTotal}>
+                            <div className="flex-1 flex flex-col min-h-0 mb-6">
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+                                    <Activity className="w-5 h-5 text-slate-500" /> AI Content Coach Findings {index > 0 ? "(Continued)" : ""}
+                                </h3>
+                                <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 font-serif overflow-hidden prose prose-base max-w-none break-inside-avoid shadow-inner prose-p:my-5 prose-li:my-2 prose-headings:mb-4 prose-headings:mt-6">
+                                    {chunk ? <ReactMarkdown>{chunk}</ReactMarkdown> : <em className="text-slate-400">Content analysis pending or unavailable.</em>}
+                                </div>
+                            </div>
+                        </PrintablePage>
+                    ))
+                )
+            }
+
+            {/* PAGE 8+: Transcript Elements (NOW AT THE END) */}
+            {
+                transcriptChunks.map((chunk, index) => (
+                    <PrintablePage key={`chunk-${index}`} pageNum={transcriptStartPage + index} totalPages={pageNumTotal}>
                         <div className="flex-1 flex flex-col min-h-0 mb-6">
                             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
-                                <Activity className="w-5 h-5 text-slate-500" /> AI Content Coach Findings {index > 0 ? "(Continued)" : ""}
+                                <Mic className="w-5 h-5 text-slate-500" /> Full Transcript {index > 0 ? "(Continued)" : ""}
                             </h3>
-                            <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 font-serif overflow-hidden prose prose-base max-w-none break-inside-avoid shadow-inner prose-p:my-5 prose-li:my-2 prose-headings:mb-4 prose-headings:mt-6">
-                                {chunk ? <ReactMarkdown>{chunk}</ReactMarkdown> : <em className="text-slate-400">Content analysis pending or unavailable.</em>}
+                            <div className="flex-1 bg-slate-50 rounded-2xl p-8 border border-slate-200 text-base leading-relaxed text-slate-700 whitespace-pre-wrap font-serif overflow-hidden">
+                                {chunk ? chunk : <em className="text-slate-400">No transcript available for this session.</em>}
                             </div>
                         </div>
                     </PrintablePage>
                 ))
-            )}
+            }
         </div>
     );
 }

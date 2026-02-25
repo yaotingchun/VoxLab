@@ -285,7 +285,7 @@ function PracticePageInner() {
                 startAudioAnalysis(stream);
 
                 // Note: startListening now handles its own AudioContext/WebSocket
-                startListening();
+                startListening(stream);
 
                 startSession();
                 setIsStarted(true); // Trigger UI and recording

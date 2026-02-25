@@ -14,6 +14,10 @@ import {
     Loader2,
     AlertTriangle,
     ArrowRight,
+    Eye,
+    EyeOff,
+    Edit2,
+    Trash2,
 } from "lucide-react";
 import { readFileAsText } from "@/hooks/useInterview";
 
@@ -53,6 +57,7 @@ function UploadCard({
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [dragOver, setDragOver] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showText, setShowText] = useState(false);
 
     const handleFile = useCallback(
         async (file: File) => {
@@ -94,6 +99,7 @@ function UploadCard({
         onTextChange("");
         onFileChange(null);
         setError(null);
+        setShowText(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
     }, [onTextChange, onFileChange]);
 
@@ -122,7 +128,7 @@ function UploadCard({
                         <p className="text-xs text-slate-400 mt-0.5">{description}</p>
                     </div>
                 </div>
-                {hasContent && (
+                {hasContent && (!fileName || fileName === "Pasted text") && (
                     <button
                         onClick={clearFile}
                         className="text-slate-500 hover:text-white transition-colors p-1"
@@ -140,22 +146,58 @@ function UploadCard({
             )}
 
             {hasContent ? (
-                <div className="space-y-2">
-                    {fileName && (
-                        <div className="flex items-center gap-2 text-sm">
-                            <Check className="w-4 h-4 text-green-400" />
-                            <span className="text-green-300 font-medium">{fileName}</span>
-                            <span className="text-slate-500 text-xs">
-                                ({text.split(/\s+/).length} words extracted)
-                            </span>
+                <div className="space-y-3">
+                    {fileName && fileName !== "Pasted text" ? (
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between group/file">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-green-500/10 rounded-lg">
+                                    <Check className="w-4 h-4 text-green-400" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-white line-clamp-1">{fileName}</p>
+                                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                                        {text.split(/\s+/).length} words extracted
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setShowText(!showText)}
+                                    className={`p-2 rounded-lg transition-colors ${showText ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                    title={showText ? "Hide Text" : "View/Edit Text"}
+                                >
+                                    {showText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                                <button
+                                    onClick={clearFile}
+                                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Remove File"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
+                    ) : null}
+
+                    {(showText || fileName === "Pasted text") && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="bg-black/20 rounded-xl overflow-hidden"
+                        >
+                            <div className="p-2 flex items-center justify-between border-b border-white/5">
+                                <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold pl-2 flex items-center gap-1">
+                                    <Edit2 className="w-3 h-3" /> Manual Editor
+                                </span>
+                            </div>
+                            <textarea
+                                value={text}
+                                onChange={(e) => onTextChange(e.target.value)}
+                                className="w-full h-32 bg-transparent p-3 text-sm text-slate-300 resize-none focus:outline-none custom-scrollbar"
+                                placeholder="Or paste your text here..."
+                            />
+                        </motion.div>
                     )}
-                    <textarea
-                        value={text}
-                        onChange={(e) => onTextChange(e.target.value)}
-                        className="w-full h-32 bg-black/30 border border-slate-700/50 rounded-xl p-3 text-sm text-slate-300 resize-none focus:outline-none focus:ring-1 focus:ring-purple-500/50 custom-scrollbar"
-                        placeholder="Or paste your text here..."
-                    />
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -168,11 +210,10 @@ function UploadCard({
                         onDragLeave={() => setDragOver(false)}
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
-                        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-                            dragOver
-                                ? "border-purple-400 bg-purple-500/10"
-                                : "border-slate-700 hover:border-slate-500 hover:bg-slate-800/30"
-                        }`}
+                        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${dragOver
+                            ? "border-purple-400 bg-purple-500/10"
+                            : "border-slate-700 hover:border-slate-500 hover:bg-slate-800/30"
+                            }`}
                     >
                         {loading ? (
                             <div className="flex flex-col items-center gap-2">
@@ -255,7 +296,12 @@ export default function InterviewSetup({
     const [jdLoading, setJdLoading] = useState(false);
     const [notesLoading, setNotesLoading] = useState(false);
 
-    const canStart = resumeText.trim().length > 0 && !resumeLoading && !jdLoading && !notesLoading;
+    const canStart =
+        resumeText.trim().length > 0 &&
+        jobDescriptionText.trim().length > 0 &&
+        !resumeLoading &&
+        !jdLoading &&
+        !notesLoading;
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
@@ -303,6 +349,7 @@ export default function InterviewSetup({
                         icon={<Briefcase className="w-5 h-5 text-purple-400" />}
                         title="Job Description"
                         description="The role you're interviewing for"
+                        required
                         accept=".pdf,.txt,.doc,.docx"
                         text={jobDescriptionText}
                         onTextChange={onJdChange}

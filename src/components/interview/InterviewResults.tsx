@@ -167,7 +167,7 @@ function QuestionCard({
                         <span className="text-sm font-bold">{evaluation.score}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">
+                        <p className="text-sm font-medium text-white">
                             Q{index + 1}: {evaluation.question}
                         </p>
                         {answer && answer.answer !== "(Skipped)" ? (
