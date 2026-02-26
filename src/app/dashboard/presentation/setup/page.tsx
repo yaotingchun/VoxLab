@@ -3,24 +3,29 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import PresentationSetup from "@/components/presentation/PresentationSetup";
+import { usePracticeStore } from "@/store/practiceStore";
 
 export default function PresentationSetupPage() {
     const router = useRouter();
+    const setPresentationSlide = usePracticeStore((state) => state.setPresentationSlide);
+    const setPresentationRubric = usePracticeStore((state) => state.setPresentationRubric);
 
     const handleStart = (slideData: { file: File; base64: string }, rubricData?: { file: File; base64: string }) => {
-        // Save to sessionStorage before redirecting
-        sessionStorage.setItem("presentation_slide_b64", slideData.base64);
-        sessionStorage.setItem("presentation_slide_type", slideData.file.type || "application/pdf");
-        sessionStorage.setItem("presentation_slide_name", slideData.file.name || "slides.pdf");
+        // Save to Zustand store before redirecting
+        setPresentationSlide({
+            base64: slideData.base64,
+            type: slideData.file.type || "application/pdf",
+            name: slideData.file.name || "slides.pdf"
+        });
 
         if (rubricData) {
-            sessionStorage.setItem("presentation_rubric_b64", rubricData.base64);
-            sessionStorage.setItem("presentation_rubric_type", rubricData.file.type || "application/pdf");
-            sessionStorage.setItem("presentation_rubric_name", rubricData.file.name || "rubric.pdf");
+            setPresentationRubric({
+                base64: rubricData.base64,
+                type: rubricData.file.type || "application/pdf",
+                name: rubricData.file.name || "rubric.pdf"
+            });
         } else {
-            sessionStorage.removeItem("presentation_rubric_b64");
-            sessionStorage.removeItem("presentation_rubric_type");
-            sessionStorage.removeItem("presentation_rubric_name");
+            setPresentationRubric(null);
         }
 
         router.push("/dashboard/presentation");

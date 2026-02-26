@@ -122,7 +122,7 @@ export function useFaceAnalysis() {
         return maxIndex;
     };
 
-    const endSession = useCallback(() => {
+    const endSession = useCallback((timestampMs?: number) => {
         isSessionActiveRef.current = false;
         return getSnapshot();
     }, [getSnapshot]);

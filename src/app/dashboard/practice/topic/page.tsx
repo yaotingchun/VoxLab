@@ -20,6 +20,7 @@ import {
     FileText as FileIcon
 } from "lucide-react";
 import Link from "next/link";
+import { usePracticeStore } from "@/store/practiceStore";
 
 // Types
 interface Category {
@@ -48,6 +49,8 @@ function TopicSelectionInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [step, setStep] = useState<Step>("mode");
+    const setLectureSlide = usePracticeStore((state) => state.setLectureSlide);
+    const setLectureMaterial = usePracticeStore((state) => state.setLectureMaterial);
 
     // Handle initial mode from query params
     useEffect(() => {
@@ -202,16 +205,18 @@ function TopicSelectionInner() {
                 });
 
                 const base64 = await base64Promise;
-                sessionStorage.setItem("lecture_slide_b64", base64);
-                sessionStorage.setItem("lecture_slide_name", lectureFile.name);
-                sessionStorage.setItem("lecture_slide_type", lectureFile.type);
+                setLectureSlide({
+                    base64,
+                    name: lectureFile.name,
+                    type: lectureFile.type
+                });
             } catch (e) {
                 console.error("Failed to store slide for preview:", e);
                 // Non-blocking for the session itself
             }
 
             // Navigate to practice room with the extracted material
-            sessionStorage.setItem("lecture_material", text);
+            setLectureMaterial(text);
             router.push(`/dashboard/practice?topic=${encodeURIComponent(title || lectureFile.name)}&mode=lecture`);
         } catch (e: any) {
             setError(e.message);
