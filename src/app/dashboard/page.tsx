@@ -223,7 +223,6 @@ export default function DashboardPage() {
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Logo size="lg" />
-                        <span className="text-primary text-xs font-bold bg-primary/10 px-1.5 py-0.5 rounded-md align-top ml-1">v1.2</span>
                     </div>
 
                     <div className="flex items-center gap-4 sm:gap-8">

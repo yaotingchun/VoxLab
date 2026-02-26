@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { AbstractMic } from "@/components/ui/abstract-mic";
 import { Logo } from "@/components/ui/logo";
-import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight, Briefcase, Layout, BookOpen, Play, Phone } from "lucide-react";
+import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight, Briefcase, Layout, BookOpen, Play, Phone, Home as HomeIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { SignOutModal } from "@/components/auth/SignOutModal";
@@ -15,8 +15,14 @@ import { UserProfile } from "@/components/ui/UserProfile";
 export default function Home() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router]);
 
   const handleStartTraining = () => {
     if (user) {
@@ -45,6 +51,14 @@ export default function Home() {
         </div>
         {user ? (
           <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push('/dashboard')}
+              className="text-white/70 hover:text-primary hover:bg-primary/10 transition-all rounded-full hidden sm:flex"
+            >
+              <HomeIcon className="w-5 h-5" />
+            </Button>
             <div className="hidden sm:block">
               <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />
             </div>

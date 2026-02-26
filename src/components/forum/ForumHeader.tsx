@@ -64,32 +64,39 @@ export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearch
                 </div>
 
                 {/* Right: Navigation & Profile */}
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => router.push('/dashboard/mode')}
-                        className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group text-sm font-medium"
-                    >
-                        Mode
-                    </button>
-                    <button
-                        onClick={() => router.push('/forum')}
-                        className="text-white hover:text-primary transition-all flex items-center gap-2 text-sm font-medium"
-                    >
-                        Forum
-                    </button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.push('/dashboard')}
-                        className="text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-xl"
-                        title="Dashboard"
-                    >
-                        <Home className="w-5 h-5" />
-                    </Button>
+                <div className="flex items-center gap-4 sm:gap-8">
+                    <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
+                        <button
+                            onClick={() => router.push('/dashboard/mode')}
+                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
+                        >
+                            Mode
+                        </button>
+                        <button
+                            onClick={() => router.push('/forum')}
+                            className="text-white hover:text-white transition-all flex items-center gap-2"
+                        >
+                            Forum
+                        </button>
+                    </nav>
 
-                    <NotificationDropdown />
+                    <div className="h-8 w-px bg-white/10" />
 
-                    {user && <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />}
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push('/dashboard')}
+                            className="text-slate-400 hover:text-white transition-all rounded-xl"
+                            title="Dashboard"
+                        >
+                            <Home className="w-5 h-5" />
+                        </Button>
+
+                        <NotificationDropdown />
+
+                        {user && <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />}
+                    </div>
                 </div>
             </div>
         </header>
