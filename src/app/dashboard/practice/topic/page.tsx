@@ -17,9 +17,15 @@ import {
     UploadCloud,
     BookOpen,
     Upload,
-    FileText as FileIcon
+    Mic,
+    FileText as FileIcon,
+    Home
 } from "lucide-react";
 import Link from "next/link";
+import { Logo } from "@/components/ui/logo";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Types
 interface Category {
@@ -36,7 +42,7 @@ interface Topic {
     emoji?: string;
 }
 
-type Step = "mode" | "custom" | "ai-menu" | "categories" | "topics" | "random" | "lecture";
+type Step = "mode" | "live-menu" | "custom" | "ai-menu" | "categories" | "topics" | "random" | "lecture";
 
 const difficultyColors: Record<string, string> = {
     beginner: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
@@ -47,6 +53,7 @@ const difficultyColors: Record<string, string> = {
 function TopicSelectionInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user } = useAuth();
     const [step, setStep] = useState<Step>("mode");
 
     // Handle initial mode from query params
@@ -132,7 +139,7 @@ function TopicSelectionInner() {
     }, []);
 
     const handleBack = () => {
-        if (step === "custom" || step === "ai-menu" || step === "lecture") setStep("mode");
+        if (step === "custom" || step === "ai-menu" || step === "lecture" || step === "live-menu") setStep("mode");
         else if (step === "categories") setStep("ai-menu");
         else if (step === "topics") setStep("categories");
         else if (step === "random") setStep("ai-menu");
@@ -232,30 +239,39 @@ function TopicSelectionInner() {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
-            {/* Ambient background */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[160px]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[160px]" />
-            </div>
+        <div className="min-h-screen bg-transparent text-white selection:bg-primary/30 relative">
 
             {/* Header */}
-            <header className="relative z-10 flex items-center justify-between px-6 py-4">
-                {(step === "mode" || (step === "lecture" && searchParams.get("mode") === "lecture")) ? (
-                    <Link href="/dashboard" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.back()}
+                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                        title="Go Back"
+                    >
                         <ArrowLeft className="w-5 h-5" />
-                        <span className="font-medium">Dashboard</span>
-                    </Link>
-                ) : (
-                    <button onClick={handleBack} className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
-                        <ArrowLeft className="w-5 h-5" />
-                        <span className="font-medium">Back</span>
-                    </button>
-                )}
+                    </Button>
+                    <Logo size="sm" className="opacity-80" />
+                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">
+                        {searchParams.get("mode") === "lecture" ? "Lecture Lab" : "Practice Mode"}
+                    </span>
+                </div>
 
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                    <Sparkles className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-semibold tracking-wide">Choose Your Topic</span>
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.push('/dashboard')}
+                        className="text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-xl"
+                        title="Dashboard"
+                    >
+                        <Home className="w-5 h-5" />
+                    </Button>
+                    <NotificationDropdown />
+                    {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
                 </div>
             </header>
 
@@ -271,8 +287,8 @@ function TopicSelectionInner() {
                             exit={{ opacity: 0 }}
                             className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm"
                         >
-                            <Loader2 className="w-10 h-10 text-purple-400 animate-spin mb-4" />
-                            <p className="text-purple-300 font-medium animate-pulse">Generating with AI...</p>
+                            <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+                            <p className="text-primary/70 font-medium animate-pulse">Generating with AI...</p>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -293,30 +309,65 @@ function TopicSelectionInner() {
                                 <p className="text-white/50 max-w-md mx-auto">Choose your own topic or let AI surprise you with something interesting.</p>
                             </motion.div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 {/* Upload Video */}
+                                <motion.div
+                                    variants={item}
+                                    whileHover={{ scale: 1.02 }}
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2rem] border border-orange-500/20 bg-[#161616] cursor-not-allowed overflow-hidden shadow-2xl shadow-orange-500/5 ring-1 ring-orange-500/10"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                                    <div className="relative z-10 space-y-6">
+                                        <div className="w-16 h-16 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 group-hover:bg-orange-500/20 transition-all duration-300 shadow-inner">
+                                            <UploadCloud className="w-8 h-8 text-orange-400 group-hover:scale-110 transition-transform duration-300" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-bold mb-2 text-white">Upload Video</h3>
+                                            <p className="text-sm text-white/50 leading-relaxed font-medium">Upload a pre-recorded video for AI analysis and coaching.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-base text-orange-400 font-bold group-hover:text-orange-300 transition-colors mt-auto pt-6">
+                                        Select file <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </motion.div>
+
+                                {/* Practice Live Session */}
                                 <motion.button
                                     variants={item}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
-                                    onClick={() => router.push("/dashboard/practice/upload")}
-                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-orange-500/30 hover:bg-orange-500/[0.05] overflow-hidden"
+                                    onClick={() => setStep("live-menu")}
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2rem] border border-white/5 bg-[#161616] text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-white/5"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative space-y-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 group-hover:bg-orange-500/20 transition-colors">
-                                            <UploadCloud className="w-7 h-7 text-orange-400" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                                    <div className="relative z-10 space-y-6">
+                                        <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20 transition-all duration-300 shadow-inner">
+                                            <Mic className="w-8 h-8 text-purple-400 group-hover:scale-110 transition-transform duration-300" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold mb-1">Upload Video</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Upload a pre-recorded video for AI analysis and coaching.</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-orange-400 font-medium">
-                                            Select file <ChevronRight className="w-3 h-3" />
+                                            <h3 className="text-2xl font-bold mb-2">Live Session</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed">Choose a topic and start a real-time practice session with AI coaching.</p>
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-2 text-base text-purple-400 font-bold group-hover:text-purple-300 transition-colors mt-auto pt-6">
+                                        Enter room <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </div>
                                 </motion.button>
+                            </div>
+                        </motion.div>
+                    )}
 
+                    {/* ========== LIVE MENU ========== */}
+                    {step === "live-menu" && (
+                        <motion.div key="live-menu" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-2xl space-y-8">
+                            <motion.div variants={item} className="text-center space-y-2">
+                                <h2 className="text-2xl font-bold">Select Topic Mode</h2>
+                                <p className="text-white/40 text-sm">Pick how you want to decide your practice topic.</p>
+                            </motion.div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {/* Custom Topic */}
                                 <motion.button
                                     variants={item}
@@ -332,10 +383,7 @@ function TopicSelectionInner() {
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-semibold mb-1">Custom Topic</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Enter your own topic or speech subject to practice with.</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-blue-400 font-medium">
-                                            Choose topic <ChevronRight className="w-3 h-3" />
+                                            <p className="text-sm text-white/40 leading-relaxed">Enter your own topic or speech subject.</p>
                                         </div>
                                     </div>
                                 </motion.button>
@@ -355,10 +403,7 @@ function TopicSelectionInner() {
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-semibold mb-1">AI Generated</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Let AI generate a topic — browse categories or get a random one.</p>
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-purple-400 font-medium">
-                                            Explore options <ChevronRight className="w-3 h-3" />
+                                            <p className="text-sm text-white/40 leading-relaxed">Explore categories or get a random topic.</p>
                                         </div>
                                     </div>
                                 </motion.button>
@@ -386,7 +431,7 @@ function TopicSelectionInner() {
                                     size="lg"
                                     disabled={!customTopic.trim()}
                                     onClick={() => goToPractice(customTopic.trim())}
-                                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/20 hover:shadow-purple-900/30 transition-all disabled:opacity-30"
+                                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 text-white font-bold shadow-xl shadow-purple-500/30 hover:shadow-purple-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-80 disabled:from-blue-500/30 disabled:to-purple-500/30 disabled:border disabled:border-white/10 disabled:backdrop-blur-md disabled:shadow-none disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     Start Practice
                                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -565,7 +610,7 @@ function TopicSelectionInner() {
                             <motion.div variants={item} className="space-y-4">
                                 <div
                                     className={`relative group h-48 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-4 cursor-pointer
-                                        ${lectureFile ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-white/10 hover:border-primary/50 hover:bg-white/[0.02]'}`}
+                                        ${lectureFile ? 'border-primary/50 bg-primary/5' : 'border-white/10 hover:border-primary/50 hover:bg-white/[0.02]'}`}
                                     onClick={() => document.getElementById('file-upload')?.click()}
                                 >
                                     <input
@@ -582,7 +627,7 @@ function TopicSelectionInner() {
                                                 <FileIcon className="w-6 h-6 text-emerald-400" />
                                             </div>
                                             <div className="text-center">
-                                                <p className="font-medium text-emerald-400">{lectureFile.name}</p>
+                                                <p className="font-medium text-primary">{lectureFile.name}</p>
                                                 <p className="text-xs text-white/40">{(lectureFile.size / 1024 / 1024).toFixed(2)} MB • Ready to analyze</p>
                                             </div>
                                             <button
@@ -598,7 +643,7 @@ function TopicSelectionInner() {
                                     ) : (
                                         <>
                                             <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-primary/20 group-hover:scale-110 transition-all">
-                                                <Upload className="w-6 h-6 text-white/40 group-hover:text-primary transition-colors" />
+                                                <UploadCloud className="w-6 h-6 text-white/40 group-hover:text-primary transition-colors" />
                                             </div>
                                             <div className="text-center">
                                                 <p className="font-medium text-white/70">Click or drag to upload</p>
@@ -612,7 +657,7 @@ function TopicSelectionInner() {
                                     size="lg"
                                     disabled={!lectureFile || extractingText}
                                     onClick={startLecturePractice}
-                                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-emerald-600 to-primary hover:from-emerald-500 hover:to-primary/80 shadow-xl shadow-primary/20 hover:shadow-primary/30 transition-all disabled:opacity-30"
+                                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 text-white font-bold shadow-xl shadow-purple-500/30 hover:shadow-purple-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-80 disabled:from-blue-500/30 disabled:to-purple-500/30 disabled:border disabled:border-white/10 disabled:backdrop-blur-md disabled:shadow-none disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     {extractingText ? (
                                         <>

@@ -15,12 +15,15 @@ import {
     Mail, Calendar, Clock, TrendingUp, Award, LogOut, Mic,
     Users, UserCheck, X, Flame, Trophy, History as HistoryIcon, Star, UserPlus, EyeOff, Video,
     MessageSquare, FileText, ThumbsUp, Eye, CornerDownRight, Pencil, Search, Target,
-    BookOpen, Presentation as PresentationIcon
+    BookOpen, Presentation as PresentationIcon, Home, ArrowLeft
 } from "lucide-react";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { UserSearchModal } from "@/components/profile/UserSearchModal";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { Logo } from "@/components/ui/logo";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { getRecentSessions } from "@/lib/sessions";
@@ -333,7 +336,43 @@ function ProfileContent() {
             {showEditModal && firestoreProfile && <EditProfileModal profile={firestoreProfile} onClose={() => setShowEditModal(false)} />}
             {showSearchModal && <UserSearchModal onClose={() => setShowSearchModal(false)} />}
 
-            <div className="min-h-screen bg-background p-6 md:p-10">
+            <header className="relative z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
+                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.back()}
+                            className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                            title="Go Back"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </Button>
+                        <Logo size="sm" className="opacity-80" />
+                        <div className="h-4 w-[1px] bg-white/10" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Profile</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => router.push('/dashboard/mode')}
+                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group text-sm font-medium"
+                        >
+                            Mode
+                        </button>
+                        <button
+                            onClick={() => router.push('/forum')}
+                            className="text-white flex items-center gap-2 text-sm font-medium"
+                        >
+                            Forum
+                        </button>
+                        <NotificationDropdown />
+                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                    </div>
+                </div>
+            </header>
+
+            <div className="min-h-screen bg-transparent p-6 md:p-10">
                 <div className="max-w-5xl mx-auto space-y-6">
 
                     {/* Header */}
@@ -349,7 +388,6 @@ function ProfileContent() {
                             <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)} className="gap-2">
                                 <Pencil className="w-4 h-4" />Edit Profile
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
                         </div>
                     </div>
 

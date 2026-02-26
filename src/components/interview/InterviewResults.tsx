@@ -361,7 +361,12 @@ export default function InterviewResults({
     };
 
     return (
-        <div className="min-h-screen bg-black text-white p-6">
+        <div className="min-h-screen bg-[#020202] text-white p-6 relative">
+            {/* Ambient background */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+            </div>
             <div className="max-w-3xl mx-auto space-y-8 pb-12">
                 {/* Header */}
                 <motion.div
@@ -526,7 +531,7 @@ export default function InterviewResults({
                     <Button
                         size="lg"
                         onClick={onReset}
-                        className="rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500"
+                        className="rounded-xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 shadow-lg shadow-primary/20 transition-all"
                     >
                         <ArrowLeft className="w-4 h-4 mr-2" />
                         New Interview

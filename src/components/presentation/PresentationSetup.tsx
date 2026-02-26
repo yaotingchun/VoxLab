@@ -5,10 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
     FileText,
-    Upload,
+    UploadCloud,
     X,
     Check,
-    Sparkles,
     Loader2,
     AlertTriangle,
     ArrowRight,
@@ -172,11 +171,11 @@ function UploadCard({
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-2">
-                                <Upload className="w-6 h-6 text-slate-500" />
-                                <span className="text-xs text-slate-400">
+                                <UploadCloud className="w-6 h-6 text-slate-500 group-hover:text-primary transition-colors" />
+                                <span className="text-xs text-slate-400 group-hover:text-slate-300">
                                     Drop file here or click to upload
                                 </span>
-                                <span className="text-[10px] text-slate-600">PDF, PPT, PPTX</span>
+                                <span className="text-[10px] text-slate-600">PDF ONLY</span>
                             </div>
                         )}
                     </div>
@@ -215,7 +214,7 @@ export default function PresentationSetup({ onStart }: PresentationSetupProps) {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
+        <div className="flex flex-col items-center justify-center min-h-[90vh] bg-transparent text-white p-6 relative z-10">
             <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -241,9 +240,9 @@ export default function PresentationSetup({ onStart }: PresentationSetupProps) {
                     <UploadCard
                         icon={<FileText className="w-5 h-5 text-blue-400" />}
                         title="Presentation Slides"
-                        description="PDF, PPT, or PPTX format"
+                        description="PDF format only"
                         required
-                        accept=".pdf,.ppt,.pptx"
+                        accept=".pdf"
                         fileName={slideState.file?.name || null}
                         onFileSelect={(file, base64) => setSlideState({ file, base64 })}
                         accentColor="text-blue-400"
@@ -298,10 +297,9 @@ export default function PresentationSetup({ onStart }: PresentationSetupProps) {
                     size="lg"
                     disabled={!canStart || isProcessing}
                     onClick={handleStart}
-                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:scale-[1.01] mt-4"
+                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 text-white font-bold shadow-xl shadow-purple-500/30 hover:shadow-purple-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] mt-4 disabled:opacity-80 disabled:from-blue-500/30 disabled:to-purple-500/30 disabled:border disabled:border-white/10 disabled:backdrop-blur-md disabled:shadow-none disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                    <span className="flex items-center gap-3">
-                        <Sparkles className="w-5 h-5" />
+                    <span className="flex items-center gap-2 font-semibold">
                         Enter Practice Room
                         <ArrowRight className="w-4 h-4" />
                     </span>

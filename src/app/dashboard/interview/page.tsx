@@ -7,9 +7,13 @@ import { useInterview } from "@/hooks/useInterview";
 import InterviewSetup from "@/components/interview/InterviewSetup";
 import InterviewSession from "@/components/interview/InterviewSession";
 import InterviewResults from "@/components/interview/InterviewResults";
-import { Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
+import { Loader2, ArrowLeft, AlertTriangle, Home } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { Logo } from "@/components/ui/logo";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { Button } from "@/components/ui/button";
+import { UserProfile } from "@/components/ui/UserProfile";
 
 export default function InterviewPage() {
     const { user, loading } = useAuth();
@@ -62,17 +66,52 @@ export default function InterviewPage() {
     // ── Setup Phase ──────────────────────────────────────────────────────────
     if (phase === "setup") {
         return (
-            <div className="relative">
-                {/* Back Button */}
-                <div className="fixed top-6 left-6 z-50">
-                    <Link
-                        href="/dashboard"
-                        className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-sm"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Dashboard
-                    </Link>
-                </div>
+            <div className="relative min-h-screen bg-transparent text-white">
+
+                {/* Header */}
+                <header className="relative z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
+                    <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => router.back()}
+                                className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                                title="Go Back"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                            </Button>
+                            <Logo size="sm" className="opacity-80" />
+                            <div className="h-4 w-[1px] bg-white/10" />
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Interview</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => router.push('/dashboard/mode')}
+                                className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 text-sm font-medium"
+                            >
+                                Mode
+                            </button>
+                            <button
+                                onClick={() => router.push('/forum')}
+                                className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 text-sm font-medium"
+                            >
+                                Forum
+                            </button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => router.push('/dashboard')}
+                                className="text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-xl"
+                                title="Dashboard"
+                            >
+                                <Home className="w-5 h-5" />
+                            </Button>
+                            <NotificationDropdown />
+                            {user && <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />}
+                        </div>
+                    </div>
+                </header>
 
                 <InterviewSetup
                     resumeText={resumeText}
@@ -92,21 +131,22 @@ export default function InterviewPage() {
     // ── Generating Phase ─────────────────────────────────────────────────────
     if (phase === "generating") {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white gap-6">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white gap-6 relative overflow-hidden">
+
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center space-y-4"
+                    className="relative z-10 text-center space-y-4"
                 >
                     <div className="relative">
-                        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                        <div className="absolute inset-0 w-16 h-16 border-4 border-blue-500/20 rounded-full mx-auto" />
+                        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                        <div className="absolute inset-0 w-16 h-16 border-4 border-primary/20 rounded-full mx-auto" />
                     </div>
                     <div className="space-y-2">
-                        <p className="text-lg font-semibold text-purple-300 animate-pulse">
+                        <p className="text-xl font-bold tracking-tight text-white animate-pulse">
                             Preparing Your Interview
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-400">
                             Analyzing your resume and generating tailored questions...
                         </p>
                     </div>
@@ -159,12 +199,13 @@ export default function InterviewPage() {
     // ── Evaluating Phase ─────────────────────────────────────────────────────
     if (phase === "evaluating") {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white gap-6">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white gap-6 relative overflow-hidden">
+
                 {error && (
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="fixed top-10 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-xl text-sm flex items-center gap-2 backdrop-blur-xl"
+                        className="fixed top-10 z-20 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2 rounded-xl text-sm flex items-center gap-2 backdrop-blur-xl"
                     >
                         <AlertTriangle className="w-4 h-4" />
                         {error}
@@ -173,16 +214,16 @@ export default function InterviewPage() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="text-center space-y-4"
+                    className="relative z-10 text-center space-y-4"
                 >
                     <div className="relative">
-                        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                     </div>
                     <div className="space-y-2">
-                        <p className="text-lg font-semibold text-blue-300 animate-pulse">
+                        <p className="text-xl font-bold tracking-tight text-white animate-pulse">
                             Analyzing Your Performance
                         </p>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-400">
                             AI is evaluating your answers, communication, and interview skills...
                         </p>
                     </div>

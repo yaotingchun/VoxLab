@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, UploadCloud, FileVideo, X, Loader2, PlayCircle } from "lucide-react";
+import { ArrowLeft, UploadCloud, FileVideo, X, Loader2, PlayCircle, Home } from "lucide-react";
 import Link from "next/link";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { useRef, useEffect } from "react";
@@ -312,8 +312,8 @@ export default function UploadPracticePage() {
 
             const finalizeAnalysis = () => {
                 const finalVideoTimestamp = Math.round(baseTimestamp + (video.duration * 1000));
-                const finalPostureSession = endPostureSession(finalVideoTimestamp);
-                const finalFaceSession = endFaceSession(finalVideoTimestamp);
+                const finalPostureSession = endPostureSession();
+                const finalFaceSession = endFaceSession();
 
                 const issues = Object.keys(finalPostureSession.issueCounts);
                 const summaryText = issues.length === 0
@@ -335,8 +335,7 @@ export default function UploadPracticePage() {
                         summary: summaryText,
                         tips: tips.slice(0, 3),
                         score: Math.round(finalPostureSession.averageScore || 0),
-                        issueCounts: finalPostureSession.issueCounts,
-                        gestureEnergy: finalPostureSession.gestureEnergy
+                        issueCounts: finalPostureSession.issueCounts
                     },
                     face: finalFaceSession
                 });
@@ -597,24 +596,35 @@ export default function UploadPracticePage() {
     const reportData = getReportData();
 
     return (
-        <div className="flex flex-col min-h-screen bg-black text-white p-4 gap-6">
+        <div className="flex flex-col min-h-screen bg-[#020202] text-white p-4 gap-6 relative overflow-hidden">
             <video ref={hiddenVideoRef} style={{ position: 'fixed', left: '-9999px', width: '640px', height: '480px', opacity: 0 }} playsInline crossOrigin="anonymous" />
 
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-                <div className="absolute top-[0%] left-[-10%] w-[50%] h-[50%] bg-orange-600/10 rounded-full blur-[150px]" />
-                <div className="absolute bottom-[0%] right-[10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[150px]" />
+                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[150px] animate-pulse" />
+                <div className="absolute bottom-[0%] right-[10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[150px] animate-pulse-slow" />
             </div>
 
             {/* Header */}
             <header className="relative z-10 flex items-center justify-between px-2 pt-2">
-                <Link href="/dashboard/practice/topic" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
-                    <ArrowLeft className="w-5 h-5" />
-                    <span className="font-medium">Change Mode</span>
-                </Link>
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard/practice/topic" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
+                        <ArrowLeft className="w-5 h-5" />
+                        <span className="font-medium">Change Mode</span>
+                    </Link>
+                    <div className="h-4 w-[1px] bg-white/10" />
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.push('/dashboard')}
+                        className="h-8 w-8 text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-lg"
+                    >
+                        <Home className="w-4 h-4" />
+                    </Button>
+                </div>
 
                 <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                    <UploadCloud className="w-4 h-4 text-orange-400" />
+                    <UploadCloud className="w-4 h-4 text-primary" />
                     <span className="text-sm font-semibold tracking-wide">Video Analysis</span>
                 </div>
             </header>
@@ -642,13 +652,13 @@ export default function UploadPracticePage() {
                                 {...getRootProps()}
                                 className={`
                                     relative border-2 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all duration-300 overflow-hidden
-                                    ${isDragActive ? "border-orange-500 bg-orange-500/10" : "border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10"}
+                                    ${isDragActive ? "border-primary bg-primary/10" : "border-white/20 bg-white/5 hover:border-white/40 hover:bg-white/10"}
                                 `}
                             >
                                 <input {...getInputProps()} />
                                 <div className="flex flex-col items-center justify-center space-y-4">
-                                    <div className={`p-4 rounded-full ${isDragActive ? "bg-orange-500/20" : "bg-white/5"}`}>
-                                        <UploadCloud className={`w-10 h-10 ${isDragActive ? "text-orange-400" : "text-white/50"}`} />
+                                    <div className={`p-4 rounded-full ${isDragActive ? "bg-primary/20" : "bg-white/5"}`}>
+                                        <UploadCloud className={`w-10 h-10 ${isDragActive ? "text-primary" : "text-white/50"}`} />
                                     </div>
                                     <div>
                                         <p className="text-lg font-medium text-white mb-1">
@@ -675,8 +685,8 @@ export default function UploadPracticePage() {
                             <div className="mt-8 pt-8 border-t border-white/5 space-y-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                                            <FileText className="w-4 h-4 text-orange-400" />
+                                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                                            <FileText className="w-4 h-4 text-primary" />
                                         </div>
                                         <h3 className="text-lg font-bold text-white">Target Rubric</h3>
                                         <span className="text-[10px] text-white/30 font-bold uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded">Optional</span>
@@ -696,12 +706,12 @@ export default function UploadPracticePage() {
                                         {...getRubricRootProps()}
                                         className={`
                                             relative border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-300
-                                            ${isRubricDragActive ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"}
+                                            ${isRubricDragActive ? "border-primary bg-primary/10" : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"}
                                         `}
                                     >
                                         <input {...getRubricInputProps()} />
                                         <div className="flex flex-col items-center justify-center space-y-2">
-                                            <FileText className={`w-8 h-8 ${isRubricDragActive ? "text-orange-400" : "text-white/20"}`} />
+                                            <FileText className={`w-8 h-8 ${isRubricDragActive ? "text-primary" : "text-white/20"}`} />
                                             <div>
                                                 <p className="text-sm font-medium text-white">
                                                     {isRubricDragActive ? "Drop PDF here" : "Drag & drop PDF rubric"}
@@ -711,19 +721,19 @@ export default function UploadPracticePage() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-5 flex items-center justify-between animate-in zoom-in-95 duration-200">
+                                    <div className="bg-primary/10 border border-primary/20 rounded-2xl p-5 flex items-center justify-between animate-in zoom-in-95 duration-200">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center border border-orange-500/30">
-                                                <FileText className="w-5 h-5 text-orange-400" />
+                                            <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30">
+                                                <FileText className="w-5 h-5 text-primary" />
                                             </div>
                                             <div>
                                                 <p className="text-sm font-semibold text-white">{rubricFile.name}</p>
-                                                <p className="text-xs text-orange-400/60 font-medium">
+                                                <p className="text-xs text-primary/60 font-medium">
                                                     {isParsingRubric ? "Scanning criteria..." : "Criteria extracted & ready"}
                                                 </p>
                                             </div>
                                         </div>
-                                        {isParsingRubric && <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />}
+                                        {isParsingRubric && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
                                     </div>
                                 )}
                             </div>
@@ -763,7 +773,7 @@ export default function UploadPracticePage() {
                                 <div className="mt-6 border-t border-white/5 pt-6">
                                     <div className="flex items-center justify-between mb-3">
                                         <h4 className="text-sm font-semibold text-white/70 flex items-center gap-2">
-                                            <FileText className="w-4 h-4 text-orange-400" />
+                                            <FileText className="w-4 h-4 text-primary" />
                                             Target Rubric (Optional)
                                         </h4>
                                         {rubricFile && (
@@ -781,7 +791,7 @@ export default function UploadPracticePage() {
                                             {...getRubricRootProps()}
                                             className={`
                                                 relative border border-dashed rounded-2xl p-4 text-center cursor-pointer transition-all duration-300
-                                                ${isRubricDragActive ? "border-orange-500 bg-orange-500/10" : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"}
+                                                ${isRubricDragActive ? "border-primary bg-primary/10" : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"}
                                             `}
                                         >
                                             <input {...getRubricInputProps()} />
@@ -791,19 +801,19 @@ export default function UploadPracticePage() {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="bg-orange-500/5 border border-orange-500/10 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
+                                        <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top-2 duration-300">
                                             <div className="flex items-center gap-3 overflow-hidden">
-                                                <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center border border-orange-500/30">
-                                                    <FileText className="w-4 h-4 text-orange-400" />
+                                                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
+                                                    <FileText className="w-4 h-4 text-primary" />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium text-white truncate pr-2">{rubricFile.name}</p>
-                                                    <p className="text-[10px] text-orange-400/60 font-medium">
+                                                    <p className="text-xs font-medium text-white truncate pr-2">{rubricFile?.name}</p>
+                                                    <p className="text-[10px] text-primary/60 font-medium">
                                                         {isParsingRubric ? "Scanning criteria..." : "Criteria analyzed"}
                                                     </p>
                                                 </div>
                                             </div>
-                                            {isParsingRubric && <Loader2 className="w-3 h-3 text-orange-400 animate-spin" />}
+                                            {isParsingRubric && <Loader2 className="w-3 h-3 text-primary animate-spin" />}
                                         </div>
                                     )}
                                 </div>
@@ -812,7 +822,7 @@ export default function UploadPracticePage() {
                                     <Button
                                         onClick={handleAnalyze}
                                         disabled={isParsingRubric}
-                                        className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 shadow-xl shadow-orange-900/20 hover:scale-[1.02] disabled:opacity-50 disabled:scale-100 transition-all font-bold"
+                                        className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 shadow-xl shadow-primary/20 hover:scale-[1.02] disabled:opacity-50 disabled:scale-100 transition-all font-bold"
                                     >
                                         {isParsingRubric ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <PlayCircle className="w-5 h-5 mr-2" />}
                                         Start Deep Analysis
@@ -833,9 +843,9 @@ export default function UploadPracticePage() {
                             className="w-full max-w-md text-center space-y-6"
                         >
                             <div className="relative w-32 h-32 mx-auto">
-                                <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-xl animate-pulse" />
+                                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
                                 <div className="relative bg-black border border-white/10 w-full h-full rounded-full flex items-center justify-center shadow-2xl">
-                                    <span className="text-3xl font-bold text-orange-400">{analysisProgress}%</span>
+                                    <span className="text-3xl font-bold text-primary">{analysisProgress}%</span>
                                 </div>
                             </div>
                             <div>
@@ -851,33 +861,35 @@ export default function UploadPracticePage() {
                                     initial={{ width: "0%" }}
                                     animate={{ width: `${analysisProgress}%` }}
                                     transition={{ duration: 0.3, ease: "easeOut" }}
-                                    className="h-full bg-gradient-to-r from-orange-500 to-purple-500 rounded-full"
+                                    className="h-full bg-gradient-to-r from-primary to-secondary rounded-full"
                                 />
                             </div>
                         </motion.div>
                     )}
 
                 </AnimatePresence>
-            </main>
+            </main >
 
             {/* State 4: Detailed Session Report Modal */}
             <AnimatePresence>
-                {reportData && !isAnalyzing && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-lg p-4 overflow-y-auto"
-                    >
-                        <div className="w-full max-w-4xl my-auto flex justify-center pt-10 pb-10">
-                            <DetailedSessionReport
-                                data={reportData as any}
-                                onClose={resetState}
-                            />
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+                {
+                    reportData && !isAnalyzing && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-lg p-4 overflow-y-auto"
+                        >
+                            <div className="w-full max-w-4xl my-auto flex justify-center pt-10 pb-10">
+                                <DetailedSessionReport
+                                    data={reportData as any}
+                                    onClose={resetState}
+                                />
+                            </div>
+                        </motion.div>
+                    )
+                }
+            </AnimatePresence >
+        </div >
     );
 }

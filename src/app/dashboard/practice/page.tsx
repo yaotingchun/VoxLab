@@ -11,9 +11,9 @@ import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 import { UnifiedFeedbackPanel } from "@/components/analysis/UnifiedFeedbackPanel";
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText, FileText, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText, FileText, Maximize2, Minimize2, Home } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { analyzeSession } from "@/app/actions/analyzeSession";
@@ -24,9 +24,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { getUserStreak, getLocalDateString } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { Logo } from "@/components/ui/logo";
 
 function PracticePageInner() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const topic = searchParams.get("topic");
 
     const {
@@ -379,27 +383,42 @@ function PracticePageInner() {
 
 
     return (
-        <div className="flex flex-col h-screen bg-black text-white overflow-hidden p-4 gap-4">
+        <div className="flex flex-col h-screen bg-transparent text-white overflow-hidden p-4 gap-4 relative">
             {/* Header */}
-            <header className="flex items-center justify-between px-2">
-                <Link href="/dashboard/practice/topic" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
-                    <ArrowLeft className="w-5 h-5" />
-                    <span className="font-medium">Change Topic</span>
-                </Link>
+            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.back()}
+                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                        title="Go Back"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <Logo size="sm" className="opacity-80" />
+                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Session Recording</span>
+                </div>
 
-                <div className="flex items-center gap-2">
-                    {topic && (
-                        <div className="flex items-center gap-2 bg-purple-500/10 px-4 py-1.5 rounded-full border border-purple-500/20 max-w-xs">
-                            <MessageSquareText className="w-4 h-4 text-purple-400 shrink-0" />
-                            <span className="text-sm font-medium text-purple-300 truncate">{topic}</span>
-                        </div>
-                    )}
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.push('/dashboard')}
+                        className="text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-xl"
+                        title="Dashboard"
+                    >
+                        <Home className="w-5 h-5" />
+                    </Button>
+                    <NotificationDropdown />
                     <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <Sparkles className="w-4 h-4 text-primary" />
                         <span className="text-sm font-semibold tracking-wide">
                             {searchParams.get("mode") === "lecture" ? "AI Lecture Mode" : "AI Practice Mode"}
                         </span>
                     </div>
+                    {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
                 </div>
             </header>
 
@@ -560,7 +579,7 @@ function PracticePageInner() {
                                         <Button
                                             size="lg"
                                             onClick={handleToggleSession}
-                                            className="w-full max-w-[200px] text-base h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/20 hover:scale-[1.02] transition-all"
+                                            className="w-full max-w-[200px] text-base h-12 rounded-full bg-gradient-to-r from-primary to-secondary hover:brightness-110 shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
                                         >
                                             {searchParams.get("mode") === "lecture" ? "Start Lecture" : "Start Practice"}
                                         </Button>
@@ -629,8 +648,8 @@ function PracticePageInner() {
             {/* Loading State Overlay */}
             {isAnalyzing && (
                 <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-blue-300 font-bold animate-pulse">Generating AI Summary...</p>
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-primary/70 font-bold animate-pulse">Generating AI Summary...</p>
                 </div>
             )}
 
@@ -687,7 +706,7 @@ function PracticePageInner() {
 
 export default function PracticePage() {
     return (
-        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-black"><div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-transparent"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
             <PracticePageInner />
         </Suspense>
     );

@@ -1,10 +1,14 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Search, Menu } from 'lucide-react';
+import { Search, Menu, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { NotificationDropdown } from './NotificationDropdown';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
+import { NotificationDropdown } from '../notifications/NotificationDropdown';
 import Link from 'next/link';
+import { Logo } from '@/components/ui/logo';
+import { UserProfile } from '@/components/ui/UserProfile';
 
 interface ForumHeaderProps {
     searchQuery: string;
@@ -14,32 +18,40 @@ interface ForumHeaderProps {
 
 export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearchQuery, toggleSidebar }) => {
     const { user } = useAuth();
+    const router = useRouter();
 
     return (
         <header className="sticky top-0 z-50 w-full mb-8 bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
-            {/* Minimalist Background - Removed overlay div for cleaner DOM */}
+            <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
 
-            <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-
-                {/* Left: Mobile Menu & Current Context */}
-                <div className="flex items-center gap-3">
+                {/* Left: Branding & Mobile Menu */}
+                <div className="flex items-center gap-4">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="text-gray-400 hover:text-white lg:hidden"
+                        className="text-gray-400 hover:text-white lg:hidden mr-2"
                         onClick={toggleSidebar}
                     >
                         <Menu className="w-5 h-5" />
                     </Button>
-                    <div className="hidden md:flex items-center gap-2 text-sm text-gray-400">
-                        <span className="hover:text-white cursor-pointer transition-colors">VoxLab</span>
-                        <span className="text-gray-600">/</span>
-                        <span className="text-white font-medium">Community</span>
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.back()}
+                            className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                            title="Go Back"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </Button>
+                        <Logo size="sm" className="opacity-80 hover:opacity-100 transition-opacity cursor-pointer" />
+                        <div className="h-4 w-[1px] bg-white/10" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Community</span>
                     </div>
                 </div>
 
                 {/* Center: Search Bar */}
-                <div className="flex-1 max-w-xl">
+                <div className="hidden md:block flex-1 max-w-xl mx-8">
                     <div className="relative group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4 group-focus-within:text-primary transition-colors" />
                         <Input
@@ -51,38 +63,35 @@ export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearch
                     </div>
                 </div>
 
-                {/* Right: User Actions */}
+                {/* Right: Navigation & Profile */}
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => router.push('/dashboard/mode')}
+                        className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group text-sm font-medium"
+                    >
+                        Mode
+                    </button>
+                    <button
+                        onClick={() => router.push('/forum')}
+                        className="text-white hover:text-primary transition-all flex items-center gap-2 text-sm font-medium"
+                    >
+                        Forum
+                    </button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.push('/dashboard')}
+                        className="text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-xl"
+                        title="Dashboard"
+                    >
+                        <Home className="w-5 h-5" />
+                    </Button>
+
                     <NotificationDropdown />
 
-                    {user && (
-                        <Link
-                            href="/dashboard/profile"
-                            className="flex items-center gap-3 pl-3 border-l border-white/5 group cursor-pointer"
-                        >
-                            <div className="text-right hidden sm:block">
-                                <div className="text-sm font-bold text-white leading-none mb-1 group-hover:text-primary transition-colors">
-                                    {user.displayName?.split(' ')[0]}
-                                </div>
-                                <div className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
-                                    Member
-                                </div>
-                            </div>
-
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-secondary p-[1px] shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
-                                <div className="w-full h-full rounded-full bg-[#111] overflow-hidden">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}&background=6d28d9&color=fff`}
-                                        alt="User"
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                                    />
-                                </div>
-                            </div>
-                        </Link>
-                    )}
+                    {user && <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />}
                 </div>
             </div>
-        </header >
+        </header>
     );
 };
