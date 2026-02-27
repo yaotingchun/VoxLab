@@ -361,7 +361,7 @@ export default function InterviewSession({
     // ── Intro Screen ─────────────────────────────────────────────────────────
     if (showIntro) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-[#020202] text-white p-6 relative">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white p-6 relative">
                 {/* Ambient background */}
                 <div className="fixed inset-0 pointer-events-none overflow-hidden">
                     <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
@@ -415,7 +415,7 @@ export default function InterviewSession({
     // ── Generating Follow-Up Screen ──────────────────────────────────────────
     if (generatingFollowUp) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-[#020202] text-white p-6 relative">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-transparent text-white p-6 relative">
                 {/* Ambient background */}
                 <div className="fixed inset-0 pointer-events-none overflow-hidden">
                     <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
@@ -435,7 +435,7 @@ export default function InterviewSession({
 
     // ── Main Interview UI ────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-screen bg-[#020202] text-white p-4 gap-4 relative">
+        <div className="flex flex-col h-screen bg-transparent text-white p-4 gap-4 relative overflow-hidden">
             {/* Ambient background */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
@@ -447,14 +447,13 @@ export default function InterviewSession({
                     href: "/dashboard/mode",
                     label: "Exit Interview"
                 }}
+                rightContent={
+                    <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 mr-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-semibold tracking-wide text-white">AI Mock Interview</span>
+                    </div>
+                }
             />
-
-            <div className="flex items-center justify-end px-2 mt-2">
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold tracking-wide text-slate-200">AI Mock Interview</span>
-                </div>
-            </div>
 
             {/* Progress Bar */}
 
@@ -463,7 +462,7 @@ export default function InterviewSession({
                 {/* LEFT PANEL: Camera & Controls */}
                 <div className="flex-1 flex flex-col gap-4 min-h-0">
                     {/* Top Control Bar */}
-                    <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-800/80 p-4 flex items-center justify-between shadow-sm">
+                    <div className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800/80 p-4 flex items-center justify-between shadow-2xl flex-none">
                         <div className="flex items-center gap-3">
                             <div className={`px-3 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-widest ${typeInfo.bg} ${typeInfo.color}`}>
                                 {isFollowUp ? "Follow-up" : typeInfo.label}
@@ -490,21 +489,12 @@ export default function InterviewSession({
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleSkip}
-                                className="rounded-full bg-slate-800/50 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white h-9 px-4 transition-all"
-                            >
-                                Skip question
-                            </Button>
-                        </div>
+                        <div className="w-24 flex justify-end" />
                     </div>
 
                     {/* Camera Container */}
-                    <div className="w-full aspect-video relative bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col flex-none">
-                        <div className="relative aspect-video bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl group">
+                    <div className="flex-1 w-full min-h-0 relative bg-black/40 backdrop-blur-sm rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col">
+                        <div className="relative flex-1 bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl group">
                             <UnifiedWebcamView
                                 onPoseResults={analyzePosture}
                                 onFaceResults={analyzeFace}
@@ -571,23 +561,23 @@ export default function InterviewSession({
                     </div>
 
                     {/* Controls Toolbar */}
-                    <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-800/80 p-5 shadow-inner">
+                    <div className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800/80 p-4 shadow-2xl flex-none">
                         <div className="flex items-center justify-between">
                             {/* Left: Input Mode Status */}
-                            <div className="flex items-center gap-5">
-                                <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3">
                                     <Button
-                                        size="lg"
+                                        size="icon"
                                         onClick={isRecording ? handleStopRecording : handleStartRecording}
-                                        className={`rounded-full w-14 h-14 p-0 transition-all duration-300 ${isRecording
+                                        className={`rounded-full w-12 h-12 p-0 transition-all duration-300 flex-shrink-0 ${isRecording
                                             ? "bg-red-600 hover:bg-red-700 shadow-xl shadow-red-900/40 scale-105"
                                             : "bg-purple-600 hover:bg-purple-700 shadow-xl shadow-purple-900/40 hover:scale-105"
                                             }`}
                                     >
                                         {isRecording ? (
-                                            <MicOff className="w-6 h-6" />
+                                            <MicOff className="w-5 h-5" />
                                         ) : (
-                                            <Mic className="w-6 h-6" />
+                                            <Mic className="w-5 h-5" />
                                         )}
                                     </Button>
                                     <div className="flex flex-col justify-center">
@@ -622,21 +612,20 @@ export default function InterviewSession({
                             </div>
 
                             {/* Right: Action Buttons Group */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                                 <Button
                                     variant="ghost"
                                     onClick={handleSkip}
-                                    className="h-11 px-6 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl text-sm font-medium transition-all"
+                                    className="h-10 px-4 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl text-sm font-medium transition-all"
                                 >
-                                    <SkipForward className="w-4 h-4 mr-2" />
+                                    <SkipForward className="w-4 h-4 mr-1.5" />
                                     Skip
                                 </Button>
 
                                 <Button
-                                    size="lg"
                                     disabled={!transcript.trim()}
                                     onClick={handleSubmit}
-                                    className="h-11 px-8 rounded-xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 disabled:opacity-20 disabled:grayscale font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center"
+                                    className="h-10 px-6 rounded-xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 disabled:opacity-20 disabled:grayscale font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center"
                                 >
                                     <Send className="w-4 h-4 mr-2" />
                                     Submit Answer
@@ -649,7 +638,7 @@ export default function InterviewSession({
 
                 {/* RIGHT PANEL: Answer Area & Transcript */}
                 <div className="w-full lg:w-[480px] flex flex-col gap-6 min-w-0">
-                    <div className="flex-1 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-slate-800 p-5 flex flex-col min-h-0 overflow-hidden">
+                    <div className="flex-1 bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800/80 p-6 flex flex-col min-h-0 overflow-hidden shadow-2xl">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <div className="p-1.5 bg-purple-500/10 rounded-md">
@@ -683,7 +672,7 @@ export default function InterviewSession({
                         {/* Answer Content */}
                         <div
                             ref={transcriptRef}
-                            className="flex-1 overflow-y-auto custom-scrollbar p-1 rounded-xl mb-4"
+                            className="flex-1 overflow-y-auto custom-scrollbar p-4 rounded-xl mb-1 bg-slate-950/40 border border-slate-800/60 shadow-inner"
                         >
                             {transcript ? (
                                 <p className="text-lg leading-relaxed text-slate-200 whitespace-pre-wrap">

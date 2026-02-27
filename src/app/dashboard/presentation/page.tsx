@@ -519,7 +519,7 @@ function PresentationPageInner() {
     const [isCoachHovered, setIsCoachHovered] = useState(false);
 
     return (
-        <div className="flex flex-col h-screen bg-black text-white overflow-hidden p-4 gap-4">
+        <div className="flex flex-col h-screen bg-transparent text-white overflow-hidden p-4 gap-4">
             {/* Header */}
             <UnifiedHeader
                 section="Presentation Mode"
@@ -739,7 +739,7 @@ function PresentationPageInner() {
                                 <motion.div
                                     initial={{ scale: 0.9, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
-                                    className="text-center space-y-6 max-w-md w-full bg-slate-900/80 p-8 rounded-3xl border border-slate-700/50 shadow-2xl"
+                                    className="text-center space-y-6 max-w-md w-full bg-slate-900/40 backdrop-blur-xl p-8 rounded-3xl border border-slate-700/50 shadow-2xl"
                                 >
                                     <div className="flex justify-center gap-4 mb-2">
                                         <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
@@ -760,7 +760,7 @@ function PresentationPageInner() {
                                     {/* Setup Options Panel (Minimal) */}
                                     <div className="flex-1 w-full flex flex-col justify-center items-center text-center relative pointer-events-auto">
 
-                                        <div className="flex items-center gap-3 mb-4 text-slate-300 bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700 shadow-xl backdrop-blur-sm">
+                                        <div className="flex items-center gap-3 mb-4 text-slate-300 bg-slate-900/40 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-xl">
                                             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
                                             <span className="text-sm font-medium">Ready</span>
 
@@ -794,8 +794,7 @@ function PresentationPageInner() {
                         )}
                     </div>
 
-                    {/* Bottom: Transcript (35% Height) */}
-                    <div className="flex-1 bg-slate-900/50 backdrop-blur-md rounded-3xl border border-slate-800 p-6 flex flex-col min-h-0 relative">
+                    <div className="flex-1 bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800 p-6 flex flex-col min-h-0 relative shadow-2xl">
                         <div className="flex items-center justify-between mb-3 ">
                             <div className="flex items-center gap-2 text-slate-400 uppercase tracking-wider text-xs font-bold">
                                 <div className="p-1.5 bg-purple-500/10 rounded-md">
@@ -854,8 +853,8 @@ function PresentationPageInner() {
             {
                 isAnalyzing && (
                     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-                        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-blue-300 font-bold animate-pulse">Generating AI Summary...</p>
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                        <p className="text-primary/70 font-bold animate-pulse">Generating AI Summary...</p>
                     </div>
                 )
             }
@@ -932,7 +931,7 @@ function PresentationPageInner() {
 
 export default function PresentationPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-black"><div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-transparent"><div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>}>
             <PresentationPageInner />
         </Suspense>
     );

@@ -25,6 +25,7 @@ import {
 import type { InterviewEvaluation, InterviewAnswer } from "@/types/interview";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
+import { useRouter } from "next/navigation";
 
 // ── Score Circle ─────────────────────────────────────────────────────────────
 function ScoreCircle({
@@ -156,7 +157,7 @@ function QuestionCard({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="rounded-2xl border border-slate-800 bg-slate-900/50 overflow-hidden"
+            className="rounded-2xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-md overflow-hidden shadow-lg"
         >
             {/* Header */}
             <button
@@ -205,7 +206,7 @@ function QuestionCard({
                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                         Your Answer
                                     </p>
-                                    <p className="text-sm text-slate-300 bg-slate-950/50 rounded-xl p-3 border border-slate-800/50">
+                                    <p className="text-sm text-slate-300 bg-slate-950/60 rounded-xl p-4 border border-slate-800/60 shadow-inner">
                                         {evaluation.answer || answer.answer}
                                     </p>
                                 </div>
@@ -218,7 +219,7 @@ function QuestionCard({
                                     { label: "Depth", score: evaluation.depthScore },
                                     { label: "Communication", score: evaluation.communicationScore },
                                 ].map((s) => (
-                                    <div key={s.label} className="text-center p-2 rounded-lg bg-slate-800/30 border border-slate-700/30">
+                                    <div key={s.label} className="text-center p-2 rounded-xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 shadow-sm">
                                         <p className="text-lg font-bold text-white">{s.score}</p>
                                         <p className="text-[10px] text-slate-500 uppercase tracking-wider">{s.label}</p>
                                     </div>
@@ -284,7 +285,7 @@ function QuestionCard({
                                     {answer.followUpAnswer && (
                                         <>
                                             <p className="text-xs text-slate-500 mb-1">Your response:</p>
-                                            <p className="text-sm text-slate-400 bg-slate-950/50 rounded-lg p-2">
+                                            <p className="text-sm text-slate-400 bg-slate-950/60 rounded-xl p-3 border border-slate-800/60 shadow-inner">
                                                 {answer.followUpAnswer}
                                             </p>
                                         </>
@@ -412,7 +413,7 @@ export default function InterviewResults({
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
-                        className="bg-gradient-to-br from-slate-900 to-slate-900/80 rounded-3xl border border-slate-700/50 p-8"
+                        className="bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800/80 p-8 shadow-2xl"
                     >
                         <div className="flex flex-col md:flex-row items-center gap-8">
                             <ScoreCircle score={evaluation.overallScore} size={140} strokeWidth={10} />
@@ -435,7 +436,7 @@ export default function InterviewResults({
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
-                        className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6 space-y-4"
+                        className="bg-slate-900/40 backdrop-blur-xl rounded-2xl border border-slate-800/80 p-6 space-y-4 shadow-xl"
                     >
                         <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
                             Performance Breakdown
@@ -468,7 +469,7 @@ export default function InterviewResults({
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.4 }}
-                            className="bg-green-500/5 rounded-2xl border border-green-500/20 p-5"
+                            className="bg-green-500/10 backdrop-blur-md rounded-2xl border border-green-500/20 p-5 shadow-lg"
                         >
                             <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <TrendingUp className="w-4 h-4" />
@@ -488,7 +489,7 @@ export default function InterviewResults({
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.4 }}
-                            className="bg-amber-500/5 rounded-2xl border border-amber-500/20 p-5"
+                            className="bg-amber-500/10 backdrop-blur-md rounded-2xl border border-amber-500/20 p-5 shadow-lg"
                         >
                             <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <Target className="w-4 h-4" />
