@@ -33,8 +33,11 @@ import { getRecentSessions, getSessionStats } from "@/lib/sessions";
 import { getUserStreak } from "@/lib/streak";
 import { PracticeSession } from "@/types/gamification";
 import { SignOutModal } from "@/components/auth/SignOutModal";
-import { AbstractMic } from "@/components/ui/abstract-mic";
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
+import { Logo } from "@/components/ui/logo";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { SpeakerStickman } from "@/components/ui/speaker-stickman";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -316,9 +319,9 @@ export default function DashboardPage() {
                                     </Button>
                                 </div>
 
-                                {/* Visual - Abstract Cool Mic (Balanced size, No Waves) */}
+                                {/* Visual - Public Speaking Stickman Logo */}
                                 <div className="relative flex-shrink-0 w-64 md:w-72 lg:w-80 aspect-square flex items-center justify-center">
-                                    <AbstractMic showWaves={false} />
+                                    <SpeakerStickman />
                                 </div>
                             </div>
                         </motion.div>

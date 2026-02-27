@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AbstractMic } from "@/components/ui/abstract-mic";
+import { SpeakerStickman } from "@/components/ui/speaker-stickman";
 import { Logo } from "@/components/ui/logo";
 import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight, Briefcase, Layout, BookOpen, Play, Phone, Home as HomeIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -113,10 +113,10 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Hero Visual - Abstract Mic (Balanced size, With Waves) */}
+        {/* Hero Visual - Public Speaking Stickman */}
         <div className="flex items-center justify-center order-1 md:order-2 w-full h-full min-h-[400px]">
           <div className="w-64 h-64 md:w-80 md:h-80 lg:w-[450px] lg:h-[450px]">
-            <AbstractMic showWaves={true} />
+            <SpeakerStickman />
           </div>
         </div>
       </section>
