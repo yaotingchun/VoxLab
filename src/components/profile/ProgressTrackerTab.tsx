@@ -265,17 +265,17 @@ export function ProgressTrackerTab({ sessions: initialSessions }: ProgressTracke
                         onSessionSelect={(id) => setSelectedSessionId(id)}
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-6">
                         {/* Daily Insight Card */}
-                        <div className={`md:col-span-8 p-8 rounded-3xl border transition-all duration-300 flex flex-col relative overflow-hidden group ${emotionTip === 'LOCKED' ? 'bg-white/5 border-white/10' : 'bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20 hover:border-primary/40'}`}>
-                            {emotionTip !== 'LOCKED' && <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none" />}
-                            <div className="flex items-center gap-3 mb-4 relative z-10">
-                                <div className={`p-2 rounded-xl ${emotionTip === 'LOCKED' ? 'bg-white/5 text-gray-500' : 'bg-primary/10 text-primary'}`}>
-                                    {emotionTip === 'LOCKED' ? <Lock size={18} /> : <Sparkles size={18} />}
+                        <div className={`md:col-span-8 p-8 rounded-[2rem] border transition-all duration-500 flex flex-col justify-center relative overflow-hidden group ${emotionTip === 'LOCKED' ? 'bg-white/[0.02] border-white/5' : 'bg-gradient-to-br from-[#1A1525] to-[#120F18] border-white/5 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(168,85,247,0.1)]'}`}>
+                            {emotionTip !== 'LOCKED' && <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[80px] rounded-full pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-60" />}
+                            <div className="flex items-center gap-4 mb-5 relative z-10">
+                                <div className={`p-2.5 rounded-2xl flex items-center justify-center ${emotionTip === 'LOCKED' ? 'bg-white/5 text-slate-500' : 'bg-purple-500/10 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.2)]'}`}>
+                                    {emotionTip === 'LOCKED' ? <Lock size={20} /> : <Sparkles size={20} />}
                                 </div>
-                                <h4 className="font-black text-[10px] uppercase tracking-widest text-white">AI Coach Insight</h4>
+                                <h4 className="font-bold text-xs uppercase tracking-[0.15em] text-white/90">AI Coach Insight</h4>
                             </div>
-                            <p className="text-sm text-gray-400 leading-relaxed font-medium relative z-10">
+                            <p className="text-[15px] sm:text-base text-slate-300 leading-relaxed font-medium relative z-10 max-w-2xl">
                                 {emotionTip === 'LOCKED'
                                     ? "Practice today to unlock personalized AI feedback on your performance."
                                     : emotionTip}
@@ -283,13 +283,12 @@ export function ProgressTrackerTab({ sessions: initialSessions }: ProgressTracke
                         </div>
 
                         {/* Consistency Tip */}
-                        <div className={`md:col-span-4 p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl flex flex-col justify-center relative overflow-hidden group`}>
-                            <div className="absolute bottom-0 right-0 w-16 h-16 bg-white/5 blur-2xl rounded-full pointer-events-none" />
-                            <h4 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2 relative z-10">
-                                <TrendingUp className="w-3.5 h-3.5 text-primary" /> Consistency
+                        <div className={`md:col-span-4 p-8 rounded-[2rem] border border-white/5 bg-[#16141D] hover:bg-[#1A1822] transition-colors duration-500 flex flex-col justify-center relative overflow-hidden group`}>
+                            <h4 className="text-slate-400 text-xs font-bold uppercase tracking-[0.15em] mb-4 flex items-center gap-2.5 relative z-10">
+                                <TrendingUp className="w-4 h-4 text-purple-400" /> Consistency
                             </h4>
-                            <p className="text-xs text-gray-400 leading-relaxed font-bold tracking-tight relative z-10">
-                                Regular practice builds confidence 40% faster. <span className="text-primary">Keep going!</span>
+                            <p className="text-[15px] text-slate-300 leading-relaxed font-medium relative z-10">
+                                Regular practice builds confidence 40% faster. <br /><span className="text-purple-400 font-bold block mt-2">Keep going!</span>
                             </p>
                         </div>
                     </div>
