@@ -59,7 +59,7 @@ export function CircularScoreChart({
                         fill="transparent"
                         stroke="currentColor"
                         strokeWidth={strokeWidth}
-                        className="text-slate-800"
+                        className="text-white/5"
                     />
                     {/* Animated Foreground Ring */}
                     <motion.circle
@@ -90,7 +90,7 @@ export function CircularScoreChart({
             </div>
             {label && (
                 <div className="mt-4 text-center">
-                    <span className="text-sm font-bold text-slate-300 uppercase tracking-widest bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50">
+                    <span className="text-sm font-bold text-slate-300 uppercase tracking-widest bg-white/[0.05] px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
                         {label}
                     </span>
                 </div>

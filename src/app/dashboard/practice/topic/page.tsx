@@ -239,7 +239,7 @@ function TopicSelectionInner() {
     };
 
     return (
-        <div className="min-h-screen bg-transparent text-white selection:bg-primary/30 relative">
+        <div className="h-screen flex flex-col bg-transparent text-white selection:bg-primary/30 relative">
 
             {/* Header */}
             <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
@@ -330,10 +330,12 @@ function TopicSelectionInner() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 {/* Upload Video */}
-                                <motion.div
+                                <motion.button
                                     variants={item}
                                     whileHover={{ scale: 1.02 }}
-                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2rem] border border-orange-500/20 bg-[#161616] cursor-not-allowed overflow-hidden shadow-2xl shadow-orange-500/5 ring-1 ring-orange-500/10"
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => router.push('/dashboard/practice/upload')}
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2rem] border border-orange-500/20 bg-[#161616] text-left overflow-hidden shadow-2xl shadow-orange-500/5 ring-1 ring-orange-500/10 transition-all hover:border-orange-500/40 hover:bg-orange-500/[0.05]"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
@@ -349,7 +351,7 @@ function TopicSelectionInner() {
                                     <div className="flex items-center gap-2 text-base text-orange-400 font-bold group-hover:text-orange-300 transition-colors mt-auto pt-6">
                                         Select file <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                     </div>
-                                </motion.div>
+                                </motion.button>
 
                                 {/* Practice Live Session */}
                                 <motion.button

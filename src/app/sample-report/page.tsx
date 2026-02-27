@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 export default function SampleReportPage() {
     const router = useRouter();
@@ -73,25 +72,19 @@ export default function SampleReportPage() {
 
     return (
         <div className="min-h-screen bg-black flex flex-col">
-            {/* Header */}
-            <header className="flex items-center justify-between p-4 border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
-                <div className="flex items-center gap-4">
-                    <Link
-                        href="/"
-                        className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Home
-                    </Link>
+            <UnifiedHeader
+                section="Sample Report"
+                backButton={{
+                    href: "/",
+                    label: "Back to Home"
+                }}
+            />
+            {/* Demo Badge overlay if needed, or I can just rely on the section label */}
+            <div className="flex justify-center mt-2">
+                <div className="border border-primary/20 bg-primary/10 rounded-full px-3 py-1 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-primary animate-pulse uppercase tracking-widest">Demo Mode</span>
                 </div>
-                <div className="flex flex-col items-center">
-                    <Logo size="sm" />
-                    <span className="text-[10px] uppercase tracking-widest text-primary font-bold mt-1">Sample Report</span>
-                </div>
-                <div className="w-24 border border-primary/20 bg-primary/10 rounded-full px-3 py-1 flex items-center justify-center">
-                    <span className="text-xs font-bold text-primary animate-pulse">Demo Mode</span>
-                </div>
-            </header>
+            </div>
 
             {/* Report rendered inline */}
             <div className="flex-1 flex items-start justify-center p-4">

@@ -27,6 +27,7 @@ import { useAudioAnalysis } from "@/hooks/useAudioAnalysis";
 import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 import { speakText, stopSpeaking } from "@/lib/tts-client";
 import { UnifiedWebcamView } from "@/components/analysis/UnifiedWebcamView";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 interface InterviewSessionProps {
     questions: InterviewQuestion[];
@@ -431,17 +432,20 @@ export default function InterviewSession({
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
             </div>
-            {/* Header */}
-            <header className="flex items-center justify-between px-2 flex-shrink-0">
-                <div />
+            <UnifiedHeader
+                section="Interview"
+                backButton={{
+                    href: "/dashboard/mode",
+                    label: "Exit Interview"
+                }}
+            />
 
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-semibold tracking-wide text-slate-200">AI Mock Interview</span>
-                    </div>
+            <div className="flex items-center justify-end px-2 mt-2">
+                <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold tracking-wide text-slate-200">AI Mock Interview</span>
                 </div>
-            </header>
+            </div>
 
             {/* Progress Bar */}
 

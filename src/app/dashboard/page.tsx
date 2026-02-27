@@ -33,10 +33,8 @@ import { getRecentSessions, getSessionStats } from "@/lib/sessions";
 import { getUserStreak } from "@/lib/streak";
 import { PracticeSession } from "@/types/gamification";
 import { SignOutModal } from "@/components/auth/SignOutModal";
-import { Logo } from "@/components/ui/logo";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { UserProfile } from "@/components/ui/UserProfile";
 import { AbstractMic } from "@/components/ui/abstract-mic";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -218,56 +216,7 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-[#020202] text-white selection:bg-primary/30">
-            {/* Premium Glassy Sticky Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/20 backdrop-blur-xl">
-                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Logo size="lg" />
-                    </div>
-
-                    <div className="flex items-center gap-4 sm:gap-8">
-                        <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
-
-                            <button
-                                onClick={() => router.push('/dashboard/mode')}
-                                className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
-                            >
-                                Mode
-                            </button>
-                            <button
-                                onClick={() => router.push('/forum')}
-                                className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
-                            >
-                                Forum
-                            </button>
-                        </nav>
-
-                        <div className="h-8 w-px bg-white/10" />
-
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => router.push('/dashboard')}
-                                className="text-primary bg-primary/10 border border-primary/30 shadow-[0_0_20px_rgba(109,40,217,0.3)] transition-all rounded-xl"
-                            >
-                                <Home className="w-5 h-5" />
-                            </Button>
-
-                            <NotificationDropdown />
-
-                            <UserProfile displayName={userDisplayName} />
-
-                            <button
-                                onClick={() => setIsSignOutModalOpen(true)}
-                                className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
-                            >
-                                <LogOut className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <UnifiedHeader isDashboard />
 
             <main className="relative z-10 max-w-7xl mx-auto px-6 py-12 space-y-12">
                 {/* Hero section */}

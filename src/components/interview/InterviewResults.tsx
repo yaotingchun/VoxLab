@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import type { InterviewEvaluation, InterviewAnswer } from "@/types/interview";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 // ── Score Circle ─────────────────────────────────────────────────────────────
 function ScoreCircle({
@@ -322,9 +323,18 @@ export default function InterviewResults({
         const totalFiller = answers.reduce((acc, a) => acc + a.fillerWordCount, 0);
 
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 overflow-y-auto">
-                <div className="w-full max-w-4xl my-auto flex justify-center">
+            <div className="fixed inset-0 z-[100] flex flex-col bg-black/90 backdrop-blur-lg overflow-y-auto">
+                <UnifiedHeader
+                    section="Interview Report"
+                    backButton={{
+                        href: "#",
+                        label: "Close Report"
+                    }}
+                    onBackOverride={() => setViewDetailed(false)}
+                />
+                <div className="flex-1 w-full max-w-4xl mx-auto p-4 flex justify-center">
                     <DetailedSessionReport
+                        hideGlobalHeader={true}
                         data={{
                             summary: evaluation.overallFeedback,
                             tips: evaluation.topImprovements,
@@ -361,182 +371,188 @@ export default function InterviewResults({
     };
 
     return (
-        <div className="min-h-screen bg-[#020202] text-white p-6 relative">
-            {/* Ambient background */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
-            </div>
-            <div className="max-w-3xl mx-auto space-y-8 pb-12">
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center space-y-4"
-                >
-                    <div className="flex justify-center">
-                        <div className="p-3 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-2xl border border-yellow-500/20">
-                            <Trophy className="w-8 h-8 text-yellow-400" />
-                        </div>
-                    </div>
-                    <h1 className="text-3xl font-bold tracking-tight">Interview Complete</h1>
-                    <p className="text-slate-400 max-w-md mx-auto text-sm">
-                        Here&apos;s your detailed performance analysis
-                    </p>
-                </motion.div>
+        <div className="min-h-screen bg-[#020202] text-white flex flex-col relative">
+            <UnifiedHeader
+                section="Interview Results"
+            />
 
-                {/* Overall Score & Feedback */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-gradient-to-br from-slate-900 to-slate-900/80 rounded-3xl border border-slate-700/50 p-8"
-                >
-                    <div className="flex flex-col md:flex-row items-center gap-8">
-                        <ScoreCircle score={evaluation.overallScore} size={140} strokeWidth={10} />
-                        <div className="flex-1 text-center md:text-left space-y-3">
-                            <p className="text-slate-200 leading-relaxed">
-                                {evaluation.overallFeedback}
-                            </p>
-                            <div
-                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold ${getRecommendationStyle(evaluation.hiringRecommendation)}`}
-                            >
-                                <Star className="w-4 h-4" />
-                                {evaluation.hiringRecommendation}
+            <div className="flex-1 p-6 relative">
+                {/* Ambient background */}
+                <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+                </div>
+                <div className="max-w-3xl mx-auto space-y-8 pb-12">
+                    {/* Header */}
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-center space-y-4"
+                    >
+                        <div className="flex justify-center">
+                            <div className="p-3 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-2xl border border-yellow-500/20">
+                                <Trophy className="w-8 h-8 text-yellow-400" />
                             </div>
                         </div>
-                    </div>
-                </motion.div>
-
-                {/* Category Scores */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6 space-y-4"
-                >
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
-                        Performance Breakdown
-                    </h2>
-                    <ScoreBar
-                        label="Communication"
-                        score={evaluation.communicationScore}
-                        icon={<MessageSquare className="w-4 h-4 text-blue-400" />}
-                    />
-                    <ScoreBar
-                        label="Technical Knowledge"
-                        score={evaluation.technicalScore}
-                        icon={<Brain className="w-4 h-4 text-purple-400" />}
-                    />
-                    <ScoreBar
-                        label="Behavioral / Soft Skills"
-                        score={evaluation.behavioralScore}
-                        icon={<Users className="w-4 h-4 text-amber-400" />}
-                    />
-                    <ScoreBar
-                        label="Confidence & Delivery"
-                        score={evaluation.confidenceScore}
-                        icon={<Zap className="w-4 h-4 text-emerald-400" />}
-                    />
-                </motion.div>
-
-                {/* Top Strengths & Improvements */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="bg-green-500/5 rounded-2xl border border-green-500/20 p-5"
-                    >
-                        <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4" />
-                            Top Strengths
-                        </h3>
-                        <ul className="space-y-2">
-                            {evaluation.topStrengths.map((s, i) => (
-                                <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                                    <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                                    {s}
-                                </li>
-                            ))}
-                        </ul>
+                        <h1 className="text-3xl font-bold tracking-tight">Interview Complete</h1>
+                        <p className="text-slate-400 max-w-md mx-auto text-sm">
+                            Here&apos;s your detailed performance analysis
+                        </p>
                     </motion.div>
 
+                    {/* Overall Score & Feedback */}
                     <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="bg-amber-500/5 rounded-2xl border border-amber-500/20 p-5"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="bg-gradient-to-br from-slate-900 to-slate-900/80 rounded-3xl border border-slate-700/50 p-8"
                     >
-                        <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <Target className="w-4 h-4" />
-                            Areas to Improve
-                        </h3>
-                        <ul className="space-y-2">
-                            {evaluation.topImprovements.map((s, i) => (
-                                <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                                    {s}
-                                </li>
-                            ))}
-                        </ul>
+                        <div className="flex flex-col md:flex-row items-center gap-8">
+                            <ScoreCircle score={evaluation.overallScore} size={140} strokeWidth={10} />
+                            <div className="flex-1 text-center md:text-left space-y-3">
+                                <p className="text-slate-200 leading-relaxed">
+                                    {evaluation.overallFeedback}
+                                </p>
+                                <div
+                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold ${getRecommendationStyle(evaluation.hiringRecommendation)}`}
+                                >
+                                    <Star className="w-4 h-4" />
+                                    {evaluation.hiringRecommendation}
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Category Scores */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="bg-slate-900/50 rounded-2xl border border-slate-800 p-6 space-y-4"
+                    >
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+                            Performance Breakdown
+                        </h2>
+                        <ScoreBar
+                            label="Communication"
+                            score={evaluation.communicationScore}
+                            icon={<MessageSquare className="w-4 h-4 text-blue-400" />}
+                        />
+                        <ScoreBar
+                            label="Technical Knowledge"
+                            score={evaluation.technicalScore}
+                            icon={<Brain className="w-4 h-4 text-purple-400" />}
+                        />
+                        <ScoreBar
+                            label="Behavioral / Soft Skills"
+                            score={evaluation.behavioralScore}
+                            icon={<Users className="w-4 h-4 text-amber-400" />}
+                        />
+                        <ScoreBar
+                            label="Confidence & Delivery"
+                            score={evaluation.confidenceScore}
+                            icon={<Zap className="w-4 h-4 text-emerald-400" />}
+                        />
+                    </motion.div>
+
+                    {/* Top Strengths & Improvements */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <motion.div
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 }}
+                            className="bg-green-500/5 rounded-2xl border border-green-500/20 p-5"
+                        >
+                            <h3 className="text-sm font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4" />
+                                Top Strengths
+                            </h3>
+                            <ul className="space-y-2">
+                                {evaluation.topStrengths.map((s, i) => (
+                                    <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                                        <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                        {s}
+                                    </li>
+                                ))}
+                            </ul>
+                        </motion.div>
+
+                        <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.4 }}
+                            className="bg-amber-500/5 rounded-2xl border border-amber-500/20 p-5"
+                        >
+                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <Target className="w-4 h-4" />
+                                Areas to Improve
+                            </h3>
+                            <ul className="space-y-2">
+                                {evaluation.topImprovements.map((s, i) => (
+                                    <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
+                                        <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                        {s}
+                                    </li>
+                                ))}
+                            </ul>
+                        </motion.div>
+                    </div>
+
+                    {/* Question-by-Question */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="space-y-3"
+                    >
+                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+                            Question-by-Question Analysis
+                        </h2>
+                        {evaluation.questionEvaluations.map((qe, i) => (
+                            <QuestionCard
+                                key={qe.questionId}
+                                evaluation={qe}
+                                answer={answers[i]}
+                                index={i}
+                            />
+                        ))}
+                    </motion.div>
+
+                    {/* Actions */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.7 }}
+                        className="flex items-center justify-center gap-4 pt-4"
+                    >
+                        <Button
+                            variant="secondary"
+                            size="lg"
+                            onClick={() => setViewDetailed(true)}
+                            className="rounded-xl bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20"
+                        >
+                            <FileText className="w-4 h-4 mr-2" />
+                            View Detailed Report
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            onClick={onRetry}
+                            className="rounded-xl border-slate-700 hover:bg-slate-800"
+                        >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Retry Same Questions
+                        </Button>
+                        <Button
+                            size="lg"
+                            onClick={onReset}
+                            className="rounded-xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 shadow-lg shadow-primary/20 transition-all"
+                        >
+                            <ArrowLeft className="w-4 h-4 mr-2" />
+                            New Interview
+                        </Button>
                     </motion.div>
                 </div>
-
-                {/* Question-by-Question */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="space-y-3"
-                >
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                        Question-by-Question Analysis
-                    </h2>
-                    {evaluation.questionEvaluations.map((qe, i) => (
-                        <QuestionCard
-                            key={qe.questionId}
-                            evaluation={qe}
-                            answer={answers[i]}
-                            index={i}
-                        />
-                    ))}
-                </motion.div>
-
-                {/* Actions */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.7 }}
-                    className="flex items-center justify-center gap-4 pt-4"
-                >
-                    <Button
-                        variant="secondary"
-                        size="lg"
-                        onClick={() => setViewDetailed(true)}
-                        className="rounded-xl bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20"
-                    >
-                        <FileText className="w-4 h-4 mr-2" />
-                        View Detailed Report
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={onRetry}
-                        className="rounded-xl border-slate-700 hover:bg-slate-800"
-                    >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Retry Same Questions
-                    </Button>
-                    <Button
-                        size="lg"
-                        onClick={onReset}
-                        className="rounded-xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 shadow-lg shadow-primary/20 transition-all"
-                    >
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        New Interview
-                    </Button>
-                </motion.div>
             </div>
         </div>
     );

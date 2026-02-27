@@ -7,8 +7,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { PracticeSession } from "@/types/gamification";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
-import { ArrowLeft } from "lucide-react";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function SessionReportPage() {
     const { user, loading } = useAuth();
@@ -122,22 +123,20 @@ export default function SessionReportPage() {
 
     return (
         <div className="min-h-screen bg-black flex flex-col">
-            {/* Minimal header */}
-            <header className="flex items-center gap-3 p-4 border-b border-slate-800">
-                <Link
-                    href="/dashboard/profile?tab=history"
-                    className="flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Profile
-                </Link>
-            </header>
+            <UnifiedHeader
+                section="Report"
+                backButton={{
+                    href: "/dashboard/profile?tab=history",
+                    label: "Back to Profile"
+                }}
+            />
 
             {/* Report rendered inline (not as a modal) */}
             <div className="flex-1 flex items-start justify-center p-4">
                 <DetailedSessionReport
                     data={reportData}
                     onClose={() => router.push("/dashboard/profile?tab=history")}
+                    hideGlobalHeader={true}
                 />
             </div>
         </div>

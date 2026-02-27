@@ -1,12 +1,9 @@
 "use client";
 import { PresentationCoach } from "@/components/analysis/PresentationCoach";
-import { Logo } from "@/components/ui/logo";
-import { Home, ArrowLeft, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { UserProfile } from "@/components/ui/UserProfile";
+import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 export default function AnalysisPage() {
     const { user } = useAuth();
@@ -15,57 +12,13 @@ export default function AnalysisPage() {
     return (
         <div className="min-h-screen bg-transparent text-white selection:bg-primary/30 overflow-x-hidden">
 
-            {/* Header */}
-            <header className="glass-header relative z-50">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.back()}
-                            className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
-                            title="Go Back"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </Button>
-                        <Logo size="lg" />
-                        <div className="h-6 w-[1px] bg-slate-800 mx-1" />
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Analysis</span>
-                    </div>
-
-                    <div className="flex items-center gap-4 sm:gap-8">
-                        <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
-                            <button
-                                onClick={() => router.push('/dashboard/mode')}
-                                className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
-                            >
-                                Mode
-                            </button>
-                            <button
-                                onClick={() => router.push('/forum')}
-                                className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
-                            >
-                                Forum
-                            </button>
-                        </nav>
-
-                        <div className="h-8 w-px bg-white/10" />
-
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => router.push('/dashboard')}
-                                className="text-slate-400 hover:text-white transition-all rounded-xl"
-                            >
-                                <Home className="w-5 h-5" />
-                            </Button>
-                            <NotificationDropdown />
-                            {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <UnifiedHeader
+                section="Analysis"
+                backButton={{
+                    href: "/dashboard",
+                    label: "Back to Dashboard"
+                }}
+            />
 
             {/* Main Content */}
             <main className="relative z-10 py-12 px-6 max-w-7xl mx-auto space-y-12">

@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, UploadCloud, FileVideo, X, Loader2, PlayCircle, Home } from "lucide-react";
 import Link from "next/link";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
+import { Logo } from "@/components/ui/logo";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
 import { useRef, useEffect } from "react";
 import { FilesetResolver, PoseLandmarker, FaceLandmarker } from "@mediapipe/tasks-vision";
 import { usePostureAnalysis } from "@/hooks/usePostureAnalysis";
@@ -596,7 +599,7 @@ export default function UploadPracticePage() {
     const reportData = getReportData();
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#020202] text-white p-4 gap-6 relative overflow-hidden">
+        <div className="flex flex-col min-h-screen bg-[#020202] text-white relative overflow-hidden">
             <video ref={hiddenVideoRef} style={{ position: 'fixed', left: '-9999px', width: '640px', height: '480px', opacity: 0 }} playsInline crossOrigin="anonymous" />
 
             {/* Ambient Background */}
@@ -606,31 +609,60 @@ export default function UploadPracticePage() {
             </div>
 
             {/* Header */}
-            <header className="relative z-10 flex items-center justify-between px-2 pt-2">
+            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/dashboard/practice/topic" className="flex items-center gap-2 text-white/70 hover:text-white transition-colors">
-                        <ArrowLeft className="w-5 h-5" />
-                        <span className="font-medium">Change Mode</span>
-                    </Link>
-                    <div className="h-4 w-[1px] bg-white/10" />
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => router.push('/dashboard')}
-                        className="h-8 w-8 text-white/50 hover:text-primary hover:bg-primary/10 transition-all rounded-lg"
+                        onClick={() => router.back()}
+                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                        title="Go Back"
                     >
-                        <Home className="w-4 h-4" />
+                        <ArrowLeft className="w-5 h-5" />
                     </Button>
+                    <Logo size="sm" className="opacity-80" />
+                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">
+                        Video Analysis
+                    </span>
                 </div>
 
-                <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                    <UploadCloud className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold tracking-wide">Video Analysis</span>
+                <div className="flex items-center gap-4 sm:gap-8">
+                    <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
+                        <button
+                            onClick={() => router.push('/dashboard/mode')}
+                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
+                        >
+                            Mode
+                        </button>
+                        <button
+                            onClick={() => router.push('/forum')}
+                            className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
+                        >
+                            Forum
+                        </button>
+                    </nav>
+
+                    <div className="h-8 w-px bg-white/10" />
+
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.push('/dashboard')}
+                            className="text-slate-400 hover:text-white transition-all rounded-xl"
+                            title="Dashboard"
+                        >
+                            <Home className="w-5 h-5" />
+                        </Button>
+                        <NotificationDropdown />
+                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                    </div>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto py-8">
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto py-8 px-6">
 
                 <AnimatePresence mode="wait">
                     {/* State 1: Upload */}
