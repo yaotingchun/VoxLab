@@ -8,7 +8,7 @@ import { Storage } from "@google-cloud/storage";
 const storage = new Storage();
 
 // Replace with your actual bucket name. The user can configure this in .env.local
-const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "voxlab-storage";
+const BUCKET_NAME = process.env.GCS_BUCKET_NAME || "voxlab-storages";
 
 export async function saveSessionToGCS(sessionData: any, userId: string, fileId: string, timestamp?: string): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
