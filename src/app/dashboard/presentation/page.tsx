@@ -707,15 +707,32 @@ function PresentationPageInner() {
                                 )}
 
                                 {phase === 'PRESENTING' && (
-                                    <Button
-                                        variant="default"
-                                        size="sm"
-                                        onClick={handleStartQnA}
-                                        className="rounded-full shadow-lg flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border-none transition-all"
-                                    >
-                                        <Sparkles className="w-4 h-4 text-purple-200" />
-                                        Start Q&A
-                                    </Button>
+                                    <div className="flex items-center gap-3">
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{
+                                                opacity: [0.7, 1, 0.7],
+                                                scale: [1, 1.05, 1]
+                                            }}
+                                            transition={{
+                                                duration: 2,
+                                                repeat: Infinity,
+                                                ease: "easeInOut"
+                                            }}
+                                            className="hidden md:block bg-purple-500/10 text-purple-300 text-[10px] font-bold px-4 py-2 rounded-full border border-purple-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.2)]"
+                                        >
+                                            Done with slides? Click Start Q&A ➔
+                                        </motion.div>
+                                        <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={handleStartQnA}
+                                            className="rounded-full shadow-lg flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border-none transition-all"
+                                        >
+                                            <Sparkles className="w-4 h-4 text-purple-200" />
+                                            Start Q&A
+                                        </Button>
+                                    </div>
                                 )}
 
                                 {phase === 'GENERATING_QNA' && (
