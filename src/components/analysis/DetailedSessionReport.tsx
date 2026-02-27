@@ -107,7 +107,7 @@ function getWpmZoneColor(wpm: number): string {
 export function DetailedSessionReport({ data, onClose, hideGlobalHeader = false }: DetailedSessionReportProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSharing, setIsSharing] = useState(false);
-    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0); // 0: General, 1: Vocal, 2: Posture, 3: Content, 4: Lecture
+    const [currentReportIndex, setCurrentReportIndex] = useState<number>(0); // 0: General, 1: Vocal, 2: Posture, 3: Content
 
     // Content Analysis State
     const [contentAnalysis, setContentAnalysis] = useState<string>("");
@@ -388,18 +388,7 @@ export function DetailedSessionReport({ data, onClose, hideGlobalHeader = false 
                                 <span className="text-sm">Content</span>
                             </button>
 
-                            {data.lectureAnalysis && (
-                                <button
-                                    onClick={() => setCurrentReportIndex(4)}
-                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all duration-300 font-bold tracking-tight ${currentReportIndex === 4
-                                        ? "bg-amber-600 text-white shadow-[0_0_20px_rgba(217,119,6,0.4)]"
-                                        : "text-white/40 hover:text-white hover:bg-white/5"
-                                        }`}
-                                >
-                                    <Sparkles className={`w-4 h-4 ${currentReportIndex === 4 ? "text-white" : "text-white/30"}`} />
-                                    <span className="text-sm">Lecture</span>
-                                </button>
-                            )}
+
                         </div>
                         <div className="flex items-center gap-4">
                             <Button
@@ -1316,500 +1305,12 @@ export function DetailedSessionReport({ data, onClose, hideGlobalHeader = false 
                                     )}
                                 </div>
 
-                                {/* Topic Relevance Analysis — Only shown when a topic was selected */}
-                                {data.topicAnalysis && (
-                                    <div className="space-y-6">
-                                        {/* Relevance Score + Summary */}
-                                        <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
-                                            <div className="flex-1 space-y-4">
-                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
-                                                    🎯 Topic Relevance
-                                                </h3>
-                                                <p className="text-white/90 leading-relaxed text-xl font-medium">
-                                                    {data.topicAnalysis.relevanceScore >= 80
-                                                        ? "Your speech strongly addressed the topic with relevant points and arguments."
-                                                        : data.topicAnalysis.relevanceScore >= 50
-                                                            ? "Your speech partially covered the topic but missed some important angles."
-                                                            : "Your speech needs more focus on the assigned topic. Consider restructuring around key arguments."}
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
-                                                <CircularScoreChart
-                                                    score={data.topicAnalysis.relevanceScore}
-                                                    label="Relevance"
-                                                    color="text-emerald-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Covered Points & Missed Angles */}
-                                        <div className="grid md:grid-cols-2 gap-8">
-                                            {/* Covered Points */}
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    ✅ Points Covered
-                                                </h3>
-                                                {data.topicAnalysis.coveredPoints.length > 0 ? (
-                                                    <ul className="space-y-4">
-                                                        {data.topicAnalysis.coveredPoints.map((point, i) => (
-                                                            <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-                                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold">✓</span>
-                                                                <p className="text-sm text-white/90 leading-snug">{point}</p>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : (
-                                                    <p className="text-white/20 italic text-sm text-center py-8">No specific topic points were identified.</p>
-                                                )}
-                                            </div>
-
-                                            {/* Missed Angles */}
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    ⚠️ Missed Angles
-                                                </h3>
-                                                {data.topicAnalysis.missedAngles.length > 0 ? (
-                                                    <ul className="space-y-4">
-                                                        {data.topicAnalysis.missedAngles.map((angle, i) => (
-                                                            <li key={i} className="flex items-start gap-4 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-                                                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-[10px] font-bold">!</span>
-                                                                <p className="text-sm text-white/90 leading-snug">{angle}</p>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                ) : (
-                                                    <p className="text-emerald-400/60 italic text-sm text-center py-8">Great coverage — no major angles missed! ✨</p>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Content Suggestions */}
-                                        {data.topicAnalysis.contentSuggestions.length > 0 && (
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    💡 Suggested Additions
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.topicAnalysis.contentSuggestions.map((suggestion, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-cyan-500/5 rounded-2xl border border-cyan-500/10">
-                                                            <span className="flex-shrink-0 w-6 h-6 rounded-lg bg-cyan-500/10 text-cyan-500 flex items-center justify-center font-black text-[10px] border border-cyan-500/20">
-                                                                0{i + 1}
-                                                            </span>
-                                                            <p className="text-sm text-white/90 leading-snug pt-0.5">{suggestion}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Slide Alignment Analysis */}
-                                {data.slideAnalysis && (
-                                    <div className="space-y-6">
-                                        <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
-                                            <div className="flex-1 space-y-4">
-                                                <h3 className="text-xs font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
-                                                    <FileText className="w-4 h-4" /> Slide Alignment
-                                                </h3>
-                                                <p className="text-white/90 leading-relaxed text-xl font-medium">
-                                                    {data.slideAnalysis.feedback}
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
-                                                <CircularScoreChart
-                                                    score={data.slideAnalysis.alignmentScore}
-                                                    label="Alignment"
-                                                    color="text-blue-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid md:grid-cols-2 gap-8">
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    ✅ Points Covered
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.slideAnalysis.coveredPoints.map((point, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold">✓</span>
-                                                            <p className="text-sm text-white/90 leading-snug">{point}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    ⚠️ Missed Points
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-[10px] font-bold">!</span>
-                                                            <p className="text-sm text-white/90 leading-snug">{point}</p>
-                                                        </li>
-                                                    )) : <p className="text-emerald-400/60 italic text-sm text-center py-8">All key points were covered!</p>}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Rubric Analysis */}
-                                {data.rubricAnalysis && (
-                                    <div className="space-y-6">
-                                        <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
-                                            <div className="flex-1 space-y-4">
-                                                <h3 className="text-xs font-bold text-purple-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
-                                                    <AlertCircle className="w-4 h-4" /> Rubric Evaluation
-                                                </h3>
-                                                <p className="text-white/90 leading-relaxed text-xl font-medium">
-                                                    {data.rubricAnalysis.feedback}
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
-                                                <CircularScoreChart
-                                                    score={data.rubricAnalysis.rubricScore}
-                                                    label="Rubric Score"
-                                                    color="text-purple-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid md:grid-cols-2 gap-8">
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    🌟 Key Strengths
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.rubricAnalysis.strengths.map((str, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold">✓</span>
-                                                            <p className="text-sm text-white/90 leading-snug">{str}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-rose-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    📉 Areas to Improve
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.rubricAnalysis.weaknesses.map((weakness, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-rose-500/5 rounded-2xl border border-rose-500/10">
-                                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-[10px] font-bold">↓</span>
-                                                            <p className="text-sm text-white/90 leading-snug">{weakness}</p>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Content Heuristic Score - For Practice Mode */}
-                                {/* Content Strategy - Practice Mode */}
-                                {!data.interviewEvaluation && (
-                                    <div className="space-y-6">
-                                        <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
-                                            <div className="flex-1 space-y-4">
-                                                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
-                                                    📚 Content Strategy
-                                                </h3>
-                                                <p className="text-white/90 leading-relaxed text-xl font-medium">
-                                                    {localContentScore >= 80
-                                                        ? "Your session content is exceptionally well-structured and impactful."
-                                                        : localContentScore >= 60
-                                                            ? "Your session content is clear but could benefit from more specific examples or data points."
-                                                            : "Your session content lacks depth. Consider using the AI Coach's suggestions to expand your main points."}
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
-                                                <CircularScoreChart
-                                                    score={localContentScore}
-                                                    label="Content Score"
-                                                    color="text-amber-500"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Interview Section */}
-                                {data.interviewEvaluation && (
-                                    <div className="space-y-8">
-                                        {/* Hiring Recommendation & Overall Score */}
-                                        <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 shadow-xl group">
-                                            <div className="flex flex-col md:flex-row items-center gap-10">
-                                                <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
-                                                    <CircularScoreChart
-                                                        score={data.interviewEvaluation.overallScore}
-                                                        label="Executive Score"
-                                                        color="text-indigo-500"
-                                                    />
-                                                </div>
-                                                <div className="flex-1 space-y-6">
-                                                    <div className="flex flex-wrap items-center gap-3">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Recommendation:</span>
-                                                        <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all duration-300 ${data.interviewEvaluation.hiringRecommendation.toLowerCase().includes('hire')
-                                                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                                                            : "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
-                                                            }`}>
-                                                            {data.interviewEvaluation.hiringRecommendation}
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-white/90 text-xl font-medium leading-relaxed italic">
-                                                        "{data.interviewEvaluation.overallFeedback}"
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10 border-t border-white/5 pt-8">
-                                                {[
-                                                    { label: "Communication", score: data.interviewEvaluation.communicationScore, color: "bg-blue-500", icon: MessageSquare },
-                                                    { label: "Technical", score: data.interviewEvaluation.technicalScore, color: "bg-purple-500", icon: Brain },
-                                                    { label: "Behavioral", score: data.interviewEvaluation.behavioralScore, color: "bg-amber-500", icon: Users },
-                                                    { label: "Confidence", score: data.interviewEvaluation.confidenceScore, color: "bg-emerald-500", icon: Zap },
-                                                ].map((stat) => (
-                                                    <div key={stat.label} className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
-                                                        <div className="flex items-center gap-2 text-white/30 mb-3">
-                                                            <stat.icon className="w-3.5 h-3.5" />
-                                                            <span className="text-[10px] font-black uppercase tracking-widest leading-none">{stat.label}</span>
-                                                        </div>
-                                                        <div className="text-3xl font-black text-white mb-3 leading-none">{stat.score}</div>
-                                                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                                            <div className={`h-full ${stat.color} rounded-full shadow-[0_0_8px_rgba(255,255,255,0.2)]`} style={{ width: `${stat.score}%` }} />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Top Strengths & Improvements */}
-                                        <div className="grid md:grid-cols-2 gap-8">
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    <Target className="w-4 h-4" /> Top Strengths
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.interviewEvaluation.topStrengths.map((s, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
-                                                            <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                                                            <span className="text-sm text-white/90 leading-snug">{s}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                            <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
-                                                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
-                                                    <AlertTriangle className="w-4 h-4" /> Growth Areas
-                                                </h3>
-                                                <ul className="space-y-4">
-                                                    {data.interviewEvaluation.topImprovements.map((s, i) => (
-                                                        <li key={i} className="flex items-start gap-4 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-                                                            <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                                                            <span className="text-sm text-white/90 leading-snug">{s}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        {/* Question Breakdown */}
-                                        <div className="space-y-6 pt-4">
-                                            <h3 className="text-xs font-bold text-white/20 uppercase tracking-[0.3em] pl-4">Detailed Question Evaluation</h3>
-                                            {data.interviewEvaluation.questionEvaluations.map((qe, idx) => (
-                                                <div key={idx} className="bg-white/[0.02] rounded-[2rem] border border-white/5 overflow-hidden group hover:border-white/10 transition-colors">
-                                                    <div className="p-8 space-y-8">
-                                                        <div className="flex items-start justify-between gap-8">
-                                                            <div className="space-y-4 flex-1">
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className="text-[10px] font-black bg-white/10 text-white/60 px-2.5 py-1 rounded shadow-sm uppercase tracking-widest">Question {idx + 1}</span>
-                                                                </div>
-                                                                <p className="text-xl text-white font-medium leading-relaxed italic">"{qe.question}"</p>
-                                                            </div>
-                                                            <div className="text-center bg-white/[0.05] rounded-2xl px-6 py-4 border border-white/10 group-hover:scale-105 transition-transform duration-500">
-                                                                <div className="text-3xl font-black text-indigo-400 leading-none mb-1.5">{qe.score}</div>
-                                                                <div className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Score</div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="grid md:grid-cols-2 gap-8">
-                                                            <div className="space-y-6">
-                                                                <div className="bg-white/[0.03] rounded-2xl p-6 border border-white/5">
-                                                                    <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-4">
-                                                                        <Mic className="w-3.5 h-3.5" /> Your Response
-                                                                    </div>
-                                                                    <p className="text-sm text-white/70 leading-relaxed font-medium line-clamp-4">"{qe.answer}"</p>
-                                                                </div>
-                                                                <div className="flex gap-4">
-                                                                    {[
-                                                                        { label: "Relevance", score: qe.relevanceScore },
-                                                                        { label: "Depth", score: qe.depthScore },
-                                                                        { label: "Comm.", score: qe.communicationScore },
-                                                                    ].map(s => (
-                                                                        <div key={s.label} className="flex-1 text-center py-3 bg-white/[0.03] rounded-2xl border border-white/5">
-                                                                            <div className="text-sm font-black text-white mb-0.5">{s.score}</div>
-                                                                            <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold">{s.label}</div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                            <div className="space-y-6">
-                                                                <div className="bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10">
-                                                                    <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest mb-4">
-                                                                        <Sparkles className="w-3.5 h-3.5" /> Ideal Concept
-                                                                    </div>
-                                                                    <p className="text-sm text-indigo-100/60 leading-relaxed font-medium">{qe.idealAnswer}</p>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-4">
-                                                                    <div className="space-y-3">
-                                                                        <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest flex items-center gap-1.5 pl-1">
-                                                                            <Check className="w-3 h-3" /> Strengths
-                                                                        </span>
-                                                                        <ul className="space-y-2">
-                                                                            {qe.strengths.slice(0, 2).map((s, i) => (
-                                                                                <li key={i} className="text-[11px] text-white/50 flex items-start gap-2 leading-tight">
-                                                                                    <span className="text-emerald-500/30 mt-1 flex-shrink-0">•</span>
-                                                                                    <span>{s}</span>
-                                                                                </li>
-                                                                            ))}
-                                                                        </ul>
-                                                                    </div>
-                                                                    <div className="space-y-1.5">
-                                                                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
-                                                                            <AlertTriangle className="w-2.5 h-2.5" /> Improves
-                                                                        </span>
-                                                                        <ul className="space-y-1">
-                                                                            {qe.improvements.slice(0, 2).map((s, i) => (
-                                                                                <li key={i} className="text-[11px] text-slate-400 flex items-start gap-1">
-                                                                                    <span className="text-amber-500/50 mt-1 flex-shrink-0">•</span>
-                                                                                    <span>{s}</span>
-                                                                                </li>
-                                                                            ))}
-                                                                        </ul>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Q&A Breakdown */}
-                                {data.qnaSummary && !data.interviewEvaluation && (
-                                    <div className="space-y-6">
-                                        {/* Average Relevance Score */}
-                                        <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
-                                            <div className="flex-1 space-y-3">
-                                                <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                                    <Target className="w-4 h-4" /> Average Relevance
-                                                </h3>
-                                                <p className="text-slate-300 text-sm leading-relaxed">
-                                                    This score represents how well your answers addressed the specific questions asked during the Q&A session.
-                                                </p>
-                                            </div>
-                                            <div className="flex-shrink-0">
-                                                <CircularScoreChart
-                                                    score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
-                                                    label="Avg Score"
-                                                    color="text-teal-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Questions Breakdown */}
-                                        <div className="space-y-6">
-                                            {data.qnaSummary.map((qna, idx) => (
-                                                <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
-                                                    <div className="flex items-start justify-between gap-4">
-                                                        <div className="space-y-1">
-                                                            <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
-                                                            <p className="text-slate-300 font-medium">{qna.question}</p>
-                                                        </div>
-                                                        <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
-                                                            <span className="text-xs font-bold text-slate-400">Score</span>
-                                                            <span className={`text-sm font-bold ${qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
-                                                                {qna.relevanceScore}%
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="grid md:grid-cols-2 gap-4 mt-4">
-                                                        <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800/50">
-                                                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                                                <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
-                                                            </div>
-                                                            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.answer}</p>
-                                                        </div>
-                                                        <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
-                                                            <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
-                                                                <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
-                                                            </div>
-                                                            <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* AI Analysis Column */}
-                                {!data.qnaSummary && !data.interviewEvaluation && (
-                                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
-                                        <div className="flex justify-between items-center mb-4">
-                                            <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
-                                                <Activity className="w-4 h-4" /> AI Content Coach
-                                            </h3>
-                                            {!contentAnalysis && isAnalyzingContent && (
-                                                <div className="flex items-center gap-2 text-teal-400 text-sm">
-                                                    <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-                                                    Analyzing...
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
-                                            {isContentLoading && !streamedContentAnalysis && (
-                                                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                                                    <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                                                    <p>Analyzing script flow and impact...</p>
-                                                </div>
-                                            )}
-                                            {streamedContentAnalysis && (
-                                                <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
-                                                    <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
-                                                    {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
-                                                </div>
-                                            )}
-                                            {!isContentLoading && !streamedContentAnalysis && (
-                                                <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
-                                                    {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 
-                        {currentReportIndex === 4 && data.lectureAnalysis && (
-                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* 1. Header */}
-                                <div className="text-center space-y-2 pb-6 border-b border-slate-800">
-                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
-                                        Lecture Mode Analysis
-                                    </h1>
-                                    <p className="text-slate-400 text-sm">Specialized feedback for teaching and instruction</p>
-                                </div>
-
+                        {/* Lecture Analysis — Combined into Content tab */}
+                        {data.lectureAnalysis && (
+                            <div className="space-y-8 pt-8 border-t border-white/5">
                                 {/* Teaching Score & Overall Clarity */}
                                 <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-10 items-center shadow-xl group">
                                     <div className="flex-1 space-y-4">
@@ -1864,31 +1365,426 @@ export function DetailedSessionReport({ data, onClose, hideGlobalHeader = false 
                                 </div>
                             </div>
                         )}
+
+                        {/* Slide Alignment Analysis */}
+                        {data.slideAnalysis && (
+                            <div className="space-y-6">
+                                <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
+                                    <div className="flex-1 space-y-4">
+                                        <h3 className="text-xs font-bold text-blue-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
+                                            <FileText className="w-4 h-4" /> Slide Alignment
+                                        </h3>
+                                        <p className="text-white/90 leading-relaxed text-xl font-medium">
+                                            {data.slideAnalysis.feedback}
+                                        </p>
+                                    </div>
+                                    <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
+                                        <CircularScoreChart
+                                            score={data.slideAnalysis.alignmentScore}
+                                            label="Alignment"
+                                            color="text-blue-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
+                                        <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
+                                            ✅ Points Covered
+                                        </h3>
+                                        <ul className="space-y-4">
+                                            {data.slideAnalysis.coveredPoints.map((point, i) => (
+                                                <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold">✓</span>
+                                                    <p className="text-sm text-white/90 leading-snug">{point}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
+                                        <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
+                                            ⚠️ Missed Points
+                                        </h3>
+                                        <ul className="space-y-4">
+                                            {data.slideAnalysis.missedPoints.length > 0 ? data.slideAnalysis.missedPoints.map((point, i) => (
+                                                <li key={i} className="flex items-start gap-4 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-[10px] font-bold">!</span>
+                                                    <p className="text-sm text-white/90 leading-snug">{point}</p>
+                                                </li>
+                                            )) : <p className="text-emerald-400/60 italic text-sm text-center py-8">All key points were covered!</p>}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Rubric Analysis */}
+                        {data.rubricAnalysis && (
+                            <div className="space-y-6">
+                                <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
+                                    <div className="flex-1 space-y-4">
+                                        <h3 className="text-xs font-bold text-purple-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
+                                            <AlertCircle className="w-4 h-4" /> Rubric Evaluation
+                                        </h3>
+                                        <p className="text-white/90 leading-relaxed text-xl font-medium">
+                                            {data.rubricAnalysis.feedback}
+                                        </p>
+                                    </div>
+                                    <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
+                                        <CircularScoreChart
+                                            score={data.rubricAnalysis.rubricScore}
+                                            label="Rubric Score"
+                                            color="text-purple-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
+                                        <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
+                                            🌟 Key Strengths
+                                        </h3>
+                                        <ul className="space-y-4">
+                                            {data.rubricAnalysis.strengths.map((str, i) => (
+                                                <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-[10px] font-bold">✓</span>
+                                                    <p className="text-sm text-white/90 leading-snug">{str}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
+                                        <h3 className="text-xs font-bold text-rose-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
+                                            📉 Areas to Improve
+                                        </h3>
+                                        <ul className="space-y-4">
+                                            {data.rubricAnalysis.weaknesses.map((weakness, i) => (
+                                                <li key={i} className="flex items-start gap-4 p-4 bg-rose-500/5 rounded-2xl border border-rose-500/10">
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-[10px] font-bold">↓</span>
+                                                    <p className="text-sm text-white/90 leading-snug">{weakness}</p>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Content Heuristic Score - For Practice Mode */}
+                        {/* Content Strategy - Practice Mode */}
+                        {!data.interviewEvaluation && (
+                            <div className="space-y-6">
+                                <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 flex flex-col md:flex-row gap-8 items-center shadow-xl group">
+                                    <div className="flex-1 space-y-4">
+                                        <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] flex items-center gap-2.5">
+                                            📚 Content Strategy
+                                        </h3>
+                                        <p className="text-white/90 leading-relaxed text-xl font-medium">
+                                            {localContentScore >= 80
+                                                ? "Your session content is exceptionally well-structured and impactful."
+                                                : localContentScore >= 60
+                                                    ? "Your session content is clear but could benefit from more specific examples or data points."
+                                                    : "Your session content lacks depth. Consider using the AI Coach's suggestions to expand your main points."}
+                                        </p>
+                                    </div>
+                                    <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
+                                        <CircularScoreChart
+                                            score={localContentScore}
+                                            label="Content Score"
+                                            color="text-amber-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Interview Section */}
+                        {data.interviewEvaluation && (
+                            <div className="space-y-8">
+                                {/* Hiring Recommendation & Overall Score */}
+                                <div className="bg-white/[0.03] backdrop-blur-md rounded-[2rem] p-8 border border-white/10 shadow-xl group">
+                                    <div className="flex flex-col md:flex-row items-center gap-10">
+                                        <div className="flex-shrink-0 group-hover:scale-105 transition-transform duration-500">
+                                            <CircularScoreChart
+                                                score={data.interviewEvaluation.overallScore}
+                                                label="Executive Score"
+                                                color="text-indigo-500"
+                                            />
+                                        </div>
+                                        <div className="flex-1 space-y-6">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Recommendation:</span>
+                                                <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border transition-all duration-300 ${data.interviewEvaluation.hiringRecommendation.toLowerCase().includes('hire')
+                                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                                                    : "bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
+                                                    }`}>
+                                                    {data.interviewEvaluation.hiringRecommendation}
+                                                </div>
+                                            </div>
+                                            <p className="text-white/90 text-xl font-medium leading-relaxed italic">
+                                                "{data.interviewEvaluation.overallFeedback}"
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-10 border-t border-white/5 pt-8">
+                                        {[
+                                            { label: "Communication", score: data.interviewEvaluation.communicationScore, color: "bg-blue-500", icon: MessageSquare },
+                                            { label: "Technical", score: data.interviewEvaluation.technicalScore, color: "bg-purple-500", icon: Brain },
+                                            { label: "Behavioral", score: data.interviewEvaluation.behavioralScore, color: "bg-amber-500", icon: Users },
+                                            { label: "Confidence", score: data.interviewEvaluation.confidenceScore, color: "bg-emerald-500", icon: Zap },
+                                        ].map((stat) => (
+                                            <div key={stat.label} className="bg-white/[0.03] p-5 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                                <div className="flex items-center gap-2 text-white/30 mb-3">
+                                                    <stat.icon className="w-3.5 h-3.5" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest leading-none">{stat.label}</span>
+                                                </div>
+                                                <div className="text-3xl font-black text-white mb-3 leading-none">{stat.score}</div>
+                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                    <div className={`h-full ${stat.color} rounded-full shadow-[0_0_8px_rgba(255,255,255,0.2)]`} style={{ width: `${stat.score}%` }} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Top Strengths & Improvements */}
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
+                                        <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
+                                            <Target className="w-4 h-4" /> Top Strengths
+                                        </h3>
+                                        <ul className="space-y-4">
+                                            {data.interviewEvaluation.topStrengths.map((s, i) => (
+                                                <li key={i} className="flex items-start gap-4 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
+                                                    <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                                                    <span className="text-sm text-white/90 leading-snug">{s}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    <div className="bg-white/[0.02] p-8 rounded-[2rem] border border-white/5">
+                                        <h3 className="text-xs font-bold text-amber-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2.5">
+                                            <AlertTriangle className="w-4 h-4" /> Growth Areas
+                                        </h3>
+                                        <ul className="space-y-4">
+                                            {data.interviewEvaluation.topImprovements.map((s, i) => (
+                                                <li key={i} className="flex items-start gap-4 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                                                    <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                                                    <span className="text-sm text-white/90 leading-snug">{s}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {/* Question Breakdown */}
+                                <div className="space-y-6 pt-4">
+                                    <h3 className="text-xs font-bold text-white/20 uppercase tracking-[0.3em] pl-4">Detailed Question Evaluation</h3>
+                                    {data.interviewEvaluation.questionEvaluations.map((qe, idx) => (
+                                        <div key={idx} className="bg-white/[0.02] rounded-[2rem] border border-white/5 overflow-hidden group hover:border-white/10 transition-colors">
+                                            <div className="p-8 space-y-8">
+                                                <div className="flex items-start justify-between gap-8">
+                                                    <div className="space-y-4 flex-1">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[10px] font-black bg-white/10 text-white/60 px-2.5 py-1 rounded shadow-sm uppercase tracking-widest">Question {idx + 1}</span>
+                                                        </div>
+                                                        <p className="text-xl text-white font-medium leading-relaxed italic">"{qe.question}"</p>
+                                                    </div>
+                                                    <div className="text-center bg-white/[0.05] rounded-2xl px-6 py-4 border border-white/10 group-hover:scale-105 transition-transform duration-500">
+                                                        <div className="text-3xl font-black text-indigo-400 leading-none mb-1.5">{qe.score}</div>
+                                                        <div className="text-[10px] text-white/30 font-bold uppercase tracking-widest">Score</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid md:grid-cols-2 gap-8">
+                                                    <div className="space-y-6">
+                                                        <div className="bg-white/[0.03] rounded-2xl p-6 border border-white/5">
+                                                            <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-4">
+                                                                <Mic className="w-3.5 h-3.5" /> Your Response
+                                                            </div>
+                                                            <p className="text-sm text-white/70 leading-relaxed font-medium line-clamp-4">"{qe.answer}"</p>
+                                                        </div>
+                                                        <div className="flex gap-4">
+                                                            {[
+                                                                { label: "Relevance", score: qe.relevanceScore },
+                                                                { label: "Depth", score: qe.depthScore },
+                                                                { label: "Comm.", score: qe.communicationScore },
+                                                            ].map(s => (
+                                                                <div key={s.label} className="flex-1 text-center py-3 bg-white/[0.03] rounded-2xl border border-white/5">
+                                                                    <div className="text-sm font-black text-white mb-0.5">{s.score}</div>
+                                                                    <div className="text-[9px] text-white/30 uppercase tracking-widest font-bold">{s.label}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-6">
+                                                        <div className="bg-indigo-500/5 rounded-2xl p-6 border border-indigo-500/10">
+                                                            <div className="flex items-center gap-2 text-indigo-400 text-[10px] font-black uppercase tracking-widest mb-4">
+                                                                <Sparkles className="w-3.5 h-3.5" /> Ideal Concept
+                                                            </div>
+                                                            <p className="text-sm text-indigo-100/60 leading-relaxed font-medium">{qe.idealAnswer}</p>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-3">
+                                                                <span className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest flex items-center gap-1.5 pl-1">
+                                                                    <Check className="w-3 h-3" /> Strengths
+                                                                </span>
+                                                                <ul className="space-y-2">
+                                                                    {qe.strengths.slice(0, 2).map((s, i) => (
+                                                                        <li key={i} className="text-[11px] text-white/50 flex items-start gap-2 leading-tight">
+                                                                            <span className="text-emerald-500/30 mt-1 flex-shrink-0">•</span>
+                                                                            <span>{s}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                                                                    <AlertTriangle className="w-2.5 h-2.5" /> Improves
+                                                                </span>
+                                                                <ul className="space-y-1">
+                                                                    {qe.improvements.slice(0, 2).map((s, i) => (
+                                                                        <li key={i} className="text-[11px] text-slate-400 flex items-start gap-1">
+                                                                            <span className="text-amber-500/50 mt-1 flex-shrink-0">•</span>
+                                                                            <span>{s}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Q&A Breakdown */}
+                        {data.qnaSummary && !data.interviewEvaluation && (
+                            <div className="space-y-6">
+                                {/* Average Relevance Score */}
+                                <div className="bg-slate-800/50 rounded-2xl p-6 border border-teal-500/20 flex flex-col md:flex-row gap-8 items-center">
+                                    <div className="flex-1 space-y-3">
+                                        <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                            <Target className="w-4 h-4" /> Average Relevance
+                                        </h3>
+                                        <p className="text-slate-300 text-sm leading-relaxed">
+                                            This score represents how well your answers addressed the specific questions asked during the Q&A session.
+                                        </p>
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                        <CircularScoreChart
+                                            score={Math.round(data.qnaSummary.reduce((acc, curr) => acc + curr.relevanceScore, 0) / Math.max(1, data.qnaSummary.length))}
+                                            label="Avg Score"
+                                            color="text-teal-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Questions Breakdown */}
+                                <div className="space-y-6">
+                                    {data.qnaSummary.map((qna, idx) => (
+                                        <div key={idx} className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 space-y-4">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="space-y-1">
+                                                    <h3 className="text-sm font-bold text-slate-200">Question {idx + 1}</h3>
+                                                    <p className="text-slate-300 font-medium">{qna.question}</p>
+                                                </div>
+                                                <div className="flex bg-slate-800 rounded-full px-3 py-1 items-center gap-2 border border-slate-700">
+                                                    <span className="text-xs font-bold text-slate-400">Score</span>
+                                                    <span className={`text-sm font-bold ${qna.relevanceScore >= 80 ? 'text-emerald-400' : qna.relevanceScore >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                        {qna.relevanceScore}%
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid md:grid-cols-2 gap-4 mt-4">
+                                                <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800/50">
+                                                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                        <Mic className="w-3 h-3 text-emerald-400" /> Your Answer
+                                                    </div>
+                                                    <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{qna.answer}</p>
+                                                </div>
+                                                <div className="bg-teal-900/10 rounded-xl p-4 border border-teal-500/20">
+                                                    <div className="flex items-center gap-2 text-teal-400 text-xs font-bold uppercase tracking-widest mb-2">
+                                                        <Sparkles className="w-3 h-3 text-teal-400" /> Ideal Answer Concept
+                                                    </div>
+                                                    <p className="text-teal-100/80 text-sm leading-relaxed whitespace-pre-wrap">{qna.idealAnswer}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* AI Analysis Column */}
+                        {!data.qnaSummary && !data.interviewEvaluation && (
+                            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 flex flex-col">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-sm font-bold text-teal-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Activity className="w-4 h-4" /> AI Content Coach
+                                    </h3>
+                                    {!contentAnalysis && isAnalyzingContent && (
+                                        <div className="flex items-center gap-2 text-teal-400 text-sm">
+                                            <div className="w-3 h-3 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                                            Analyzing...
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 overflow-y-auto max-h-[500px] flex-1 text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                                    {isContentLoading && !streamedContentAnalysis && (
+                                        <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
+                                            <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                            <p>Analyzing script flow and impact...</p>
+                                        </div>
+                                    )}
+                                    {streamedContentAnalysis && (
+                                        <div className="prose prose-invert prose-p:leading-snug prose-sm max-w-none">
+                                            <ReactMarkdown>{streamedContentAnalysis}</ReactMarkdown>
+                                            {isContentLoading && <span className="inline-block w-2 h-4 bg-teal-500 ml-1 animate-pulse" />}
+                                        </div>
+                                    )}
+                                    {!isContentLoading && !streamedContentAnalysis && (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-500 italic text-center text-sm px-4">
+                                            {metrics.transcript ? "Preparing analysis..." : "Speak during the session to record a transcript for analysis."}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
-            </motion.div>
-            {/* Session Context Chatbot moved outside to avoid transform trapping */}
-            <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
 
-            {/* Share to Forum Modal moved outside */}
-            <ShareSessionModal
-                isOpen={isSharing}
-                onClose={() => setIsSharing(false)}
-                sessionData={{
-                    ...data,
-                    summary: data.summary,
-                    tips: data.tips,
-                    score: data.score,
-                    vocalSummary: data.vocalSummary,
-                    postureSummary: data.postureSummary,
-                    videoUrl: data.videoUrl,
-                    rawMetrics: {
-                        duration: metrics.duration,
-                        wpm: metrics.wpm,
-                        transcript: metrics.transcript
-                    }
-                }}
-            />
+                {/* Session Context Chatbot moved outside to avoid transform trapping */}
+                <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
+
+                {/* Share to Forum Modal moved outside */}
+                <ShareSessionModal
+                    isOpen={isSharing}
+                    onClose={() => setIsSharing(false)}
+                    sessionData={{
+                        ...data,
+                        summary: data.summary,
+                        tips: data.tips,
+                        score: data.score,
+                        vocalSummary: data.vocalSummary,
+                        postureSummary: data.postureSummary,
+                        videoUrl: data.videoUrl,
+                        rawMetrics: {
+                            duration: metrics.duration,
+                            wpm: metrics.wpm,
+                            transcript: metrics.transcript
+                        }
+                    }}
+                />
+            </motion.div>
         </>
     );
 }

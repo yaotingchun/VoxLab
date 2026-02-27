@@ -226,6 +226,7 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
     const hasSlideMissed = hasSlides && (data.slideAnalysis?.missedPoints?.length || 0) > 0;
     const hasRubricStrengths = hasRubric && (data.rubricAnalysis?.strengths?.length || 0) > 0;
     const hasRubricWeaknesses = hasRubric && (data.rubricAnalysis?.weaknesses?.length || 0) > 0;
+    const hasLecture = !!data.lectureAnalysis;
 
     let currentPageCounter = 7;
 
@@ -233,6 +234,7 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
     const slideMissedPageNum = hasSlideMissed ? ++currentPageCounter : -1;
     const rubricStrengthsPageNum = hasRubricStrengths ? ++currentPageCounter : -1;
     const rubricWeaknessesPageNum = hasRubricWeaknesses ? ++currentPageCounter : -1;
+    const lecturePageNum = hasLecture ? ++currentPageCounter : -1;
 
     // --- NEW INTERVIEW SUMMARY PAGE ---
     const hasInterviewSummary = !!interviewEval;
@@ -827,6 +829,58 @@ export function PrintableReportTemplate({ data, metrics, localContentScore, cont
                                     </li>
                                 ))}
                             </ul>
+                        </div>
+                    </PrintablePage>
+                )
+            }
+
+            {/* PAGE: Lecture Mode Analysis */}
+            {
+                hasLecture && (
+                    <PrintablePage pageNum={lecturePageNum} totalPages={pageNumTotal}>
+                        <h2 className="text-2xl font-bold text-white mb-6 border-b border-purple-900/30 pb-2 flex items-center gap-2">
+                            <Sparkles className="w-6 h-6 text-amber-400" /> Lecture Mode Analysis
+                        </h2>
+
+                        <div className="bg-slate-900/40 rounded-xl p-6 border border-purple-900/30 mb-8 flex items-center justify-between gap-8 shadow-lg shadow-purple-900/10">
+                            <div className="flex-1">
+                                <h3 className="text-xs font-bold text-amber-300 uppercase tracking-widest mb-3">Instructional Clarity</h3>
+                                <p className="text-white/90 text-sm leading-relaxed italic">
+                                    "{data.lectureAnalysis.clarityFeedback}"
+                                </p>
+                            </div>
+                            <div className="flex-shrink-0">
+                                <CircularScoreChart score={data.lectureAnalysis.teachingScore} label="Clarity" color="text-amber-400" size={120} strokeWidth={10} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6 mb-8">
+                            <div className="p-6 rounded-[2rem] border border-orange-900/30 bg-orange-900/10 flex flex-col min-h-0 overflow-hidden">
+                                <h3 className="text-sm font-bold text-orange-300 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-orange-900/40 pb-2 flex-shrink-0">
+                                    ⚠️ Student Blindspots
+                                </h3>
+                                <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                                    {data.lectureAnalysis.potentialConfusion.map((item: string, i: number) => (
+                                        <li key={i} className="flex items-start gap-3 p-3 bg-[#13111C] rounded-xl border border-orange-900/30">
+                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center font-bold text-xs">!</span>
+                                            <p className="text-[14px] text-slate-300 leading-snug">{item}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div className="p-6 rounded-[2rem] border border-blue-900/30 bg-blue-900/10 flex flex-col min-h-0 overflow-hidden">
+                                <h3 className="text-sm font-bold text-blue-300 uppercase tracking-widest mb-4 flex items-center gap-2 border-b border-blue-900/40 pb-2 flex-shrink-0">
+                                    💡 Power Analogies
+                                </h3>
+                                <ul className="space-y-3 overflow-y-auto pr-2 pb-2">
+                                    {data.lectureAnalysis.analogies.map((analogy: string, i: number) => (
+                                        <li key={i} className="flex items-start gap-3 p-3 bg-[#13111C] rounded-xl border border-blue-900/30">
+                                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center font-bold text-xs">?</span>
+                                            <p className="text-[14px] text-slate-300 italic leading-snug">{analogy}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
                         </div>
                     </PrintablePage>
                 )
