@@ -16,7 +16,7 @@ export const ForumPostList: React.FC<ForumPostListProps> = ({ posts }) => {
     }
 
     return (
-        <div className="space-y-0 border-t border-white/5">
+        <div className="space-y-4 border-t border-white/5 pt-4">
             {posts.map((post, index) => (
                 <div
                     key={post.id}

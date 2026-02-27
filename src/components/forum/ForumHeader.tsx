@@ -22,7 +22,7 @@ export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearch
     const router = useRouter();
 
     return (
-        <header className="sticky top-0 z-50 w-full mb-8 bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
+        <header className="sticky top-0 z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
             <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
 
                 {/* Left: Branding & Mobile Menu */}
