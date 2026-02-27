@@ -177,13 +177,13 @@ export function SessionReplay({ sessionId, videoUrl, jsonUrl, availableSessions,
                 {/* Real-time Telemetry Scrubber Area */}
                 <div className="relative w-full aspect-video bg-[#1B1824]/50 rounded-3xl border border-white/5 flex flex-col overflow-hidden shadow-inner">
                     {/* Sticky header */}
-                    <div className="bg-transparent p-6 pb-4 z-20 border-b border-white/5 relative">
+                    <div className="bg-transparent p-5 pb-3 z-20 border-b border-white/5 relative">
                         <div className="absolute inset-0 bg-gradient-to-b from-[#1B1824] to-transparent pointer-events-none" />
                         <div className="relative z-10">
-                            <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5 flex items-center gap-2">
+                            <h4 className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1 flex items-center gap-2">
                                 Timeline Analytics
                             </h4>
-                            <p className="text-slate-300 text-[15px] font-medium leading-relaxed">
+                            <p className="text-slate-300 text-xs font-medium leading-relaxed">
                                 {events.length > 0
                                     ? "Jump to flagged engagement points:"
                                     : "Excellent! No critical issues flagged."}
