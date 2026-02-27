@@ -145,6 +145,8 @@ function TopicSelectionInner() {
         else if (step === "random") setStep("ai-menu");
     };
 
+    const sectionHeaderClass = "text-3xl md:text-4xl font-bold tracking-tight";
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -359,7 +361,7 @@ function TopicSelectionInner() {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => setStep("live-menu")}
-                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2rem] border border-white/5 bg-[#161616] text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-white/5"
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2.5rem] border border-purple-500/20 bg-[#161616] text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden shadow-2xl shadow-purple-500/5 ring-1 ring-white/5"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
@@ -384,28 +386,31 @@ function TopicSelectionInner() {
                     {step === "live-menu" && (
                         <motion.div key="live-menu" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-2xl space-y-8">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">Select Topic Mode</h2>
+                                <h2 className={sectionHeaderClass}>Select Topic Mode</h2>
                                 <p className="text-white/40 text-sm">Pick how you want to decide your practice topic.</p>
                             </motion.div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 {/* Custom Topic */}
                                 <motion.button
                                     variants={item}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => setStep("custom")}
-                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-blue-500/30 hover:bg-blue-500/[0.05] overflow-hidden"
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2.5rem] border border-blue-500/20 bg-[#161616] text-left transition-all hover:border-blue-500/30 hover:bg-blue-500/[0.05] overflow-hidden shadow-2xl shadow-blue-500/5 ring-1 ring-blue-500/10"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative space-y-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20 transition-colors">
-                                            <PenLine className="w-7 h-7 text-blue-400" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <div className="relative z-10 space-y-6">
+                                        <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:bg-blue-500/20 transition-all duration-300 shadow-inner">
+                                            <PenLine className="w-8 h-8 text-blue-400 group-hover:scale-110 transition-transform duration-300" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold mb-1">Custom Topic</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Enter your own topic or speech subject.</p>
+                                            <h3 className="text-2xl font-bold mb-2 text-white">Custom Topic</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed font-medium">Enter your own topic or speech subject.</p>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-base text-blue-400 font-bold group-hover:text-blue-300 transition-colors mt-auto pt-6">
+                                        Select topic <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </motion.button>
 
@@ -415,17 +420,20 @@ function TopicSelectionInner() {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => setStep("ai-menu")}
-                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden"
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2.5rem] border border-purple-500/20 bg-[#161616] text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden shadow-2xl shadow-purple-500/5 ring-1 ring-purple-500/10"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative space-y-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20 transition-colors">
-                                            <Sparkles className="w-7 h-7 text-purple-400" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <div className="relative z-10 space-y-6">
+                                        <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20 transition-all duration-300 shadow-inner">
+                                            <Sparkles className="w-8 h-8 text-purple-400 group-hover:scale-110 transition-transform duration-300" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold mb-1">AI Generated</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Explore categories or get a random topic.</p>
+                                            <h3 className="text-2xl font-bold mb-2 text-white">AI Generated</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed font-medium">Explore categories or get a random topic.</p>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-base text-purple-400 font-bold group-hover:text-purple-300 transition-colors mt-auto pt-6">
+                                        Explore AI <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </motion.button>
                             </div>
@@ -436,7 +444,7 @@ function TopicSelectionInner() {
                     {step === "custom" && (
                         <motion.div key="custom" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-lg space-y-6">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">Enter Your Topic</h2>
+                                <h2 className={sectionHeaderClass}>Enter Your Topic</h2>
                                 <p className="text-white/40 text-sm">What do you want to speak about?</p>
                             </motion.div>
                             <motion.div variants={item} className="space-y-4">
@@ -465,27 +473,30 @@ function TopicSelectionInner() {
                     {step === "ai-menu" && (
                         <motion.div key="ai-menu" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-2xl space-y-8">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">AI Topic Generator</h2>
+                                <h2 className={sectionHeaderClass}>AI Topic Generator</h2>
                                 <p className="text-white/40 text-sm">Pick how you&apos;d like to discover your topic.</p>
                             </motion.div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <motion.button
                                     variants={item}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={fetchCategories}
-                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden"
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2.5rem] border border-purple-500/20 bg-[#161616] text-left transition-all hover:border-purple-500/30 hover:bg-purple-500/[0.05] overflow-hidden shadow-2xl shadow-purple-500/5 ring-1 ring-purple-500/10"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative space-y-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                            <Grid3X3 className="w-7 h-7 text-purple-400" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <div className="relative z-10 space-y-6">
+                                        <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 group-hover:bg-purple-500/20 transition-all duration-300 shadow-inner">
+                                            <Grid3X3 className="w-8 h-8 text-purple-400 group-hover:scale-110 transition-transform duration-300" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold mb-1">Browse Categories</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Explore broad topics, then pick a specific one.</p>
+                                            <h3 className="text-2xl font-bold mb-2 text-white">Browse Categories</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed font-medium">Explore broad topics, then pick a specific one.</p>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-base text-purple-400 font-bold group-hover:text-purple-300 transition-colors mt-auto pt-6">
+                                        View categories <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </motion.button>
 
@@ -494,17 +505,20 @@ function TopicSelectionInner() {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={fetchRandom}
-                                    className="group relative p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm text-left transition-all hover:border-emerald-500/30 hover:bg-emerald-500/[0.05] overflow-hidden"
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2.5rem] border border-emerald-500/20 bg-[#161616] text-left transition-all hover:border-emerald-500/30 hover:bg-emerald-500/[0.05] overflow-hidden shadow-2xl shadow-emerald-500/5 ring-1 ring-emerald-500/10"
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative space-y-4">
-                                        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                                            <Shuffle className="w-7 h-7 text-emerald-400" />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                    <div className="relative z-10 space-y-6">
+                                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all duration-300 shadow-inner">
+                                            <Shuffle className="w-8 h-8 text-emerald-400 group-hover:scale-110 transition-transform duration-300" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold mb-1">Shuffle Mode</h3>
-                                            <p className="text-sm text-white/40 leading-relaxed">Get a random topic instantly. Re-shuffle if you don&apos;t like it.</p>
+                                            <h3 className="text-2xl font-bold mb-2 text-white">Shuffle Mode</h3>
+                                            <p className="text-sm text-white/40 leading-relaxed font-medium">Get a random topic instantly. Re-shuffle if you don&apos;t like it.</p>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-base text-emerald-400 font-bold group-hover:text-emerald-300 transition-colors mt-auto pt-6">
+                                        Get random <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </motion.button>
                             </div>
@@ -515,7 +529,7 @@ function TopicSelectionInner() {
                     {step === "categories" && (
                         <motion.div key="categories" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-3xl space-y-6">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">Pick a Category</h2>
+                                <h2 className={sectionHeaderClass}>Pick a Category</h2>
                                 <p className="text-white/40 text-sm">Select a broad area, then choose a specific topic.</p>
                             </motion.div>
 
@@ -542,7 +556,7 @@ function TopicSelectionInner() {
                     {step === "topics" && (
                         <motion.div key="topics" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-2xl space-y-6">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">{selectedCategory}</h2>
+                                <h2 className={sectionHeaderClass}>{selectedCategory}</h2>
                                 <p className="text-white/40 text-sm">Choose a topic to start practicing.</p>
                             </motion.div>
 
@@ -578,7 +592,7 @@ function TopicSelectionInner() {
                     {step === "random" && randomTopic && (
                         <motion.div key="random" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-lg space-y-6">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">Your Random Topic</h2>
+                                <h2 className={sectionHeaderClass}>Your Random Topic</h2>
                                 <p className="text-white/40 text-sm">Don&apos;t like it? Shuffle for another one.</p>
                             </motion.div>
 
@@ -624,7 +638,7 @@ function TopicSelectionInner() {
                     {step === "lecture" && (
                         <motion.div key="lecture" variants={container} initial="hidden" animate="show" exit="exit" className="w-full max-w-lg space-y-6">
                             <motion.div variants={item} className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold">Lecture Support</h2>
+                                <h2 className={sectionHeaderClass}>Lecture Support</h2>
                                 <p className="text-white/40 text-sm">Upload your PDF teaching materials for AI analysis.</p>
                             </motion.div>
 
