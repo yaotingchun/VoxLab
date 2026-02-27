@@ -794,7 +794,7 @@ function PresentationPageInner() {
                         )}
                     </div>
 
-                    <div className="flex-1 bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800 p-6 flex flex-col min-h-0 relative shadow-2xl">
+                    <div className="flex-1 bg-white/[0.03] backdrop-blur-xl rounded-3xl border border-white/10 p-6 flex flex-col min-h-0 relative shadow-2xl shadow-black/40">
                         <div className="flex items-center justify-between mb-3 ">
                             <div className="flex items-center gap-2 text-slate-400 uppercase tracking-wider text-xs font-bold">
                                 <div className="p-1.5 bg-purple-500/10 rounded-md">
@@ -817,7 +817,7 @@ function PresentationPageInner() {
                             </div>
                         )}
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 rounded-xl bg-slate-950/30 border border-slate-800/50" ref={transcriptRef}>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 rounded-xl bg-white/5 border border-white/10 shadow-inner" ref={transcriptRef}>
                             {transcript ? (
                                 <p className="text-lg leading-relaxed text-slate-200 whitespace-pre-wrap">
                                     {transcript}

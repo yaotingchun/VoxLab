@@ -102,18 +102,18 @@ export function UnifiedFeedbackPanel({
     const uniqueIssueTypes = Array.from(new Set(displayedIssues.map(i => i.type)));
 
     return (
-        <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl border-2 border-slate-800 shadow-2xl flex flex-col overflow-hidden h-full">
+        <div className="bg-white/[0.03] backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl shadow-black/40 flex flex-col overflow-hidden h-full">
             {/* --- TOP SECTION: VOCAL ANALYSIS --- */}
-            <div className="p-6 pb-4 bg-slate-900/40">
+            <div className="p-6 pb-4 bg-white/[0.02]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <div className="p-2 bg-slate-800 rounded-lg">
+                        <div className="p-2 bg-white/10 rounded-lg">
                             <Mic className="w-4 h-4 text-slate-300" />
                         </div>
                         Vocal Analysis
                     </h2>
                     {isListening && (
-                        <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-800 border border-slate-700 rounded-full">
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 border border-white/10 rounded-full">
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                             <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Live</span>
                         </div>
@@ -122,7 +122,7 @@ export function UnifiedFeedbackPanel({
 
                 <div className="grid grid-cols-2 gap-4">
                     {/* Pitch */}
-                    <div className="bg-slate-950/40 rounded-2xl p-4 border border-slate-800/50">
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
                         <div className="flex items-center gap-2 mb-2 text-slate-500">
                             <Music className="w-3 h-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Pitch</span>
@@ -146,7 +146,7 @@ export function UnifiedFeedbackPanel({
                     </div>
 
                     {/* Pace */}
-                    <div className="bg-slate-950/40 rounded-2xl p-4 border border-slate-800/50">
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
                         <div className="flex items-center gap-2 mb-2 text-slate-500">
                             <Activity className="w-3 h-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Pace</span>
@@ -177,14 +177,14 @@ export function UnifiedFeedbackPanel({
 
             {/* --- DIVIDER --- */}
             <div className="px-6">
-                <div className="h-px bg-slate-800" />
+                <div className="h-px bg-white/10" />
             </div>
 
             {/* --- BOTTOM SECTION: POSTURE ANALYSIS --- */}
-            <div className="p-6 pt-4 flex-1 flex flex-col bg-slate-900/60">
+            <div className="p-6 pt-4 flex-1 flex flex-col bg-white/[0.02]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <div className="p-2 bg-slate-800 rounded-lg">
+                        <div className="p-2 bg-white/10 rounded-lg">
                             <User className="w-4 h-4 text-slate-300" />
                         </div>
                         Posture Analysis
@@ -229,7 +229,7 @@ export function UnifiedFeedbackPanel({
 
                     {/* Correction Mini-Guide */}
                     {uniqueIssueTypes.length > 0 && (
-                        <div className="mt-auto grid grid-cols-2 gap-2 p-3 bg-slate-950/30 rounded-2xl border border-slate-800/50">
+                        <div className="mt-auto grid grid-cols-2 gap-2 p-3 bg-white/5 rounded-2xl border border-white/10">
                             {uniqueIssueTypes.map((type) => (
                                 <div key={type} className="flex justify-center flex-1">
                                     {type === 'HEAD_TILT' && <HeadTiltAnimation />}

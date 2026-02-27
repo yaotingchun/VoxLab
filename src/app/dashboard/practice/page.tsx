@@ -619,10 +619,10 @@ function PracticePageInner() {
                     </div>
 
                     {/* Bottom: Transcript (35% Height) */}
-                    <div className="flex-1 bg-slate-900/50 backdrop-blur-md rounded-3xl border border-slate-800 p-6 flex flex-col min-h-0 relative">
+                    <div className="flex-1 bg-white/[0.03] backdrop-blur-xl rounded-3xl border border-white/10 p-6 shadow-2xl shadow-black/40 flex flex-col min-h-0 relative">
                         <div className="flex items-center justify-between mb-3 ">
                             <div className="flex items-center gap-2 text-slate-400 uppercase tracking-wider text-xs font-bold">
-                                <div className="p-1.5 bg-purple-500/10 rounded-md">
+                                <div className="p-1.5 bg-white/10 rounded-md">
                                     <Mic className="w-3 h-3 text-purple-400" />
                                 </div>
                                 Live Transcript
@@ -642,7 +642,7 @@ function PracticePageInner() {
                             </div>
                         )}
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 rounded-xl bg-slate-950/30 border border-slate-800/50" ref={transcriptRef}>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 rounded-xl bg-white/5 border border-white/10 shadow-inner" ref={transcriptRef}>
                             {transcript ? (
                                 <p className="text-lg leading-relaxed text-slate-200 whitespace-pre-wrap">
                                     {transcript}
