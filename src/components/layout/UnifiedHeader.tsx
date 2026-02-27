@@ -26,9 +26,10 @@ interface UnifiedHeaderProps {
     };
     isDashboard?: boolean;
     onBackOverride?: () => void;
+    rightContent?: React.ReactNode;
 }
 
-export function UnifiedHeader({ section, backButton, isDashboard = false, onBackOverride }: UnifiedHeaderProps) {
+export function UnifiedHeader({ section, backButton, isDashboard = false, onBackOverride, rightContent }: UnifiedHeaderProps) {
     const { user, logout } = useAuth();
     const router = useRouter();
     const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
@@ -73,6 +74,7 @@ export function UnifiedHeader({ section, backButton, isDashboard = false, onBack
 
                 {/* Right: Navigation & User Actions */}
                 <div className="flex items-center gap-4 sm:gap-8">
+                    {rightContent}
                     <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
                         <button
                             onClick={() => router.push('/dashboard/mode')}
