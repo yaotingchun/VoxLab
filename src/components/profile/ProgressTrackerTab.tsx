@@ -264,33 +264,34 @@ export function ProgressTrackerTab({ sessions: initialSessions }: ProgressTracke
                         availableSessions={availableSessions}
                         onSessionSelect={(id) => setSelectedSessionId(id)}
                     />
-                </div>
 
-                {/* Coaching Insights (Now Below Replay) */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                    {/* Daily Insight Card */}
-                    <div className={`md:col-span-8 p-6 rounded-3xl border transition-all duration-300 flex flex-col ${emotionTip === 'LOCKED' ? 'bg-white/5 border-white/5' : 'bg-gradient-to-br from-primary/20 to-purple-500/20 border-primary/30'}`}>
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className={`p-2 rounded-xl ${emotionTip === 'LOCKED' ? 'text-gray-500' : 'text-primary'}`}>
-                                {emotionTip === 'LOCKED' ? <Lock size={20} /> : <Sparkles size={20} />}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        {/* Daily Insight Card */}
+                        <div className={`md:col-span-8 p-8 rounded-3xl border transition-all duration-300 flex flex-col relative overflow-hidden group ${emotionTip === 'LOCKED' ? 'bg-white/5 border-white/10' : 'bg-gradient-to-br from-primary/10 to-purple-500/10 border-primary/20 hover:border-primary/40'}`}>
+                            {emotionTip !== 'LOCKED' && <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none" />}
+                            <div className="flex items-center gap-3 mb-4 relative z-10">
+                                <div className={`p-2 rounded-xl ${emotionTip === 'LOCKED' ? 'bg-white/5 text-gray-500' : 'bg-primary/10 text-primary'}`}>
+                                    {emotionTip === 'LOCKED' ? <Lock size={18} /> : <Sparkles size={18} />}
+                                </div>
+                                <h4 className="font-black text-[10px] uppercase tracking-widest text-white">AI Coach Insight</h4>
                             </div>
-                            <h4 className="font-black text-sm uppercase tracking-widest text-white">Daily Insight</h4>
+                            <p className="text-sm text-gray-400 leading-relaxed font-medium relative z-10">
+                                {emotionTip === 'LOCKED'
+                                    ? "Practice today to unlock personalized AI feedback on your performance."
+                                    : emotionTip}
+                            </p>
                         </div>
-                        <p className="text-sm text-gray-400 leading-relaxed font-medium">
-                            {emotionTip === 'LOCKED'
-                                ? "Finish a practice session today to unlock unique AI feedback on your performance."
-                                : emotionTip}
-                        </p>
-                    </div>
 
-                    {/* Consistency Tip */}
-                    <div className="md:col-span-4 p-6 rounded-3xl border border-white/5 bg-white/[0.02] flex flex-col justify-center">
-                        <h4 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <TrendingUp className="w-3 h-3" /> Consistency Matters
-                        </h4>
-                        <p className="text-xs text-gray-500 leading-relaxed">
-                            Practice daily to build your streak. Regular practice improves speaking confidence 40% faster.
-                        </p>
+                        {/* Consistency Tip */}
+                        <div className={`md:col-span-4 p-8 rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl flex flex-col justify-center relative overflow-hidden group`}>
+                            <div className="absolute bottom-0 right-0 w-16 h-16 bg-white/5 blur-2xl rounded-full pointer-events-none" />
+                            <h4 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2 relative z-10">
+                                <TrendingUp className="w-3.5 h-3.5 text-primary" /> Consistency
+                            </h4>
+                            <p className="text-xs text-gray-400 leading-relaxed font-bold tracking-tight relative z-10">
+                                Regular practice builds confidence 40% faster. <span className="text-primary">Keep going!</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -301,17 +302,18 @@ export function ProgressTrackerTab({ sessions: initialSessions }: ProgressTracke
                 <ArchetypeCard archetype={archetypeData} />
 
                 {/* Call to Action Card */}
-                <div className={`p-6 rounded-3xl ${GLASS_CARD} flex flex-col items-center text-center gap-4`}>
-                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                        <Trophy size={32} />
+                <div className={`p-8 rounded-3xl ${GLASS_CARD} flex flex-col items-center text-center gap-6 relative overflow-hidden group`}>
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/0 via-primary/50 to-primary/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                    <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary relative z-10">
+                        <Trophy size={40} className="group-hover:scale-110 transition-transform duration-500" />
                     </div>
-                    <div>
-                        <h4 className="font-black text-white">Ready to Level Up?</h4>
-                        <p className="text-sm text-gray-500 font-medium px-4 mt-1">Start a new practice session and beat your high score.</p>
+                    <div className="relative z-10">
+                        <h4 className="text-xl font-black text-white tracking-tight">Ready to Level Up?</h4>
+                        <p className="text-sm text-gray-500 font-medium px-4 mt-2 leading-relaxed">Push your boundaries. Start a new practice session and beat your personal best.</p>
                     </div>
                     <button
                         onClick={() => window.location.href = '/dashboard'}
-                        className="w-full h-11 bg-primary hover:bg-primary/80 text-white font-black rounded-xl transition-all shadow-lg shadow-primary/20"
+                        className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black rounded-xl transition-all shadow-xl shadow-primary/20 hover:shadow-primary/30 active:scale-95 relative z-10 uppercase tracking-widest text-[11px]"
                     >
                         PRACTICE NOW
                     </button>

@@ -69,11 +69,12 @@ export function usePostureAnalysis() {
         return {
             duration,
             averageScore,
-            issueCounts: { ...sessionStats.current.issueCounts }
+            issueCounts: { ...sessionStats.current.issueCounts },
+            gestureEnergy: sessionStats.current.gestureEnergy,
         };
     }, []);
 
-    const endSession = useCallback(() => {
+    const endSession = useCallback((timestampMs?: number) => {
         setIsSessionActive(false);
         return getSnapshot();
     }, [getSnapshot]);

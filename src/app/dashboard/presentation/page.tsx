@@ -34,6 +34,7 @@ import { getUserStreak } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
 import { SignOutModal } from "@/components/auth/SignOutModal";
 
+import { usePracticeStore } from "@/store/practiceStore";
 // ...
 
 function PresentationPageInner() {
@@ -134,25 +135,25 @@ function PresentationPageInner() {
         }
     }, []);
 
-    // Load from sessionStorage on mount
+    // Load from Zustand store
+    const presentationSlide = usePracticeStore((state) => state.presentationSlide);
+    const presentationRubric = usePracticeStore((state) => state.presentationRubric);
+
+    // Load from Zustand on mount
     useEffect(() => {
         let objectUrl: string | null = null;
 
-        const storedSlideB64 = sessionStorage.getItem("presentation_slide_b64");
-        const storedSlideType = sessionStorage.getItem("presentation_slide_type");
-        const storedSlideName = sessionStorage.getItem("presentation_slide_name");
-
-        if (storedSlideB64) {
-            setSlideBase64(storedSlideB64);
+        if (presentationSlide) {
+            setSlideBase64(presentationSlide.base64);
             setSlideFile({
-                name: storedSlideName || "slides.pdf",
-                type: storedSlideType || "application/pdf"
+                name: presentationSlide.name || "slides.pdf",
+                type: presentationSlide.type || "application/pdf"
             });
 
             // Only create PDF viewer URL if it's actually a PDF
-            if (storedSlideType === "application/pdf" || storedSlideName?.toLowerCase().endsWith(".pdf")) {
+            if (presentationSlide.type === "application/pdf" || presentationSlide.name?.toLowerCase().endsWith(".pdf")) {
                 try {
-                    const byteCharacters = atob(storedSlideB64);
+                    const byteCharacters = atob(presentationSlide.base64);
                     const byteNumbers = new Array(byteCharacters.length);
                     for (let i = 0; i < byteCharacters.length; i++) {
                         byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -167,16 +168,12 @@ function PresentationPageInner() {
             }
         }
 
-        const storedRubricB64 = sessionStorage.getItem("presentation_rubric_b64");
-        const storedRubricType = sessionStorage.getItem("presentation_rubric_type");
-        const storedRubricName = sessionStorage.getItem("presentation_rubric_name");
-
-        if (storedRubricB64) {
+        if (presentationRubric) {
             setHasRubric(true);
-            setRubricBase64(storedRubricB64);
+            setRubricBase64(presentationRubric.base64);
             setRubricFile({
-                name: storedRubricName || "rubric.pdf",
-                type: storedRubricType || "application/pdf"
+                name: presentationRubric.name || "rubric.pdf",
+                type: presentationRubric.type || "application/pdf"
             });
         }
 
@@ -186,7 +183,7 @@ function PresentationPageInner() {
                 URL.revokeObjectURL(objectUrl);
             }
         };
-    }, []);
+    }, [presentationSlide, presentationRubric]);
 
     // Video Recording State
     const [audioStream, setAudioStream] = useState<MediaStream | null>(null);

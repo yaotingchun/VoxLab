@@ -125,18 +125,18 @@ export default function DashboardPage() {
         },
         labs: [
             {
+                title: "Presentation Lab",
+                desc: "Practice with your own slides.",
+                icon: <Layout className="w-6 h-6" />,
+                route: "/dashboard/presentation/setup",
+                color: "emerald"
+            },
+            {
                 title: "Interview Lab",
                 desc: "Mock behavioral interviews.",
                 icon: <Briefcase className="w-6 h-6" />,
                 route: "/dashboard/interview",
                 color: "purple"
-            },
-            {
-                title: "Presentation Setup",
-                desc: "Practice with your own slides.",
-                icon: <Layout className="w-6 h-6" />,
-                route: "/dashboard/presentation/setup",
-                color: "emerald"
             },
             {
                 title: "Lecture Lab",

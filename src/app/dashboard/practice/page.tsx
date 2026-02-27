@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { getUserStreak, getLocalDateString } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
+import { usePracticeStore } from "@/store/practiceStore";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { UserProfile } from "@/components/ui/UserProfile";
 import { Logo } from "@/components/ui/logo";
@@ -95,31 +96,31 @@ function PracticePageInner() {
         }
     }, []);
 
-    // Load lecture material/slides from sessionStorage
+    // Load lecture material/slides from Zustand store
+    const lectureSlide = usePracticeStore((state) => state.lectureSlide);
+    const lectureMaterial = usePracticeStore((state) => state.lectureMaterial);
+
     useEffect(() => {
         const mode = searchParams.get("mode");
         if (mode !== "lecture") return;
 
         console.log("Lecture Mode: Initializing slide viewer...");
-        const storedSlideB64 = sessionStorage.getItem("lecture_slide_b64");
-        const storedSlideType = sessionStorage.getItem("lecture_slide_type");
-        const storedSlideName = sessionStorage.getItem("lecture_slide_name");
 
-        if (!storedSlideB64) {
-            console.warn("Lecture Mode: No slide data found in sessionStorage");
+        if (!lectureSlide) {
+            console.warn("Lecture Mode: No slide data found in Zustand store");
             return;
         }
 
         setSlideFile({
-            name: storedSlideName || "slides.pdf",
-            type: storedSlideType || "application/pdf"
+            name: lectureSlide.name || "slides.pdf",
+            type: lectureSlide.type || "application/pdf"
         });
 
         let objectUrl: string | null = null;
-        if (storedSlideType === "application/pdf" || storedSlideName?.toLowerCase().endsWith(".pdf")) {
+        if (lectureSlide.type === "application/pdf" || lectureSlide.name?.toLowerCase().endsWith(".pdf")) {
             try {
                 // Efficient base64 to blob conversion
-                const binaryString = atob(storedSlideB64);
+                const binaryString = atob(lectureSlide.base64);
                 const bytes = new Uint8Array(binaryString.length);
                 for (let i = 0; i < binaryString.length; i++) {
                     bytes[i] = binaryString.charCodeAt(i);
@@ -127,7 +128,7 @@ function PracticePageInner() {
                 const blob = new Blob([bytes], { type: "application/pdf" });
                 objectUrl = URL.createObjectURL(blob);
                 setPdfUrl(objectUrl);
-                console.log("Lecture Mode: Slide PDF loaded successfully", { name: storedSlideName, size: blob.size });
+                console.log("Lecture Mode: Slide PDF loaded successfully", { name: lectureSlide.name, size: blob.size });
             } catch (e) {
                 console.error("Lecture Mode: Failed to load slide PDF", e);
             }
@@ -138,7 +139,7 @@ function PracticePageInner() {
                 URL.revokeObjectURL(objectUrl);
             }
         };
-    }, []); // Run only once to prevent searchParams updates from revoking the URL
+    }, [lectureSlide]); // Depend on Zustand state
 
     // Auto-scroll transcript
     const transcriptRef = useRef<HTMLDivElement>(null);
@@ -214,7 +215,7 @@ function PracticePageInner() {
                 const mode = searchParams.get("mode");
                 let materialContext = "";
                 if (mode === "lecture") {
-                    materialContext = sessionStorage.getItem("lecture_material") || "";
+                    materialContext = lectureMaterial || "";
                 }
 
                 const [aiSummary, vocalSummary, postureSummary] = await Promise.all([

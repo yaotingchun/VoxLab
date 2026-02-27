@@ -8,43 +8,55 @@ interface ScoreCardProps {
     trend: number;
 }
 
+// Profile Design Tokens
+const GLASS_CARD = "bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 hover:bg-white/[0.05] transition-all duration-300";
+
 export function ScoreCard({ title, score, trend }: ScoreCardProps) {
     const isPositive = trend > 0;
     const isNeutral = trend === 0;
 
-    // Based on the provided UI design image:
-    // White card background, central blue percentage text, a gradient progress bar, and small trend text below.
+    const getColors = (title: string) => {
+        switch (title.toLowerCase()) {
+            case "voice": return "from-blue-500 to-indigo-500";
+            case "posture & facial": return "from-emerald-500 to-teal-500";
+            case "content": return "from-amber-500 to-orange-500";
+            case "overall": return "from-pink-500 to-rose-500";
+            default: return "from-primary to-purple-500";
+        }
+    };
+
+    const gradientClass = getColors(title);
 
     return (
         <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="bg-slate-900 border text-center border-slate-700/50 p-6 rounded-2xl shadow-xl flex flex-col items-center justify-between h-full relative overflow-hidden"
+            whileHover={{ y: -4 }}
+            className={`${GLASS_CARD} p-6 rounded-3xl text-center flex flex-col items-center justify-between h-full relative overflow-hidden group`}
         >
-            <h4 className="text-slate-400 font-bold text-sm mb-4">{title}</h4>
+            <h4 className="text-gray-500 font-black text-[10px] uppercase tracking-widest mb-4 group-hover:text-white transition-colors">{title}</h4>
 
-            <div className="text-4xl text-white font-black mb-4">
+            <div className="text-4xl text-white font-black mb-4 tracking-tighter">
                 {score}%
             </div>
 
             {/* Progress Bar Track */}
-            <div className="w-full bg-slate-800 rounded-full h-2.5 mb-4 overflow-hidden relative border border-slate-700/50">
+            <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden relative border border-white/5">
                 {/* Progress Bar Fill with Gradient */}
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${score}%` }}
                     transition={{ duration: 1, ease: "easeOut" }}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full"
+                    className={`bg-gradient-to-r ${gradientClass} h-full rounded-full`}
                 />
             </div>
 
             {/* Trend Footer Text */}
-            <p className="text-[10px] text-slate-500 font-medium">
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tight leading-snug">
                 {isNeutral ? (
-                    `Score remained steady in the last week`
+                    `Steady performance`
                 ) : isPositive ? (
-                    `You've improved ${Math.abs(trend)}% in the last week`
+                    `Improved by ${Math.abs(trend)}%`
                 ) : (
-                    `You've dropped ${Math.abs(trend)}% in the last week`
+                    `Dropped by ${Math.abs(trend)}%`
                 )}
             </p>
         </motion.div>
