@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { Logo } from "@/components/ui/logo";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
 import { Button } from "@/components/ui/button";
-import { Mic, Square, Copy, Check, ArrowLeft, Radio, TrendingUp, Clock, Gauge, AlertTriangle, Activity } from "lucide-react";
+import { Mic, Square, Copy, Check, ArrowLeft, Radio, TrendingUp, Clock, Gauge, AlertTriangle, Activity, Home } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import {
@@ -620,11 +623,7 @@ export default function SpeechCoachPage() {
     // Redirect non-authed users
     if (!user) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background relative overflow-hidden">
-                <div className="absolute inset-0 z-0 pointer-events-none">
-                    <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[120px] opacity-40" />
-                    <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/20 rounded-full blur-[120px] opacity-40" />
-                </div>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-transparent relative overflow-hidden">
                 <div className="z-10 text-center space-y-6">
                     <Mic className="w-16 h-16 text-primary mx-auto" />
                     <h1 className="text-3xl font-bold text-white">Sign in Required</h1>
@@ -644,34 +643,60 @@ export default function SpeechCoachPage() {
     const showStats = hasResults && !isRecording && !isProcessing;
 
     return (
-        <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
-            {/* Background Ambience */}
-            <div className="absolute inset-0 z-0 pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[120px] opacity-40 animate-pulse-slow" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/20 rounded-full blur-[120px] opacity-40" />
-            </div>
+        <div className="min-h-screen flex flex-col bg-transparent relative overflow-hidden">
 
             {/* Header */}
-            <header className="z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-                <button
-                    onClick={() => {
-                        stopRecording();
-                        router.push("/");
-                    }}
-                    className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors group"
-                >
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-sm font-medium">Back to Home</span>
-                </button>
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-tr from-primary to-secondary rounded-lg flex items-center justify-center">
-                        <Mic className="text-white w-5 h-5" />
-                    </div>
-                    <span className="text-xl font-bold tracking-tight text-white">Speech Coach</span>
+            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => router.back()}
+                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                        title="Go Back"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <Logo size="lg" />
+                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Speech Coach</span>
                 </div>
-                <span className="text-sm font-medium text-muted-foreground hidden sm:block">
-                    {user.email?.split("@")[0]}
-                </span>
+
+                <div className="flex items-center gap-4 sm:gap-8">
+                    <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
+                        <button
+                            onClick={() => router.push('/dashboard/mode')}
+                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
+                        >
+                            Mode
+                        </button>
+                        <button
+                            onClick={() => router.push('/forum')}
+                            className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
+                        >
+                            Forum
+                        </button>
+                    </nav>
+
+                    <div className="h-8 w-px bg-white/10" />
+
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                stopRecording();
+                                router.push('/dashboard');
+                            }}
+                            className="text-slate-400 hover:text-white transition-all rounded-xl"
+                            title="Dashboard"
+                        >
+                            <Home className="w-5 h-5" />
+                        </Button>
+                        <NotificationDropdown />
+                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                    </div>
+                </div>
             </header>
 
             {/* Main Content */}

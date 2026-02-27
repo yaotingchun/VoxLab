@@ -7,10 +7,9 @@ import {
     FileText,
     Briefcase,
     BookOpen,
-    Upload,
+    UploadCloud,
     X,
     Check,
-    Sparkles,
     Loader2,
     AlertTriangle,
     ArrowRight,
@@ -222,7 +221,7 @@ function UploadCard({
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-2">
-                                <Upload className="w-6 h-6 text-slate-500" />
+                                <UploadCloud className="w-6 h-6 text-slate-500" />
                                 <span className="text-xs text-slate-400">
                                     Drop file here or click to upload
                                 </span>
@@ -304,7 +303,7 @@ export default function InterviewSetup({
         !notesLoading;
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
+        <div className="flex flex-col items-center justify-center min-h-[90vh] bg-transparent text-white p-6 relative z-10">
             <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -399,7 +398,7 @@ export default function InterviewSetup({
                     size="lg"
                     disabled={!canStart || isGenerating}
                     onClick={onStart}
-                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-xl shadow-purple-900/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:scale-[1.01]"
+                    className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 text-white font-bold shadow-xl shadow-purple-500/30 hover:shadow-purple-500/40 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-80 disabled:from-blue-500/30 disabled:to-purple-500/30 disabled:border disabled:border-white/10 disabled:backdrop-blur-md disabled:shadow-none disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                     {isGenerating ? (
                         <span className="flex items-center gap-3">
@@ -407,10 +406,9 @@ export default function InterviewSetup({
                             Generating Interview Questions...
                         </span>
                     ) : (
-                        <span className="flex items-center gap-3">
-                            <Sparkles className="w-5 h-5" />
+                        <span className="flex items-center gap-3 font-semibold">
                             Generate Interview & Start
-                            <ArrowRight className="w-4 h-4" />
+                            <ArrowRight className="w-4 h-4 ml-1" />
                         </span>
                     )}
                 </Button>

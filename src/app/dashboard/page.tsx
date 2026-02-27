@@ -24,13 +24,19 @@ import {
     Zap,
     Layout,
     Activity,
-    BookOpen
+    BookOpen,
+    Users,
+    Home,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRecentSessions, getSessionStats } from "@/lib/sessions";
 import { getUserStreak } from "@/lib/streak";
 import { PracticeSession } from "@/types/gamification";
 import { SignOutModal } from "@/components/auth/SignOutModal";
+import { Logo } from "@/components/ui/logo";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { AbstractMic } from "@/components/ui/abstract-mic";
 
 export default function DashboardPage() {
     const { user, loading, logout } = useAuth();
@@ -143,54 +149,114 @@ export default function DashboardPage() {
             }
         ],
         plus: [
-            { title: "Vocal+", icon: <Mic className="w-5 h-5" />, route: "/speech-coach", label: "Pure Voice Analysis" },
-            { title: "Posture+", icon: <Activity className="w-5 h-5" />, route: "/analysis", label: "Pure Visual Presence" },
-            { title: "Content+", icon: <TrendingUp className="w-5 h-5" />, route: "/dashboard/coach", label: "Pure Speech Data" },
+            {
+                title: "Vocal+",
+                icon: (
+                    <div className="w-10 h-10 flex items-center justify-center text-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="22" />
+                            <line x1="8" y1="22" x2="16" y2="22" />
+                            {/* Grill lines */}
+                            <line x1="10" y1="5" x2="14" y2="5" opacity="0.5" />
+                            <line x1="10" y1="8" x2="14" y2="8" opacity="0.5" />
+                            <line x1="10" y1="11" x2="14" y2="11" opacity="0.5" />
+                        </svg>
+                    </div>
+                ),
+                route: "/speech-coach",
+                label: "Pure Voice Analysis"
+            },
+            {
+                title: "Posture+",
+                icon: (
+                    <div className="w-10 h-10 flex items-center justify-center text-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                            {/* Stickman head */}
+                            <circle cx="12" cy="7" r="2.5" />
+                            {/* Body and limbs */}
+                            <path d="M12 10v6" />
+                            <path d="M12 11l-3 2" />
+                            <path d="M12 11l3 2" />
+                            <path d="M10 21l2-5 2 5" />
+                            {/* Wavy interaction lines like the reference */}
+                            <motion.path
+                                d="M6 10q-2 2 0 4"
+                                animate={{ x: [-1, 1, -1] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                            />
+                            <motion.path
+                                d="M18 10q 2 2 0 4"
+                                animate={{ x: [1, -1, 1] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                            />
+                        </svg>
+                    </div>
+                ),
+                route: "/analysis",
+                label: "Pure Visual Presence"
+            },
+            {
+                title: "Content+",
+                icon: (
+                    <div className="w-10 h-10 flex items-center justify-center text-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            <path d="M13 11a1.5 1.5 0 0 0 0-3" strokeOpacity="0.5" />
+                            <path d="M13 7a4 4 0 0 0 0 8" strokeOpacity="0.5" />
+                            {/* Second Bubble outline skeleton */}
+                            <path d="M17 19v2l-2-2" opacity="0.4" />
+                        </svg>
+                    </div>
+                ),
+                route: "/dashboard/coach",
+                label: "Pure Speech Data"
+            },
         ]
     };
 
     return (
         <div className="min-h-screen bg-[#020202] text-white selection:bg-primary/30">
-            {/* Ambient Landing-Style Pulse Backgrounds */}
-            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary/15 rounded-full blur-[140px] animate-pulse-slow" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-secondary/15 rounded-full blur-[140px]" />
-                <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-purple-600/10 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: '2s' }} />
-            </div>
-
-            {/* Premium Sticky Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/40 backdrop-blur-2xl">
+            {/* Premium Glassy Sticky Header */}
+            <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/20 backdrop-blur-xl">
                 <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-primary to-secondary rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-primary/20">
-                            <Zap className="w-6 h-6" />
-                        </div>
-                        <span className="font-bold tracking-tight text-2xl hidden sm:inline-block">VoxLab <span className="text-primary text-sm align-top ml-1">v1.2</span></span>
+                        <Logo size="lg" />
                     </div>
 
                     <div className="flex items-center gap-4 sm:gap-8">
-                        <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-400">
-                            <button onClick={() => router.push('/forum')} className="hover:text-white transition-colors">Global Forum</button>
-                            <button onClick={() => router.push('/dashboard/profile')} className="hover:text-white transition-colors">Resources</button>
+                        <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
+
+                            <button
+                                onClick={() => router.push('/dashboard/mode')}
+                                className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
+                            >
+                                Mode
+                            </button>
+                            <button
+                                onClick={() => router.push('/forum')}
+                                className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
+                            >
+                                Forum
+                            </button>
                         </nav>
 
                         <div className="h-8 w-px bg-white/10" />
 
                         <div className="flex items-center gap-4">
-                            <button className="relative p-2 text-slate-400 hover:text-white transition-colors">
-                                <Bell className="w-5 h-5" />
-                                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-secondary rounded-full border border-black" />
-                            </button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => router.push('/dashboard')}
+                                className="text-primary bg-primary/10 border border-primary/30 shadow-[0_0_20px_rgba(109,40,217,0.3)] transition-all rounded-xl"
+                            >
+                                <Home className="w-5 h-5" />
+                            </Button>
 
-                            <div className="flex items-center gap-3 group cursor-pointer" onClick={() => router.push('/dashboard/profile')}>
-                                <div className="flex flex-col items-end hidden sm:flex">
-                                    <span className="text-sm font-bold text-white transition-colors group-hover:text-primary">{userDisplayName}</span>
-                                    <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Elite Speaker</span>
-                                </div>
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/10 flex items-center justify-center text-sm font-bold group-hover:border-primary/50 transition-all active:scale-95 overflow-hidden">
-                                    {userDisplayName.charAt(0).toUpperCase()}
-                                </div>
-                            </div>
+                            <NotificationDropdown />
+
+                            <UserProfile displayName={userDisplayName} />
 
                             <button
                                 onClick={() => setIsSignOutModalOpen(true)}
@@ -248,7 +314,7 @@ export default function DashboardPage() {
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => router.push(item.route)}
-                                className="flex items-center justify-between p-5 rounded-[1.5rem] bg-white/[0.03] border border-white/5 hover:border-primary/30 hover:bg-primary/[0.02] transition-all group shadow-lg"
+                                className="flex items-center justify-between p-5 rounded-[1.5rem] bg-white/10 backdrop-blur-xl border border-white/20 hover:border-primary/50 hover:bg-white/15 transition-all group shadow-2xl"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="p-2.5 bg-white/5 rounded-xl group-hover:text-primary transition-colors">
@@ -279,8 +345,8 @@ export default function DashboardPage() {
                             className="relative group cursor-pointer"
                             onClick={() => router.push(tiers.hero.route)}
                         >
-                            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-[2rem] opacity-20 blur-xl group-hover:opacity-30 transition-opacity duration-500" />
-                            <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0A0A0A] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 group-hover:border-white/20 transition-all duration-500">
+                            <div className="absolute -inset-[1px] bg-gradient-to-r from-primary/40 to-secondary/40 rounded-[2rem] opacity-30 group-hover:opacity-60 transition-opacity duration-500" />
+                            <div className="relative overflow-hidden bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 md:p-12 lg:h-[400px] flex flex-col md:flex-row items-center justify-between gap-8 group-hover:bg-white/[0.05] group-hover:border-primary/30 transition-all duration-500 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
                                 {/* Content */}
                                 <div className="relative z-10 flex-1 space-y-6">
                                     <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full text-[10px] font-bold text-primary uppercase tracking-widest">
@@ -301,12 +367,9 @@ export default function DashboardPage() {
                                     </Button>
                                 </div>
 
-                                {/* Visual */}
-                                <div className="relative flex-shrink-0 w-32 md:w-48 aspect-square">
-                                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-[60px] group-hover:bg-primary/30 transition-all" />
-                                    <div className="relative h-full w-full rounded-full border-8 border-white/5 flex items-center justify-center group-hover:border-white/10 transition-all">
-                                        <Mic className="w-16 h-16 text-primary group-hover:scale-110 transition-transform duration-700" />
-                                    </div>
+                                {/* Visual - Abstract Cool Mic (Balanced size, No Waves) */}
+                                <div className="relative flex-shrink-0 w-64 md:w-72 lg:w-80 aspect-square flex items-center justify-center">
+                                    <AbstractMic showWaves={false} />
                                 </div>
                             </div>
                         </motion.div>
@@ -323,20 +386,22 @@ export default function DashboardPage() {
                                     onClick={() => router.push(lab.route)}
                                     className="group relative cursor-pointer"
                                 >
-                                    <div className="relative overflow-hidden rounded-[1.5rem] border border-white/5 bg-white/[0.02] p-6 h-full flex flex-col justify-between items-start gap-8 group-hover:bg-white/[0.04] group-hover:border-white/10 transition-all duration-500">
+                                    <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 h-full flex flex-col justify-between items-start gap-8 group-hover:bg-white/[0.05] group-hover:border-white/20 transition-all duration-500 shadow-lg">
                                         <div className="p-3 bg-white/5 rounded-xl group-hover:scale-110 transition-transform duration-500">
                                             {lab.icon}
                                         </div>
-                                        <div className="space-y-1">
-                                            <h4 className="text-lg font-bold tracking-tight group-hover:text-primary transition-colors">
-                                                {lab.title}
-                                            </h4>
+                                        <div className="space-y-2 w-full">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h4 className="text-lg font-bold tracking-tight group-hover:text-primary transition-colors">
+                                                    {lab.title}
+                                                </h4>
+                                                <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all shrink-0">
+                                                    <ChevronRight className="w-3 h-3" />
+                                                </div>
+                                            </div>
                                             <p className="text-slate-500 text-xs leading-relaxed line-clamp-2">
                                                 {lab.desc}
                                             </p>
-                                        </div>
-                                        <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all">
-                                            <ChevronRight className="w-3 h-3" />
                                         </div>
                                     </div>
                                 </motion.div>

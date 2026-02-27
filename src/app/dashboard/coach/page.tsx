@@ -2,11 +2,18 @@
 
 import { useChat } from '@ai-sdk/react';
 import { Button } from "@/components/ui/button";
-import { Send, User, Mic, FileText, Sparkles } from 'lucide-react';
+import { Send, User, Mic, FileText, Sparkles, Home, ArrowLeft } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { Logo } from '@/components/ui/logo';
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { UserProfile } from '@/components/ui/UserProfile';
 
 export default function CoachPage() {
+    const { user } = useAuth();
+    const router = useRouter();
     const [input, setInput] = useState('');
     const [scriptInput, setScriptInput] = useState('');
     const { messages, status, sendMessage } = useChat({
@@ -68,14 +75,57 @@ export default function CoachPage() {
     };
 
     return (
-        <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-background text-foreground">
+        <div className="flex flex-col h-screen max-h-screen overflow-hidden bg-transparent text-white selection:bg-primary/30 relative">
+
             {/* Header */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-surface/50 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-tr from-primary to-secondary rounded-lg flex items-center justify-center">
-                        <Sparkles className="text-white w-6 h-6" />
+            <header className="relative z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
+                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => router.back()}
+                            className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
+                            title="Go Back"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </Button>
+                        <Logo size="sm" className="opacity-80" />
+                        <div className="h-4 w-[1px] bg-white/10" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">AI Coach</span>
                     </div>
-                    <h1 className="text-xl font-bold">AI Coach Session</h1>
+
+                    <div className="flex items-center gap-4 sm:gap-8">
+                        <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
+                            <button
+                                onClick={() => router.push('/dashboard/mode')}
+                                className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
+                            >
+                                Mode
+                            </button>
+                            <button
+                                onClick={() => router.push('/forum')}
+                                className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
+                            >
+                                Forum
+                            </button>
+                        </nav>
+
+                        <div className="h-8 w-px bg-white/10" />
+
+                        <div className="flex items-center gap-4">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => router.push('/dashboard')}
+                                className="text-slate-400 hover:text-white transition-all rounded-xl"
+                            >
+                                <Home className="w-5 h-5" />
+                            </Button>
+                            <NotificationDropdown />
+                            {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                        </div>
+                    </div>
                 </div>
             </header>
 
@@ -123,13 +173,13 @@ export default function CoachPage() {
                         {/* Messages List */}
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {messages.length === 0 && (
-                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50 space-y-4">
+                                <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-40">
                                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                                        <Mic className="w-8 h-8 text-primary" />
+                                        <Sparkles className="w-8 h-8 text-primary" />
                                     </div>
-                                    <div>
-                                        <p className="text-lg font-medium">Ready to Coach</p>
-                                        <p className="text-sm">Ask for feedback, improvements, or practice tips.</p>
+                                    <div className="space-y-2">
+                                        <p className="text-xl font-bold tracking-tight">Ready to Coach</p>
+                                        <p className="text-sm text-slate-400">Ask for feedback, improvements, or practice tips.</p>
                                     </div>
                                 </div>
                             )}

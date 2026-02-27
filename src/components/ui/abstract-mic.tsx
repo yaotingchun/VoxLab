@@ -21,7 +21,7 @@ interface Particle {
     duration: number;
 }
 
-export function AbstractMic() {
+export function AbstractMic({ showWaves = true }: { showWaves?: boolean }) {
     // Elegant Purple Palette - Wuthering Waves inspired (Darker, High Contrast)
     const secondaryColor = "#a78bfa" // Light Purple
     const primaryColor = "#6d28d9"   // Deep Violet
@@ -67,13 +67,11 @@ export function AbstractMic() {
 
     return (
         <div className="relative w-full max-w-[500px] aspect-square flex items-center justify-center perspective-1000">
-            {/* Background Light Shade (The "Stage Light") */}
-            <div className="absolute inset-0 bg-primary/20 blur-[100px] rounded-full scale-125" />
-            <div className="absolute inset-0 bg-gradient-radial from-secondary/10 via-transparent to-transparent opacity-40 blur-2xl" />
+            {/* Background elements removed per user request */}
 
             {/* --- SVG CONTAINER --- */}
             <motion.svg
-                viewBox="0 0 500 600"
+                viewBox="0 0 500 500"
                 className="w-full h-full"
                 initial="hidden"
                 animate="visible"
@@ -118,72 +116,83 @@ export function AbstractMic() {
                     </clipPath>
                 </defs>
 
-                {/* --- 1. NON-PERIODIC FLUID WAVEFORM (True Fluidity) --- */}
-                <motion.g transform="translate(250, 300)" filter="url(#soft-glow)">
+                {/* Waveforms (Moving lines) - 3-Wave System with High-Density Smooth Curves */}
+                {showWaves && (
+                    <motion.g transform="translate(250, 300)" filter="url(#soft-glow)">
+                        {/* Wave 1: Deep Violet (High Frequency) */}
+                        <motion.path
+                            strokeWidth={3}
+                            fill="none"
+                            animate={{
+                                d: [
+                                    "M -400 0 C -250 -120 -150 120 0 0 C 150 -120 250 120 400 0",
+                                    "M -400 0 C -250 120 -150 -120 0 0 C 150 120 250 -120 400 0",
+                                    "M -400 0 C -250 -120 -150 120 0 0 C 150 -120 250 120 400 0"
+                                ],
+                                stroke: ["#a78bfa", "#6d28d9", "#a78bfa"],
+                                opacity: [0.6, 0.3, 0.6]
+                            }}
+                            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+                        />
 
-                    {/* Layer 1: The Heavy Flow (Wide) */}
-                    <motion.path
-                        stroke={accentColor}
-                        strokeWidth={2}
-                        fill="none"
-                        opacity="0.8"
+                        {/* Wave 2: Electric Cyan (Higher Frequency) */}
+                        <motion.path
+                            strokeWidth={2}
+                            fill="none"
+                            animate={{
+                                d: [
+                                    "M -400 0 C -333 80 -266 -80 -200 0 C -133 80 -66 -80 0 0 C 66 80 133 -80 200 0 C 266 80 333 -80 400 0",
+                                    "M -400 0 C -333 -80 -266 80 -200 0 C -133 -80 -66 80 0 0 C 66 -80 133 80 200 0 C 266 -80 333 80 400 0",
+                                    "M -400 0 C -333 80 -266 -80 -200 0 C -133 80 -66 -80 0 0 C 66 80 133 -80 200 0 C 266 80 333 -80 400 0"
+                                ],
+                                stroke: ["#06b6d4", "#2dd4bf", "#06b6d4"],
+                                opacity: [0.3, 0.6, 0.3]
+                            }}
+                            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: -1 }}
+                        />
+
+                        {/* Wave 3: Bright Lavender (Medium Frequency) */}
+                        <motion.path
+                            strokeWidth={2}
+                            fill="none"
+                            animate={{
+                                d: [
+                                    "M -400 0 C -266 -100 -133 100 0 0 C 133 -100 266 100 400 0",
+                                    "M -400 0 C -266 100 -133 -100 0 0 C 133 100 266 -100 400 0",
+                                    "M -400 0 C -266 -100 -133 100 0 0 C 133 -100 266 100 400 0"
+                                ],
+                                stroke: ["#e9d5ff", "#c084fc", "#e9d5ff"],
+                                opacity: [0.5, 0.8, 0.5]
+                            }}
+                            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: -2 }}
+                        />
+                    </motion.g>
+                )}
+
+                {/* Ghosting capsule removed per user request */}
+
+                {/* --- 3. DYNAMIC PARTICLES (Increased Density) --- */}
+                {[...Array(20)].map((_, i) => (
+                    <motion.circle
+                        key={i}
+                        r={Math.random() * 2 + 1}
+                        fill={i % 2 === 0 ? "#a855f7" : "#06b6d4"}
+                        initial={{
+                            x: Math.random() * 500,
+                            y: Math.random() * 600,
+                            opacity: Math.random() * 0.5
+                        }}
                         animate={{
-                            d: [
-                                "M -260 0 C -160 -70 -110 50 0 0 C 110 -50 160 70 260 0",
-                                "M -260 10 C -190 60 -90 -60 0 10 C 90 60 190 -60 260 10",
-                                "M -260 -10 C -210 -40 -60 70 0 -10 C 60 -70 210 40 260 -10",
-                                "M -260 0 C -160 -70 -110 50 0 0 C 110 -50 160 70 260 0"
-                            ],
-                            opacity: [0.7, 0.4, 0.8, 0.7]
+                            y: [null, Math.random() * -100],
+                            opacity: [0.2, 0.8, 0.2]
                         }}
                         transition={{
-                            duration: 11,
+                            duration: Math.random() * 5 + 5,
                             repeat: Infinity,
                             ease: "easeInOut"
                         }}
                     />
-
-                    {/* Layer 2: The Counter Flow */}
-                    <motion.path
-                        stroke={secondaryColor}
-                        strokeWidth={1.5}
-                        fill="none"
-                        opacity="0.6"
-                        animate={{
-                            d: [
-                                "M -260 0 C -190 50 -70 -50 0 0 C 70 50 190 -50 260 0",
-                                "M -260 0 C -160 -30 -110 30 0 0 C 110 -30 160 30 260 0",
-                                "M -260 0 C -220 70 -40 -70 0 0 C 40 70 220 -70 260 0",
-                                "M -260 0 C -190 50 -70 -50 0 0 C 70 50 190 -50 260 0"
-                            ]
-                        }}
-                        transition={{
-                            duration: 13,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                        }}
-                    />
-
-                    {/* Layer 3: The Interference */}
-                    <motion.path
-                        stroke={primaryColor}
-                        strokeWidth={2}
-                        fill="none"
-                        opacity="0.7"
-                        animate={{
-                            d: [
-                                "M -260 0 C -170 30 -90 -30 0 0 C 90 30 170 -30 260 0",
-                                "M -260 0 C -170 -40 -90 40 0 0 C 90 -40 170 40 260 0",
-                                "M -260 0 C -170 30 -90 -30 0 0 C 90 30 170 -30 260 0"
-                            ]
-                        }}
-                        transition={{
-                            duration: 7,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                        }}
-                    />
-                </motion.g>
+                ))}
 
                 {/* --- 2. THE MIC CAPSULE (UPSCALED) --- */}
                 <motion.g transform="translate(250, 250)">
@@ -268,8 +277,8 @@ export function AbstractMic() {
                     </g>
                 </motion.g>
 
-                {/* --- 3. HARDWARE STAND (Lowered position) --- */}
-                <motion.g transform="translate(250, 390)"> {/* Moved up to connect with capsule */}
+                {/* --- 3. HARDWARE STAND --- */}
+                <motion.g transform="translate(250, 420)">
                     {/* Connection Node */}
                     <rect x="-18" y="-10" width="36" height="40" rx="4" fill={primaryColor} opacity="0.3" />
 

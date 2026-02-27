@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { formatForumDate } from '@/lib/utils';
-import { ArrowLeft, User, MessageSquare, ThumbsUp, Send, Loader2, Sparkles, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, User, MessageSquare, ThumbsUp, Send, Loader2, Sparkles, MoreVertical, Edit, Trash2, Home } from 'lucide-react';
 import { useForumPost } from '@/hooks/useForumPost';
 import { useForum } from '@/contexts/ForumContext';
 import { CommentThread } from '@/components/forum/CommentThread';
@@ -17,6 +17,9 @@ import { ForumAuthorHover } from '@/components/forum/ForumAuthorHover';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { Logo } from '@/components/ui/logo';
+import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
+import { UserProfile } from '@/components/ui/UserProfile';
 
 export default function PostDetail({ postId }: { postId: string }) {
     const { post, comments, loading } = useForumPost(postId);
@@ -167,12 +170,45 @@ export default function PostDetail({ postId }: { postId: string }) {
     }
 
     return (
-        <div className="h-screen bg-[#050505] relative overflow-hidden flex flex-col">
-            {/* Ambient Background Glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+        <div className="h-screen bg-transparent relative overflow-hidden flex flex-col">
 
-            <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 flex flex-col min-h-0">
-                <nav className="flex items-center text-sm text-gray-500 mb-8 animate-in fade-in slide-in-from-left-2 duration-500" aria-label="Breadcrumb">
+            {/* Consistent Header */}
+            <header className="relative z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
+                <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <Logo size="sm" className="opacity-80" />
+                        <div className="h-4 w-[1px] bg-white/10" />
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Forum</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => router.push('/dashboard/mode')}
+                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group text-sm font-medium"
+                        >
+                            Mode
+                        </button>
+                        <button
+                            onClick={() => router.push('/forum')}
+                            className="text-white flex items-center gap-2 text-sm font-medium"
+                        >
+                            Forum
+                        </button>
+                        <NotificationDropdown />
+                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                    </div>
+                </div>
+            </header>
+
+            <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 flex flex-col min-h-0">
+                <nav className="flex items-center gap-4 text-sm text-gray-500 mb-8 animate-in fade-in slide-in-from-left-2 duration-500" aria-label="Breadcrumb">
+                    <Link href="/dashboard" className="group flex items-center gap-2 hover:text-white transition-colors">
+                        <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors">
+                            <Home className="w-4 h-4" />
+                        </div>
+                        <span>Home</span>
+                    </Link>
+                    <div className="h-4 w-[1px] bg-white/10" />
                     <Link href="/forum" className="group flex items-center gap-2 hover:text-white transition-colors">
                         <div className="p-1 rounded-md group-hover:bg-white/10 transition-colors">
                             <ArrowLeft className="w-4 h-4" />

@@ -351,7 +351,12 @@ export default function InterviewSession({
     // ── Intro Screen ─────────────────────────────────────────────────────────
     if (showIntro) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#020202] text-white p-6 relative">
+                {/* Ambient background */}
+                <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+                </div>
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -385,7 +390,7 @@ export default function InterviewSession({
                         >
                             <button
                                 onClick={() => setShowIntro(false)}
-                                className="group flex items-center gap-2.5 px-7 py-3 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold text-sm tracking-wide shadow-lg shadow-purple-900/30 hover:shadow-purple-900/50 transition-all duration-300 hover:scale-[1.03]"
+                                className="group flex items-center gap-2.5 px-7 py-3 rounded-full bg-gradient-to-r from-primary to-secondary hover:brightness-110 text-white font-semibold text-sm tracking-wide shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all duration-300 hover:scale-[1.03]"
                             >
                                 Ready to Start
                                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -400,7 +405,12 @@ export default function InterviewSession({
     // ── Generating Follow-Up Screen ──────────────────────────────────────────
     if (generatingFollowUp) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#020202] text-white p-6 relative">
+                {/* Ambient background */}
+                <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+                </div>
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -415,14 +425,19 @@ export default function InterviewSession({
 
     // ── Main Interview UI ────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-screen bg-black text-white p-4 gap-4">
+        <div className="flex flex-col h-screen bg-[#020202] text-white p-4 gap-4 relative">
+            {/* Ambient background */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" />
+            </div>
             {/* Header */}
             <header className="flex items-center justify-between px-2 flex-shrink-0">
                 <div />
 
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
-                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <Sparkles className="w-4 h-4 text-primary" />
                         <span className="text-sm font-semibold tracking-wide text-slate-200">AI Mock Interview</span>
                     </div>
                 </div>
@@ -608,7 +623,7 @@ export default function InterviewSession({
                                     size="lg"
                                     disabled={!transcript.trim()}
                                     onClick={handleSubmit}
-                                    className="h-11 px-8 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-20 disabled:grayscale font-bold text-sm shadow-lg shadow-purple-900/20 transition-all flex items-center"
+                                    className="h-11 px-8 rounded-xl bg-gradient-to-r from-primary to-secondary hover:brightness-110 disabled:opacity-20 disabled:grayscale font-bold text-sm shadow-lg shadow-primary/20 transition-all flex items-center"
                                 >
                                     <Send className="w-4 h-4 mr-2" />
                                     Submit Answer
