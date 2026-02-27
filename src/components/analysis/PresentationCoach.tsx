@@ -4,11 +4,12 @@ import React, { useState } from "react";
 import { UnifiedWebcamView } from "./UnifiedWebcamView";
 import { FeedbackOverlay } from "./FeedbackOverlay";
 import { useUnifiedAnalysis } from "@/hooks/useUnifiedAnalysis";
-import { FeedbackPanel } from "@/components/posture/FeedbackPanel";
-import { SessionSummary } from "@/components/analysis/SessionSummary"; // NEW
-import { analyzeSession } from "@/app/actions/analyzeSession"; // NEW
-import { FacialFeedbackPanel } from "@/components/analysis/FacialFeedbackPanel"; // NEW
+import { SessionSummary } from "@/components/analysis/SessionSummary";
+import { analyzeSession } from "@/app/actions/analyzeSession";
+import { AnalysisFeedbackPanel } from "@/components/analysis/AnalysisFeedbackPanel";
 import { motion, AnimatePresence } from "framer-motion";
+import { Video } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function PresentationCoach() {
     const {
@@ -48,7 +49,7 @@ export function PresentationCoach() {
 
             if ('error' in aiSummary) {
                 console.error("Analysis Error:", aiSummary.error);
-                alert(`AI Analysis Failed: ${aiSummary.error}`); // Temporary alert for debug
+                alert(`AI Analysis Failed: ${aiSummary.error}`);
             } else {
                 setSessionSummary(aiSummary);
             }
@@ -61,29 +62,34 @@ export function PresentationCoach() {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 p-4 max-w-7xl mx-auto min-h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)]">
-            {/* Left: Main Interaction Area */}
-            <div className="flex-1 flex flex-col relative bg-black rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
-                {/* Webcam & Overlay */}
-                <div className="flex-1 relative">
-                    <UnifiedWebcamView
-                        onPoseResults={analyzePosture}
-                        onFaceResults={analyzeFace}
-                        isAutoFramed={result.isAutoFramed}
-                    />
+        <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 max-w-7xl mx-auto w-full">
 
-                    {/* Only show overlay when active */}
-                    {isSessionActive && (
-                        <FeedbackOverlay
-                            isNervous={result.isNervous}
-                            isDistracted={result.isDistracted}
-                            emotionState={result.emotionState}
-                            // Split feedback for different display zones
-                            postureMessages={result.feedbackItems.filter(i => !['SMILE_GOOD', 'SMILE_TIP', 'EYE_GOOD', 'EYE_FIX', 'BLINK_FAST', 'MOUTH_TENSION', 'EYES_SHIFTY', 'HIGH_STRESS'].includes(i.type)).map(i => i.message)}
+            {/* LEFT PANEL: Video */}
+            <div className="flex-1 flex flex-col gap-6 min-h-0">
+
+                {/* Webcam & Overlay (Full Aspect Ratio) */}
+                <div className="w-full relative bg-black rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col flex-none aspect-video">
+
+                    {/* Webcam Layer */}
+                    <div className="relative flex-1">
+                        <UnifiedWebcamView
+                            onPoseResults={analyzePosture}
+                            onFaceResults={analyzeFace}
+                            isAutoFramed={result.isAutoFramed}
                         />
-                    )}
 
-                    {/* High Stress Warning Overlay (Overlap Logic) */}
+                        {/* Feedback Overlay */}
+                        {isSessionActive && (
+                            <FeedbackOverlay
+                                isNervous={result.isNervous}
+                                isDistracted={result.isDistracted}
+                                emotionState={result.emotionState}
+                                postureMessages={result.feedbackItems.filter(i => !['SMILE_GOOD', 'SMILE_TIP', 'EYE_GOOD', 'EYE_FIX', 'BLINK_FAST', 'MOUTH_TENSION', 'EYES_SHIFTY', 'HIGH_STRESS'].includes(i.type)).map(i => i.message)}
+                            />
+                        )}
+                    </div>
+
+                    {/* High Stress Warning Overlay */}
                     <AnimatePresence>
                         {isSessionActive && result.isHighStress && (
                             <motion.div
@@ -105,81 +111,77 @@ export function PresentationCoach() {
                             <p className="text-blue-300 font-bold animate-pulse">Consulting Gemini Coach...</p>
                         </div>
                     )}
-                </div>
 
-                {/* Controls Bar */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent flex justify-center items-end pb-8">
-                    {!isSessionActive ? (
-                        <button
-                            onClick={handleStart}
-                            disabled={isAnalyzing}
-                            className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-blue-500/50 transition-all transform hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <span>▶ Start Coaching</span>
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleStop}
-                            className="bg-red-600 hover:bg-red-500 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-red-500/50 transition-all transform hover:scale-105 flex items-center gap-2"
-                        >
-                            <span>⏹ End & Analyze</span>
-                        </button>
+                    {/* Start Overlay */}
+                    {!isSessionActive && (
+                        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="text-center space-y-6 max-w-md w-full bg-slate-900/40 backdrop-blur-xl p-8 rounded-3xl border border-slate-700/50 shadow-2xl"
+                            >
+                                <div className="flex justify-center gap-4 mb-2">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
+                                        <Video className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h1 className="text-2xl font-bold tracking-tight mb-2 text-white">Visual Presence Coach</h1>
+                                    <p className="text-sm text-gray-400 mx-auto mb-4">
+                                        Real-time analysis of your posture, expression, and body language.
+                                    </p>
+                                </div>
+
+                                <div className="flex-1 w-full flex flex-col justify-center items-center text-center relative pointer-events-auto">
+                                    <div className="flex items-center gap-3 mb-4 text-slate-300 bg-slate-900/40 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700 shadow-xl">
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                                        <span className="text-sm font-medium">Ready</span>
+                                    </div>
+
+                                    <Button
+                                        size="lg"
+                                        onClick={handleStart}
+                                        disabled={isAnalyzing}
+                                        className="h-10 px-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.5)] transition-all font-semibold"
+                                    >
+                                        Start Coaching
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+
+                    {/* Stop Button (when session active) */}
+                    {isSessionActive && (
+                        <div className="absolute top-4 right-4 z-[60] flex items-center gap-3">
+                            <Button
+                                variant="default"
+                                size="sm"
+                                onClick={handleStop}
+                                className="rounded-full shadow-lg flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white border-none transition-all"
+                            >
+                                ⏹ End & Analyze
+                            </Button>
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Right: Metrics Sidebar */}
-            <div className="w-full lg:w-96 flex flex-col gap-4 overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar pb-32 h-full">
-                {/* Score Card */}
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-6 border border-slate-800 shadow-xl">
-                    <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Confidence Score</h3>
-                    <div className="flex items-end gap-3">
-                        <span className={`text-6xl font-bold ${result.totalScore > 80 ? 'text-green-400' :
-                            result.totalScore > 50 ? 'text-yellow-400' : 'text-red-400'
-                            }`}>
-                            {Math.round(result.totalScore)}
-                        </span>
-                        <span className="text-slate-500 text-xl font-medium mb-2">/ 100</span>
-                    </div>
+            {/* RIGHT PANEL: Facial + Posture Metrics */}
+            <div className="w-full lg:w-[480px] flex flex-col gap-6 min-w-0">
+                <div className="flex-1 min-h-[450px]">
+                    <AnalysisFeedbackPanel
+                        engagementScore={result.face.engagementScore}
+                        isSmiling={result.isSmiling}
+                        isEyeContactSteady={result.isEyeContactSteady}
+                        blinkRate={result.face.blinkRate}
+                        isNervous={result.hasHighBlinkRate}
+                        postureScore={result.posture.score}
+                        isPostureStable={result.posture.isStable}
+                        postureIssues={result.posture.issues}
+                    />
                 </div>
-
-                {/* Facial Analysis Panel (NEW) */}
-                <FacialFeedbackPanel
-                    engagementScore={result.face.engagementScore}
-                    isSmiling={result.isSmiling}
-                    isEyeContactSteady={result.isEyeContactSteady}
-                    blinkRate={result.face.blinkRate}
-                    isNervous={result.hasHighBlinkRate}
-                />
-
-                {/* Posture Analysis Card */}
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl p-6 border border-slate-800 space-y-4 shadow-xl">
-                    <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <span>🧍</span> Posture & Stability
-                    </h3>
-
-                    {/* Posture Stability */}
-                    <div>
-                        <div className="flex justify-between text-sm mb-1">
-                            <span className="text-slate-300">Stability Score</span>
-                            <span className="text-slate-400">{Math.round(result.posture.score)}%</span>
-                        </div>
-                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-500 ${result.posture.score < 60 ? 'bg-red-500' : 'bg-purple-500'}`}
-                                style={{ width: `${result.posture.score}%` }}
-                            ></div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Feedback Panel (Posture Only) */}
-                <FeedbackPanel
-                    score={result.totalScore} // Note: This is total score, maybe should be result.posture.score? User asked to remove *facial feedback* from here.
-                    isStable={!result.isHighStress}
-                    // Filter out facial feedback types so this box only shows posture issues
-                    issues={result.feedbackItems.filter(i => !['SMILE_GOOD', 'SMILE_TIP', 'EYE_GOOD', 'EYE_FIX', 'BLINK_FAST', 'MOUTH_TENSION', 'EYES_SHIFTY'].includes(i.type)) as any}
-                />
             </div>
 
             {/* Gemini AI Coach Summary - Full Screen Modal */}

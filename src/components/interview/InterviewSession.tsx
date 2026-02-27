@@ -435,7 +435,7 @@ export default function InterviewSession({
 
     // ── Main Interview UI ────────────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-screen bg-transparent text-white p-4 gap-4 relative overflow-hidden">
+        <div className="flex flex-col h-screen bg-transparent text-white relative overflow-hidden">
             {/* Ambient background */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse" />
@@ -458,7 +458,7 @@ export default function InterviewSession({
             {/* Progress Bar */}
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto w-full min-h-0">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto w-full min-h-0 p-4">
                 {/* LEFT PANEL: Camera & Controls */}
                 <div className="flex-1 flex flex-col gap-4 min-h-0">
                     {/* Top Control Bar */}

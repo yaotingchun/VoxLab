@@ -519,7 +519,7 @@ function PresentationPageInner() {
     const [isCoachHovered, setIsCoachHovered] = useState(false);
 
     return (
-        <div className="flex flex-col h-screen bg-transparent text-white overflow-hidden p-4 gap-4">
+        <div className="flex flex-col h-screen bg-transparent text-white overflow-hidden">
             {/* Header */}
             <UnifiedHeader
                 section="Presentation Mode"
@@ -530,7 +530,7 @@ function PresentationPageInner() {
             />
 
             {/* Main Content: Split Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 max-w-7xl mx-auto w-full">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 max-w-7xl mx-auto w-full p-4">
 
                 {/* LEFT PANEL: Video & Transcript */}
                 <div className="flex-1 flex flex-col gap-6 min-h-0">

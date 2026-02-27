@@ -9,6 +9,7 @@ import { SpeechCoachWidget } from "@/components/coach/SpeechCoachWidget";
 import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 
 import { UnifiedFeedbackPanel } from "@/components/analysis/UnifiedFeedbackPanel";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Video, Mic, Square, AlertTriangle, MessageSquareText, FileText, Maximize2, Minimize2, Home } from "lucide-react";
@@ -386,73 +387,26 @@ function PracticePageInner() {
 
 
     return (
-        <div className="flex flex-col h-screen bg-transparent text-white overflow-hidden p-4 gap-4 relative">
+        <div className="flex flex-col h-screen bg-transparent text-white overflow-hidden relative">
             {/* Header */}
-            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.back()}
-                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
-                        title="Go Back"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <Logo size="sm" className="opacity-80" />
-                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">Session Recording</span>
-                </div>
-
-                <div className="flex items-center gap-4 sm:gap-8">
+            <UnifiedHeader
+                section={searchParams.get("mode") === "lecture" ? "Lecture Lab" : "Practice Mode"}
+                backButton={{
+                    href: "/dashboard",
+                    label: "Go Back"
+                }}
+                rightContent={
                     <div className="flex items-center gap-2 bg-white/5 px-4 py-1.5 rounded-full border border-white/10 mr-2">
                         <Sparkles className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-semibold tracking-wide">
+                        <span className="text-sm font-semibold tracking-wide text-white">
                             {searchParams.get("mode") === "lecture" ? "AI Lecture Mode" : "AI Practice Mode"}
                         </span>
                     </div>
-
-                    <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
-                        <button
-                            onClick={() => router.push('/dashboard/mode')}
-                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
-                        >
-                            Mode
-                        </button>
-                        <button
-                            onClick={() => router.push('/forum')}
-                            className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
-                        >
-                            Forum
-                        </button>
-                    </nav>
-
-                    <div className="h-8 w-px bg-white/10" />
-
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.push('/dashboard')}
-                            className="text-slate-400 hover:text-white transition-all rounded-xl"
-                            title="Dashboard"
-                        >
-                            <Home className="w-5 h-5" />
-                        </Button>
-                        <NotificationDropdown />
-                        {user && (
-                            <UserProfile
-                                displayName={user.displayName || user.email?.split("@")[0] || "User"}
-                                photoURL={user.photoURL}
-                                onLogout={() => setIsSignOutModalOpen(true)}
-                            />
-                        )}
-                    </div>
-                </div>
-            </header>
+                }
+            />
 
             {/* Main Content: Split Layout */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 max-w-7xl mx-auto w-full">
+            <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 max-w-7xl mx-auto w-full p-4">
 
                 {/* LEFT PANEL: Video & Transcript */}
                 <div className="flex-1 flex flex-col gap-6 min-h-0">
