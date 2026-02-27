@@ -21,10 +21,8 @@ import {
     FileText as FileIcon,
     Home
 } from "lucide-react";
-import Link from "next/link";
-import { Logo } from "@/components/ui/logo";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { UserProfile } from "@/components/ui/UserProfile";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
+import { SignOutModal } from "@/components/auth/SignOutModal";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Types
@@ -53,7 +51,8 @@ const difficultyColors: Record<string, string> = {
 function TopicSelectionInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
     const [step, setStep] = useState<Step>("mode");
 
     // Handle initial mode from query params
@@ -242,59 +241,13 @@ function TopicSelectionInner() {
 
     return (
         <div className="h-screen flex flex-col bg-transparent text-white selection:bg-primary/30 relative">
-
-            {/* Header */}
-            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.back()}
-                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
-                        title="Go Back"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <Logo size="sm" className="opacity-80" />
-                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">
-                        {searchParams.get("mode") === "lecture" ? "Lecture Lab" : "Practice Mode"}
-                    </span>
-                </div>
-
-                <div className="flex items-center gap-4 sm:gap-8">
-                    <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
-                        <button
-                            onClick={() => router.push('/dashboard/mode')}
-                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
-                        >
-                            Mode
-                        </button>
-                        <button
-                            onClick={() => router.push('/forum')}
-                            className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
-                        >
-                            Forum
-                        </button>
-                    </nav>
-
-                    <div className="h-8 w-px bg-white/10" />
-
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.push('/dashboard')}
-                            className="text-slate-400 hover:text-white transition-all rounded-xl"
-                            title="Dashboard"
-                        >
-                            <Home className="w-5 h-5" />
-                        </Button>
-                        <NotificationDropdown />
-                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
-                    </div>
-                </div>
-            </header>
+            <UnifiedHeader
+                section={searchParams.get("mode") === "lecture" ? "Lecture Lab" : "Practice Mode"}
+                backButton={{
+                    href: "/dashboard",
+                    label: "Back to Dashboard"
+                }}
+            />
 
             {/* Main Content */}
             <div className="relative z-10 flex-1 flex items-center justify-center p-6 overflow-y-auto">
@@ -337,7 +290,7 @@ function TopicSelectionInner() {
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                     onClick={() => router.push('/dashboard/practice/upload')}
-                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2rem] border border-orange-500/20 bg-[#161616] text-left overflow-hidden shadow-2xl shadow-orange-500/5 ring-1 ring-orange-500/10 transition-all hover:border-orange-500/40 hover:bg-orange-500/[0.05]"
+                                    className="group relative p-8 h-full min-h-[300px] flex flex-col justify-between rounded-[2.5rem] border border-orange-500/20 bg-[#161616] text-left overflow-hidden shadow-2xl shadow-orange-500/5 ring-1 ring-orange-500/10 transition-all hover:border-orange-500/40 hover:bg-orange-500/[0.05]"
                                 >
                                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
@@ -715,7 +668,16 @@ function TopicSelectionInner() {
                     )}
                 </AnimatePresence>
             </div>
-        </div >
+
+            <SignOutModal
+                isOpen={isSignOutModalOpen}
+                onClose={() => setIsSignOutModalOpen(false)}
+                onConfirm={() => {
+                    logout();
+                    setIsSignOutModalOpen(false);
+                }}
+            />
+        </div>
     );
 }
 

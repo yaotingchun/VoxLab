@@ -14,9 +14,10 @@ interface ForumHeaderProps {
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     toggleSidebar?: () => void;
+    onLogout?: () => void;
 }
 
-export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearchQuery, toggleSidebar }) => {
+export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearchQuery, toggleSidebar, onLogout }) => {
     const { user } = useAuth();
     const router = useRouter();
 
@@ -95,7 +96,13 @@ export const ForumHeader: React.FC<ForumHeaderProps> = ({ searchQuery, setSearch
 
                         <NotificationDropdown />
 
-                        {user && <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />}
+                        {user && (
+                            <UserProfile
+                                displayName={user.displayName || user.email?.split('@')[0] || "User"}
+                                photoURL={user.photoURL}
+                                onLogout={onLogout}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

@@ -106,15 +106,13 @@ export function UnifiedHeader({ section, backButton, isDashboard = false, onBack
 
                         <NotificationDropdown />
 
-                        {user && <UserProfile displayName={userDisplayName} />}
-
-                        <button
-                            onClick={() => setIsSignOutModalOpen(true)}
-                            className="p-2 text-slate-500 hover:text-rose-500 transition-colors"
-                            title="Sign Out"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
+                        {user && (
+                            <UserProfile
+                                displayName={userDisplayName}
+                                photoURL={user.photoURL}
+                                onLogout={() => setIsSignOutModalOpen(true)}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

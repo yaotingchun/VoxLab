@@ -32,11 +32,15 @@ import { UserProfile } from "@/components/ui/UserProfile";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { getUserStreak } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
+import { SignOutModal } from "@/components/auth/SignOutModal";
+
 // ...
 
 function PresentationPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user, logout } = useAuth();
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
     const topic = searchParams.get("topic");
 
     const {
@@ -77,7 +81,6 @@ function PresentationPageInner() {
         currentVolume
     } = useAudioAnalysis();
 
-    const { user } = useAuth();
     const [isStarted, setIsStarted] = useState(false);
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -577,7 +580,13 @@ function PresentationPageInner() {
                             <Home className="w-5 h-5" />
                         </Button>
                         <NotificationDropdown />
-                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                        {user && (
+                            <UserProfile
+                                displayName={user.displayName || user.email?.split("@")[0] || "User"}
+                                photoURL={user.photoURL}
+                                onLogout={() => setIsSignOutModalOpen(true)}
+                            />
+                        )}
                     </div>
                 </div>
             </header>
@@ -953,6 +962,15 @@ function PresentationPageInner() {
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Logout Confirmation */}
+            <SignOutModal
+                isOpen={isSignOutModalOpen}
+                onClose={() => setIsSignOutModalOpen(false)}
+                onConfirm={() => {
+                    logout();
+                    setIsSignOutModalOpen(false);
+                }}
+            />
         </div >
     );
 }

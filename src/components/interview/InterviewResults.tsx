@@ -305,6 +305,9 @@ interface InterviewResultsProps {
     answers: InterviewAnswer[];
     onRetry: () => void;
     onReset: () => void;
+    displayName?: string;
+    photoURL?: string | null;
+    onLogout?: () => void;
 }
 
 export default function InterviewResults({
@@ -312,7 +315,11 @@ export default function InterviewResults({
     answers,
     onRetry,
     onReset,
+    displayName,
+    photoURL,
+    onLogout,
 }: InterviewResultsProps) {
+    const router = useRouter();
     const [viewDetailed, setViewDetailed] = useState(false);
 
     if (viewDetailed) {

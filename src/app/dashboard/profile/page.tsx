@@ -381,7 +381,13 @@ function ProfileContent() {
                                 <Home className="w-5 h-5" />
                             </Button>
                             <NotificationDropdown />
-                            {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                            {user && (
+                                <UserProfile
+                                    displayName={user.displayName || user.email?.split("@")[0] || "User"}
+                                    photoURL={user.photoURL}
+                                    onLogout={() => setIsSignOutModalOpen(true)}
+                                />
+                            )}
                         </div>
                     </div>
                 </div>

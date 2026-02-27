@@ -14,7 +14,7 @@ import {
     Users, UserPlus, UserMinus, ArrowLeft, X,
     Flame, Trophy, Mic, Award, Clock, MessageSquare,
     ThumbsUp, Eye, Lock, FileText, CornerDownRight,
-    Star, Target, History, BookOpen, Presentation as PresentationIcon, Search, TrendingUp
+    Star, Target, History, BookOpen, Presentation as PresentationIcon, Search, TrendingUp, Home
 } from "lucide-react";
 import Link from "next/link";
 import { FollowEntry } from "@/lib/follow";
@@ -26,6 +26,12 @@ import { Post } from "@/types/forum";
 import { formatForumDate } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { Logo } from "@/components/ui/logo";
+import { SignOutModal } from "@/components/auth/SignOutModal";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
+
 
 // ─── Design Tokens ──────────────────────────────────────────────────────────
 const GLASS_CARD = "bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40 hover:bg-white/[0.05] transition-all duration-300";
@@ -124,13 +130,16 @@ interface PublicProfile {
     longestStreak: number;
     shareProgressTracker?: boolean;
     shareHistory?: boolean;
+    bio?: string;
+    username?: string;
 }
 
 type ModalType = "followers" | "following" | null;
 
 export default function PublicProfilePage({ params }: { params: Promise<{ uid: string }> }) {
     const { uid } = use(params);
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
     const { followUser, unfollowUser, isFollowing, getFollowersFor, getFollowingFor } = useFollow();
     const router = useRouter();
 
@@ -178,7 +187,9 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                 streakCount: data?.streakCount ?? 0,
                 longestStreak: data?.longestStreak ?? 0,
                 shareProgressTracker: data?.shareProgressTracker ?? false,
-                shareHistory: data?.shareHistory ?? false
+                shareHistory: data?.shareHistory ?? false,
+                bio: data?.bio || "",
+                username: data?.username || ""
             });
             setFollowersCount(data?.followersCount ?? 0);
             setFollowingCount(data?.followingCount ?? 0);
@@ -378,13 +389,16 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
             {modal === "friends" && <FollowListModal title={`Friends (${friendsList.length})`} list={friendsList} onClose={() => setModal(null)} onNavigate={u => router.push(`/dashboard/profile/${u}`)} description="Users who follow each other" />}
             {modal === "badges" && <BadgeListModal badges={earnedBadges} onClose={() => setModal(null)} />}
 
-            <div className="min-h-screen bg-background p-6 md:p-10">
-                <div className="max-w-5xl mx-auto space-y-6">
+            <UnifiedHeader
+                section="Profile"
+                backButton={{
+                    href: "/dashboard",
+                    label: "Back to Dashboard"
+                }}
+            />
 
-                    {/* Back Button */}
-                    <Button variant="ghost" onClick={() => router.back()} className="gap-2">
-                        <ArrowLeft className="w-4 h-4" />Back
-                    </Button>
+            <div className="min-h-screen bg-transparent p-6 md:p-10">
+                <div className="max-w-5xl mx-auto space-y-6">
 
                     {/* ── Hero Card ──────────────────────────────────────────── */}
                     <motion.div
@@ -429,11 +443,22 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                                                 </h2>
                                             </div>
                                             <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-2">
+                                                {profile.username && (
+                                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-mono">
+                                                        @{profile.username}
+                                                    </Badge>
+                                                )}
                                                 <Badge variant="secondary" className="bg-white/5 border-white/10 text-white/70">
                                                     VoxLab Member
                                                 </Badge>
                                             </div>
                                         </div>
+
+                                        {profile.bio && (
+                                            <p className="text-base text-gray-300 leading-relaxed max-w-xl italic">
+                                                "{profile.bio}"
+                                            </p>
+                                        )}
 
                                         <div className="flex flex-wrap gap-8 justify-center md:justify-start pt-2 text-center md:text-left">
                                             <button onClick={() => handleOpenModal("followers")} className="group/stat text-center">
@@ -671,6 +696,15 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                     </AnimatePresence>
                 </div>
             </div>
+            {/* Logout Confirmation */}
+            <SignOutModal
+                isOpen={isSignOutModalOpen}
+                onClose={() => setIsSignOutModalOpen(false)}
+                onConfirm={() => {
+                    logout();
+                    setIsSignOutModalOpen(false);
+                }}
+            />
         </>
     );
 }

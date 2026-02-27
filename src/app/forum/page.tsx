@@ -8,8 +8,10 @@ import { ForumStatsWidget } from '@/components/forum/ForumStatsWidget';
 import { ForumHeader } from '@/components/forum/ForumHeader';
 import { ForumPostList } from '@/components/forum/ForumPostList';
 import { Button } from '@/components/ui/button';
+import { SignOutModal } from '@/components/auth/SignOutModal';
 import { Plus, Filter, ArrowLeft, ChevronDown, Hash, MessageSquare, TrendingUp, Sparkles, Menu } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+
 import { useFollow } from '@/contexts/FollowContext';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +20,8 @@ export default function ForumPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { posts, loading } = useForum();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
     const { following, loadMyFollowData } = useFollow();
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +112,7 @@ export default function ForumPage() {
                     searchQuery={searchQuery}
                     setSearchQuery={setSearchQuery}
                     toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                    onLogout={() => setIsSignOutModalOpen(true)}
                 />
             </div>
 
@@ -241,6 +245,15 @@ export default function ForumPage() {
                     </div>
                 </div>
             </div>
+            {/* Logout Confirmation */}
+            <SignOutModal
+                isOpen={isSignOutModalOpen}
+                onClose={() => setIsSignOutModalOpen(false)}
+                onConfirm={() => {
+                    logout();
+                    setIsSignOutModalOpen(false);
+                }}
+            />
         </div>
     );
 }

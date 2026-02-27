@@ -28,6 +28,9 @@ import { FeedbackOverlay } from "@/components/analysis/FeedbackOverlay";
 import { speakText, stopSpeaking } from "@/lib/tts-client";
 import { UnifiedWebcamView } from "@/components/analysis/UnifiedWebcamView";
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
+import { UserProfile } from "@/components/ui/UserProfile";
+import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
+import { Logo } from "@/components/ui/logo";
 
 interface InterviewSessionProps {
     questions: InterviewQuestion[];
@@ -44,6 +47,9 @@ interface InterviewSessionProps {
     onSpeakQuestion: (text?: string) => Promise<void>;
     onSpeakIntro: () => Promise<void>;
     onEnd: (visualMetrics: any, vocalMetrics: any) => void;
+    displayName?: string;
+    photoURL?: string | null;
+    onLogout?: () => void;
 }
 
 const QUESTION_TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -69,6 +75,9 @@ export default function InterviewSession({
     onSpeakQuestion,
     onSpeakIntro,
     onEnd,
+    displayName,
+    photoURL,
+    onLogout,
 }: InterviewSessionProps) {
     // ── Hooks ───────────────────────────────────────────────────────────────
     const {
