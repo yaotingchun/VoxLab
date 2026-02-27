@@ -4,7 +4,7 @@ import path from 'path';
 // ------------------------------------------------------------------
 // CONFIGURATION
 // ------------------------------------------------------------------
-export const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'voxlab-storage';
+export const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'voxlab-storages';
 
 // ------------------------------------------------------------------
 // CLIENT INITIALIZATION
