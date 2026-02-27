@@ -8,9 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, UploadCloud, FileVideo, X, Loader2, PlayCircle, Home } from "lucide-react";
 import Link from "next/link";
 import { DetailedSessionReport } from "@/components/analysis/DetailedSessionReport";
-import { Logo } from "@/components/ui/logo";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { UserProfile } from "@/components/ui/UserProfile";
+import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 import { useRef, useEffect } from "react";
 import { FilesetResolver, PoseLandmarker, FaceLandmarker } from "@mediapipe/tasks-vision";
 import { usePostureAnalysis } from "@/hooks/usePostureAnalysis";
@@ -72,7 +70,8 @@ export default function UploadPracticePage() {
     const [isParsingRubric, setIsParsingRubric] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [mergedPostureSummary, setMergedPostureSummary] = useState<any>(null);
-    const { user } = useAuth(); // Needed to persist the session
+    const { user, logout } = useAuth(); // Needed to persist the session
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
     // --- MediaPipe Posture & Face Analysis Setup ---
     const hiddenVideoRef = useRef<HTMLVideoElement>(null);
@@ -609,57 +608,13 @@ export default function UploadPracticePage() {
             </div>
 
             {/* Header */}
-            <header className="relative z-50 w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => router.back()}
-                        className="text-white hover:text-white hover:bg-white/10 transition-all rounded-xl bg-white/5 border border-white/10"
-                        title="Go Back"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Button>
-                    <Logo size="sm" className="opacity-80" />
-                    <div className="h-6 w-[1px] bg-white/10 mx-1" />
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">
-                        Video Analysis
-                    </span>
-                </div>
-
-                <div className="flex items-center gap-4 sm:gap-8">
-                    <nav className="hidden lg:flex items-center gap-8 text-sm font-bold tracking-tight">
-                        <button
-                            onClick={() => router.push('/dashboard/mode')}
-                            className="text-slate-400 hover:text-primary transition-all flex items-center gap-2 group"
-                        >
-                            Mode
-                        </button>
-                        <button
-                            onClick={() => router.push('/forum')}
-                            className="text-slate-400 hover:text-white transition-all flex items-center gap-2"
-                        >
-                            Forum
-                        </button>
-                    </nav>
-
-                    <div className="h-8 w-px bg-white/10" />
-
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => router.push('/dashboard')}
-                            className="text-slate-400 hover:text-white transition-all rounded-xl"
-                            title="Dashboard"
-                        >
-                            <Home className="w-5 h-5" />
-                        </Button>
-                        <NotificationDropdown />
-                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
-                    </div>
-                </div>
-            </header>
+            <UnifiedHeader
+                section="Video Analysis"
+                backButton={{
+                    href: "/dashboard/practice/topic",
+                    label: "Go Back"
+                }}
+            />
 
             {/* Main Content */}
             <main className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto py-8 px-6">
