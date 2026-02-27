@@ -1761,30 +1761,30 @@ export function DetailedSessionReport({ data, onClose, hideGlobalHeader = false 
                         )}
                     </div>
                 </div>
-
-                {/* Session Context Chatbot moved outside to avoid transform trapping */}
-                <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
-
-                {/* Share to Forum Modal moved outside */}
-                <ShareSessionModal
-                    isOpen={isSharing}
-                    onClose={() => setIsSharing(false)}
-                    sessionData={{
-                        ...data,
-                        summary: data.summary,
-                        tips: data.tips,
-                        score: data.score,
-                        vocalSummary: data.vocalSummary,
-                        postureSummary: data.postureSummary,
-                        videoUrl: data.videoUrl,
-                        rawMetrics: {
-                            duration: metrics.duration,
-                            wpm: metrics.wpm,
-                            transcript: metrics.transcript
-                        }
-                    }}
-                />
             </motion.div>
+
+            {/* Session Context Chatbot moved outside to avoid transform trapping */}
+            <SessionChatbot reportData={{ ...data, contentAnalysis: streamedContentAnalysis }} />
+
+            {/* Share to Forum Modal moved outside */}
+            <ShareSessionModal
+                isOpen={isSharing}
+                onClose={() => setIsSharing(false)}
+                sessionData={{
+                    ...data,
+                    summary: data.summary,
+                    tips: data.tips,
+                    score: data.score,
+                    vocalSummary: data.vocalSummary,
+                    postureSummary: data.postureSummary,
+                    videoUrl: data.videoUrl,
+                    rawMetrics: {
+                        duration: metrics.duration,
+                        wpm: metrics.wpm,
+                        transcript: metrics.transcript
+                    }
+                }}
+            />
         </>
     );
 }
