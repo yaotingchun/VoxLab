@@ -21,7 +21,7 @@
   --color-muted: #1f1b35;
   --color-muted-foreground: #d1d5db;
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
   --radius: 0.625rem;
   --background: oklch(1 0 0);

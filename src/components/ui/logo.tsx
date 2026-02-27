@@ -18,7 +18,7 @@ export const Logo: React.FC<LogoProps> = ({ className, size = "md" }) => {
     return (
         <span
             className={cn(
-                "font-space-grotesk font-bold tracking-tight text-white",
+                "font-outfit font-bold tracking-tight text-white",
                 sizeClasses[size],
                 className
             )}
