@@ -638,10 +638,10 @@ export default function InterviewSession({
 
                 {/* RIGHT PANEL: Answer Area & Transcript */}
                 <div className="w-full lg:w-[480px] flex flex-col gap-6 min-w-0">
-                    <div className="flex-1 bg-slate-900/40 backdrop-blur-xl rounded-3xl border border-slate-800/80 p-6 flex flex-col min-h-0 overflow-hidden shadow-2xl">
+                    <div className="flex-1 bg-white/[0.03] backdrop-blur-xl rounded-3xl border border-white/10 p-6 shadow-2xl shadow-black/40 flex flex-col min-h-0 overflow-hidden">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
-                                <div className="p-1.5 bg-purple-500/10 rounded-md">
+                                <div className="p-1.5 bg-white/10 rounded-md">
                                     <User className="w-3.5 h-3.5 text-purple-400" />
                                 </div>
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -672,7 +672,7 @@ export default function InterviewSession({
                         {/* Answer Content */}
                         <div
                             ref={transcriptRef}
-                            className="flex-1 overflow-y-auto custom-scrollbar p-4 rounded-xl mb-1 bg-slate-950/40 border border-slate-800/60 shadow-inner"
+                            className="flex-1 overflow-y-auto custom-scrollbar p-4 rounded-xl mb-1 bg-white/5 border border-white/10 shadow-inner"
                         >
                             {transcript ? (
                                 <p className="text-lg leading-relaxed text-slate-200 whitespace-pre-wrap">
