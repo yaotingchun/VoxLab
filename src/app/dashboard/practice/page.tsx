@@ -70,7 +70,7 @@ function PracticePageInner() {
         currentVolume
     } = useAudioAnalysis();
 
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [isStarted, setIsStarted] = useState(false);
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
