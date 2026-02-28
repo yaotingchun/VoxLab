@@ -23,6 +23,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { UserProfile } from "@/components/ui/UserProfile";
+import { SignOutModal } from "@/components/auth/SignOutModal";
 import { Logo } from "@/components/ui/logo";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
@@ -134,6 +135,7 @@ function ProfileContent() {
     const [modal, setModal] = useState<"followers" | "following" | "badges" | "friends" | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showSearchModal, setShowSearchModal] = useState(false);
+    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
     // Gamification data
     const [streakCount, setStreakCount] = useState(0);
@@ -335,6 +337,15 @@ function ProfileContent() {
             {modal === "badges" && <BadgeListModal badges={earnedBadges} onClose={() => setModal(null)} />}
             {showEditModal && firestoreProfile && <EditProfileModal profile={firestoreProfile} onClose={() => setShowEditModal(false)} />}
             {showSearchModal && <UserSearchModal onClose={() => setShowSearchModal(false)} />}
+            <SignOutModal
+                isOpen={isSignOutModalOpen}
+                onClose={() => setIsSignOutModalOpen(false)}
+                onConfirm={async () => {
+                    await logout();
+                    setIsSignOutModalOpen(false);
+                    router.push("/");
+                }}
+            />
 
             <header className="relative z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
                 <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
