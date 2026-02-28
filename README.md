@@ -20,6 +20,8 @@
 
 ## 👥 Team Introduction
 
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/2dfd5e91-b4b8-4496-bf79-f400800b638b" />
+
 | Name | Role | Responsibilities |
 |------|------|------------------|
 | Chun Yao Ting | Project Lead / Full Stack Developer | System Architecture, AI Integration, Feature Design, Cloud Infrastructure |
