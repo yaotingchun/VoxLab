@@ -212,19 +212,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         {/* Media Attachment */}
                         {post.mediaUrls && post.mediaUrls.length > 0 && (
                             <div
-                                className="mt-2 mb-5 rounded-xl overflow-hidden bg-black border border-white/10 relative group/media max-w-2xl shadow-lg"
+                                className="mt-2 mb-5 rounded-xl overflow-hidden bg-black border border-white/10 relative max-w-2xl shadow-lg"
                                 onClick={(e) => {
-                                    e.preventDefault();
                                     e.stopPropagation();
                                 }}
                             >
                                 {post.mediaType === 'video' ? (
                                     <div className="relative">
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/media:bg-black/40 transition-colors z-10 pointer-events-none">
-                                            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover/media:scale-110 transition-transform">
-                                                <Play className="w-5 h-5 text-white fill-white ml-0.5" />
-                                            </div>
-                                        </div>
                                         <video
                                             src={post.mediaUrls[0]}
                                             className="w-full max-h-[400px] object-cover"
@@ -237,7 +231,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                                     <img
                                         src={post.mediaUrls[0]}
                                         alt="Post attachment"
-                                        className="w-full h-auto max-h-[400px] object-cover transition-transform duration-700 group-hover/media:scale-[1.02]"
+                                        className="w-full h-auto max-h-[400px] object-cover"
                                     />
                                 )}
                             </div>
