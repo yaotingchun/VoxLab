@@ -13,6 +13,7 @@
   <a href="#%EF%B8%8F-technologies-used">Tech Stack</a> •
   <a href="#%EF%B8%8F-implementation-details--innovation">Architecture</a> •
   <a href="#-installation--setup">Setup</a> •
+  <a href="#-user-testing">User Testing</a> •
   <a href="#%EF%B8%8F-future-roadmap">Roadmap</a>
 </p>
 
@@ -278,6 +279,14 @@ npm run dev
 This starts both the Next.js dev server and the WebSocket server concurrently.
 
 Open [http://localhost:3000](http://localhost:3000) to access VoxLab.
+
+---
+
+## 🧪 User Testing
+
+To view our comprehensive user testing results, session recordings, and the actionable feedback we collected during our user studies, please reference the dedicated testing report:
+
+👉 **[View the full VoxLab User Testing Report (USER_TESTING.md)](./USER_TESTING.md)**
 
 ---
 
