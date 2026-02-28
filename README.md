@@ -108,7 +108,7 @@ Users receive instant, actionable feedback during practice sessions and a compre
 | Technology | Purpose |
 |------------|---------|
 | **Google Gemini (via Vertex AI)** | Core AI engine for session analysis, interview question generation, content evaluation, vocal coaching, posture feedback and visual presence scoring. Uses `gemini-2.5-flash` for real-time coaching and structured AI output via `generateObject`. |
-| **Google Cloud Speech-to-Text** | Real-time speech recognition via WebSocket streaming. Powers live transcription, WPM calculation, filler word detection and pause analysis. |
+| **Google Cloud Speech-to-Text** | Real-time speech recognition via WebSocket streaming. Powers live transcription, WPM calculation, filler word detection and pause analysis. Chirp 2 model is used due to its great accuracy with content prediction, and enable auto punctuation for pause analysis, as well as given timestamp function can help us identify WPM and filler words frequencies.|
 | **Google Cloud Text-to-Speech** | Natural-sounding voice synthesis for the AI interviewer, question narration and interactive coaching prompts. |
 | **Google Cloud Storage (GCS)** | Stores session recordings (video) and full AI-generated reports (JSON) with signed URLs for secure retrieval. |
 | **Firebase Authentication** | Google and email/password sign-in with session persistence and user profile management. |
