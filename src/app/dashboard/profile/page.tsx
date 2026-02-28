@@ -23,7 +23,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { UserProfile } from "@/components/ui/UserProfile";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import { Logo } from "@/components/ui/logo";
 import { FollowEntry } from "@/lib/follow";
 import { getUserBadges, BADGE_DEFINITIONS } from "@/lib/badges";
@@ -69,7 +69,7 @@ function FollowListModal({ title, list, onClose, onNavigate, description }: {
                         <button key={entry.uid} onClick={() => { onNavigate(entry.uid); onClose(); }}
                             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent/60 transition-colors text-left">
                             <Avatar className="h-10 w-10 flex-shrink-0">
-                                <AvatarImage src={entry.photoURL || ""} alt={entry.displayName} />
+                                <AvatarImage src={entry.photoURL || undefined} alt={entry.displayName} />
                                 <AvatarFallback>{(entry.displayName?.[0] || "U").toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <span className="font-medium text-sm">{entry.displayName}</span>
@@ -135,7 +135,7 @@ function ProfileContent() {
     const [modal, setModal] = useState<"followers" | "following" | "badges" | "friends" | null>(null);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showSearchModal, setShowSearchModal] = useState(false);
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
 
     // Gamification data
     const [streakCount, setStreakCount] = useState(0);
@@ -337,15 +337,7 @@ function ProfileContent() {
             {modal === "badges" && <BadgeListModal badges={earnedBadges} onClose={() => setModal(null)} />}
             {showEditModal && firestoreProfile && <EditProfileModal profile={firestoreProfile} onClose={() => setShowEditModal(false)} />}
             {showSearchModal && <UserSearchModal onClose={() => setShowSearchModal(false)} />}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={async () => {
-                    await logout();
-                    setIsSignOutModalOpen(false);
-                    router.push("/");
-                }}
-            />
+
 
             <header className="relative z-50 w-full bg-[#050505]/95 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50">
                 <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
@@ -396,7 +388,7 @@ function ProfileContent() {
                                 <UserProfile
                                     displayName={user.displayName || user.email?.split("@")[0] || "User"}
                                     photoURL={user.photoURL}
-                                    onLogout={() => setIsSignOutModalOpen(true)}
+                                    onLogout={() => logout()}
                                 />
                             )}
                         </div>
@@ -439,7 +431,7 @@ function ProfileContent() {
                                     <div className="relative group/avatar">
                                         <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-110 group-hover/avatar:scale-125 transition-transform duration-500" />
                                         <Avatar className="h-32 w-32 border-4 border-white/10 ring-4 ring-primary/5 shadow-2xl relative">
-                                            <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User"} className="object-cover" />
+                                            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} className="object-cover" />
                                             <AvatarFallback className="text-5xl bg-gradient-to-br from-gray-800 to-gray-950 font-black text-white">
                                                 {(user.displayName?.[0] || user.email?.[0] || "U").toUpperCase()}
                                             </AvatarFallback>
@@ -607,7 +599,7 @@ function ProfileContent() {
                                                     </button>
                                                 </div>
                                             </div>
-                                            <Button variant="destructive" className="w-full mt-2 rounded-xl h-11 font-bold" onClick={async () => { await logout(); router.push("/"); }}>
+                                            <Button variant="destructive" className="w-full mt-2 rounded-xl h-11 font-bold" onClick={() => logout()}>
                                                 <LogOut className="w-4 h-4 mr-2" /> Sign Out
                                             </Button>
                                         </CardContent>

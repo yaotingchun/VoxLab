@@ -15,7 +15,7 @@ import { UserProfile } from "@/components/ui/UserProfile";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import { Home, ArrowLeft } from "lucide-react";
 
 const modes = [
@@ -64,7 +64,7 @@ const modes = [
 export default function ModeSelectionPage() {
     const router = useRouter();
     const { user, logout } = useAuth();
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
 
     return (
         <div className="min-h-screen bg-transparent flex flex-col relative overflow-hidden">
@@ -118,7 +118,7 @@ export default function ModeSelectionPage() {
                                 <UserProfile
                                     displayName={user.displayName || user.email?.split("@")[0] || "User"}
                                     photoURL={user.photoURL}
-                                    onLogout={() => setIsSignOutModalOpen(true)}
+                                    onLogout={() => logout()}
                                 />
                             )}
                         </div>
@@ -171,15 +171,7 @@ export default function ModeSelectionPage() {
                     ))}
                 </div>
             </div>
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
+
         </div>
     );
 }

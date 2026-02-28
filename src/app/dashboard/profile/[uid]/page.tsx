@@ -26,10 +26,7 @@ import { Post } from "@/types/forum";
 import { formatForumDate } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { ProgressTrackerTab } from "@/components/profile/ProgressTrackerTab";
-import { UserProfile } from "@/components/ui/UserProfile";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { Logo } from "@/components/ui/logo";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 
 
@@ -71,7 +68,7 @@ function FollowListModal({ title, list, onClose, onNavigate, description }: {
                             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-accent/60 transition-colors text-left"
                         >
                             <Avatar className="h-10 w-10 flex-shrink-0">
-                                <AvatarImage src={entry.photoURL || ""} alt={entry.displayName} />
+                                <AvatarImage src={entry.photoURL || undefined} alt={entry.displayName} />
                                 <AvatarFallback>{(entry.displayName?.[0] || "U").toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <span className="font-medium text-sm">{entry.displayName}</span>
@@ -138,8 +135,7 @@ type ModalType = "followers" | "following" | null;
 
 export default function PublicProfilePage({ params }: { params: Promise<{ uid: string }> }) {
     const { uid } = use(params);
-    const { user, logout } = useAuth();
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+    const { user } = useAuth();
     const { followUser, unfollowUser, isFollowing, getFollowersFor, getFollowingFor } = useFollow();
     const router = useRouter();
 
@@ -417,7 +413,7 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                                         <div className="relative group/avatar">
                                             <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl scale-110 group-hover/avatar:scale-125 transition-transform duration-500" />
                                             <Avatar className="h-32 w-32 border-4 border-white/10 ring-4 ring-primary/5 shadow-2xl relative">
-                                                <AvatarImage src={profile.photoURL || ""} alt={profile.displayName} className="object-cover" />
+                                                <AvatarImage src={profile.photoURL || undefined} alt={profile.displayName} className="object-cover" />
                                                 <AvatarFallback className="text-5xl bg-gradient-to-br from-gray-800 to-gray-950 font-black text-white">
                                                     {(profile.displayName?.[0] || "U").toUpperCase()}
                                                 </AvatarFallback>
@@ -696,15 +692,6 @@ export default function PublicProfilePage({ params }: { params: Promise<{ uid: s
                     </AnimatePresence>
                 </div>
             </div>
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
         </>
     );
 }

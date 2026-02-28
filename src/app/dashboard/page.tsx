@@ -32,7 +32,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getRecentSessions, getSessionStats } from "@/lib/sessions";
 import { getUserStreak } from "@/lib/streak";
 import { PracticeSession } from "@/types/gamification";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 import { Logo } from "@/components/ui/logo";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
@@ -40,13 +40,13 @@ import { UserProfile } from "@/components/ui/UserProfile";
 import { SpeakerStickman } from "@/components/ui/speaker-stickman";
 
 export default function DashboardPage() {
-    const { user, loading, logout } = useAuth();
+    const { user, loading } = useAuth();
     const router = useRouter();
     const [recentSessions, setRecentSessions] = useState<PracticeSession[]>([]);
     const [stats, setStats] = useState({ sessionsCount: 0, totalPracticeSeconds: 0, bestScore: 0 });
     const [streak, setStreak] = useState({ currentStreak: 0, longestStreak: 0 });
     const [dataLoading, setDataLoading] = useState(true);
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
 
     useEffect(() => {
         if (!loading && !user) {
@@ -431,15 +431,7 @@ export default function DashboardPage() {
                 </div>
             </main>
 
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
+
         </div>
     );
 }

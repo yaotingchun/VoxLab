@@ -1,22 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import PresentationSetup from "@/components/presentation/PresentationSetup";
 import { usePracticeStore } from "@/store/practiceStore";
-import { Logo } from "@/components/ui/logo";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { Button } from "@/components/ui/button";
-import { UserProfile } from "@/components/ui/UserProfile";
-import { useAuth } from "@/contexts/AuthContext";
-import { SignOutModal } from "@/components/auth/SignOutModal";
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
-import { useState } from "react";
 
 export default function PresentationSetupPage() {
-    const { user, logout } = useAuth();
     const router = useRouter();
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
     const setPresentationSlide = usePracticeStore((state) => state.setPresentationSlide);
     const setPresentationRubric = usePracticeStore((state) => state.setPresentationRubric);
 
@@ -54,15 +45,6 @@ export default function PresentationSetupPage() {
 
             <PresentationSetup onStart={handleStart} />
 
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
         </div>
     );
 }

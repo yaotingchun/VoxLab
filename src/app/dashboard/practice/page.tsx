@@ -29,7 +29,7 @@ import { usePracticeStore } from "@/store/practiceStore";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { UserProfile } from "@/components/ui/UserProfile";
 import { Logo } from "@/components/ui/logo";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 
 function PracticePageInner() {
     const searchParams = useSearchParams();
@@ -77,7 +77,7 @@ function PracticePageInner() {
     const [sessionSummary, setSessionSummary] = useState<any | null>(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [newBadges, setNewBadges] = useState<string[]>([]);
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
 
     // Lecture specific state for slide viewer
     const [isSlidesExpanded, setIsSlidesExpanded] = useState(false);
@@ -684,15 +684,7 @@ function PracticePageInner() {
                 )}
             </AnimatePresence>
 
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
+
         </div>
     );
 }

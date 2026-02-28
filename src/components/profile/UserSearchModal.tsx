@@ -117,7 +117,7 @@ export function UserSearchModal({ onClose }: UserSearchModalProps) {
                                 className="flex items-center gap-3 flex-1 text-left min-w-0"
                             >
                                 <Avatar className="h-10 w-10 flex-shrink-0">
-                                    <AvatarImage src={u.photoURL ?? ""} alt={u.displayName} />
+                                    <AvatarImage src={u.photoURL ?? undefined} alt={u.displayName} />
                                     <AvatarFallback>{(u.displayName?.[0] ?? "U").toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0">

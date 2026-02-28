@@ -5,21 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Send, User, Mic, FileText, Sparkles, Home, ArrowLeft } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Logo } from '@/components/ui/logo';
-import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { UserProfile } from '@/components/ui/UserProfile';
 import { UnifiedHeader } from '@/components/layout/UnifiedHeader';
-import { SignOutModal } from '@/components/auth/SignOutModal';
 
 export default function CoachPage() {
     const { user } = useAuth();
     const router = useRouter();
     const [input, setInput] = useState('');
     const [scriptInput, setScriptInput] = useState('');
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-    const { logout } = useAuth();
     const { messages, status, sendMessage } = useChat({
         onError: (error) => {
             console.error("Chat error:", error);
@@ -221,15 +213,6 @@ export default function CoachPage() {
                     </div>
                 </div>
             </div>
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
         </div>
     );
 }

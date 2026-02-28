@@ -9,12 +9,12 @@ import { Logo } from "@/components/ui/logo";
 import { ArrowRight, Mic, Video, FileText, BarChart3, ChevronRight, Briefcase, Layout, BookOpen, Play, Phone, Home as HomeIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import { UserProfile } from "@/components/ui/UserProfile";
 
 export default function Home() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
   const { user, logout, loading } = useAuth();
   const router = useRouter();
 
@@ -60,12 +60,15 @@ export default function Home() {
               <HomeIcon className="w-5 h-5" />
             </Button>
             <div className="hidden sm:block">
-              <UserProfile displayName={user.displayName || user.email?.split('@')[0] || "User"} />
+              <UserProfile
+                displayName={user.displayName || user.email?.split('@')[0] || "User"}
+                onLogout={() => logout()}
+              />
             </div>
             <Button
               variant="outline"
               className="rounded-full border-white/10 hover:bg-white/5"
-              onClick={() => setIsSignOutModalOpen(true)}
+              onClick={() => logout()}
             >
               Sign Out
             </Button>
@@ -391,14 +394,7 @@ export default function Home() {
         </div>
       </footer>
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      <SignOutModal
-        isOpen={isSignOutModalOpen}
-        onClose={() => setIsSignOutModalOpen(false)}
-        onConfirm={() => {
-          logout();
-          setIsSignOutModalOpen(false);
-        }}
-      />
+
 
     </main>
   )

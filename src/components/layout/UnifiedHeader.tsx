@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { UserProfile } from "@/components/ui/UserProfile";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import Link from "next/link";
 
 interface UnifiedHeaderProps {
@@ -32,7 +32,7 @@ interface UnifiedHeaderProps {
 export function UnifiedHeader({ section, backButton, isDashboard = false, onBackOverride, rightContent }: UnifiedHeaderProps) {
     const { user, logout } = useAuth();
     const router = useRouter();
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
 
     const userDisplayName = user?.displayName || user?.email?.split('@')[0] || "Speaker";
 
@@ -112,22 +112,14 @@ export function UnifiedHeader({ section, backButton, isDashboard = false, onBack
                             <UserProfile
                                 displayName={userDisplayName}
                                 photoURL={user.photoURL}
-                                onLogout={() => setIsSignOutModalOpen(true)}
+                                onLogout={() => logout()}
                             />
                         )}
                     </div>
                 </div>
             </div>
 
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
+
         </header>
     );
 }

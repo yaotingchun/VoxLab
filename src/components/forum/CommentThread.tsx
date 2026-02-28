@@ -56,7 +56,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ postId, comment, p
             <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={comment.authorAvatar || ""} alt={comment.authorName} className="object-cover" />
+                        <AvatarImage src={comment.authorAvatar || undefined} alt={comment.authorName} className="object-cover" />
                         <AvatarFallback className={`flex items-center justify-center ${comment.isAiGenerated ? 'bg-primary/20 text-primary' : 'bg-gray-800 text-gray-400'}`}>
                             {comment.isAiGenerated ? <Sparkles className="w-4 h-4" /> : <User className="w-4 h-4" />}
                         </AvatarFallback>

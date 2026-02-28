@@ -293,7 +293,7 @@ export default function PostDetail({ postId }: { postId: string }) {
                                     >
                                         <div className="shrink-0 relative cursor-pointer">
                                             <Avatar className="w-8 h-8 ring-1 ring-white/10 bg-gray-800 hover:ring-primary/50 transition-all">
-                                                <AvatarImage src={authorAvatar || ""} alt={post.authorName} className="object-cover" />
+                                                <AvatarImage src={authorAvatar || undefined} alt={post.authorName} className="object-cover" />
                                                 <AvatarFallback className="bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-gray-300">
                                                     <User className="w-4 h-4" />
                                                 </AvatarFallback>
@@ -466,7 +466,7 @@ export default function PostDetail({ postId }: { postId: string }) {
                                         <div className="flex -space-x-2 pl-2">
                                             {/* Author first */}
                                             <Avatar className="relative z-30 h-9 w-9 ring-2 ring-[#111] bg-gray-800 shadow-lg hover:z-40 transition-all hover:scale-110">
-                                                <AvatarImage src={authorAvatar || ""} alt="" className="object-cover" />
+                                                <AvatarImage src={authorAvatar || undefined} alt="" className="object-cover" />
                                                 <AvatarFallback className="flex items-center justify-center text-xs text-white">
                                                     {post.authorName[0]}
                                                 </AvatarFallback>
@@ -474,7 +474,7 @@ export default function PostDetail({ postId }: { postId: string }) {
                                             {/* Then commenters (unique) */}
                                             {Array.from(new Set(comments.map(c => c.authorAvatar))).filter(a => a !== post.authorAvatar).slice(0, 4).map((avatar, i) => (
                                                 <Avatar key={i} className="relative inline-block h-9 w-9 ring-2 ring-[#111] bg-gray-800 shadow-lg hover:z-40 transition-all hover:scale-110" style={{ zIndex: 20 - i }}>
-                                                    <AvatarImage src={avatar || ""} alt="" className="object-cover" />
+                                                    <AvatarImage src={avatar || undefined} alt="" className="object-cover" />
                                                     <AvatarFallback className="flex items-center justify-center text-xs text-white">
                                                         C
                                                     </AvatarFallback>

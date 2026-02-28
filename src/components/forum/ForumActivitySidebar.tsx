@@ -80,7 +80,7 @@ export const ForumActivitySidebar: React.FC<ForumActivitySidebarProps> = ({ rece
                                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                                         <div className="flex items-center gap-1.5">
                                             <Avatar className="w-4 h-4 ring-1 ring-white/10">
-                                                <AvatarImage src={post.authorAvatar || ""} alt="" className="object-cover" />
+                                                <AvatarImage src={post.authorAvatar || undefined} alt="" className="object-cover" />
                                                 <AvatarFallback className="bg-primary/10 flex items-center justify-center">
                                                     <User className="w-2.5 h-2.5 text-gray-400" />
                                                 </AvatarFallback>

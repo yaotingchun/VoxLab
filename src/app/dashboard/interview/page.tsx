@@ -10,16 +10,10 @@ import InterviewResults from "@/components/interview/InterviewResults";
 import { Loader2, ArrowLeft, AlertTriangle, Home } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { UserProfile } from "@/components/ui/UserProfile";
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
-import { SignOutModal } from "@/components/auth/SignOutModal";
-
 export default function InterviewPage() {
     const { user, loading } = useAuth();
     const router = useRouter();
-
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-    const { logout } = useAuth();
 
     const {
         phase,
@@ -160,9 +154,6 @@ export default function InterviewPage() {
                             resetInterview();
                         }
                     }}
-                    displayName={user?.displayName || user?.email?.split('@')[0] || "User"}
-                    photoURL={user?.photoURL}
-                    onLogout={() => setIsSignOutModalOpen(true)}
                 />
             </div>
         );
@@ -217,31 +208,10 @@ export default function InterviewPage() {
                     evaluation={evaluation}
                     answers={answers}
                     onRetry={retryInterview}
-                    onReset={resetInterview}
-                    displayName={user?.displayName || user?.email?.split('@')[0] || "User"}
-                    photoURL={user?.photoURL}
-                    onLogout={() => setIsSignOutModalOpen(true)}
-                />
-                <SignOutModal
-                    isOpen={isSignOutModalOpen}
-                    onClose={() => setIsSignOutModalOpen(false)}
-                    onConfirm={() => {
-                        logout();
-                        setIsSignOutModalOpen(false);
-                    }}
                 />
             </>
         );
     }
 
-    return (
-        <SignOutModal
-            isOpen={isSignOutModalOpen}
-            onClose={() => setIsSignOutModalOpen(false)}
-            onConfirm={() => {
-                logout();
-                setIsSignOutModalOpen(false);
-            }}
-        />
-    );
+    return null;
 }

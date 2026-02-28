@@ -30,7 +30,7 @@ import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
 import { saveSession, getSessionStats } from "@/lib/sessions";
 import { getUserStreak } from "@/lib/streak";
 import { checkAndAwardBadges, BADGE_DEFINITIONS } from "@/lib/badges";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 
 import { usePracticeStore } from "@/store/practiceStore";
 // ...
@@ -38,18 +38,10 @@ import { usePracticeStore } from "@/store/practiceStore";
 function PresentationPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user, logout } = useAuth();
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+    const { user } = useAuth();
     const topic = searchParams.get("topic");
 
-    const {
-        result,
-        analyzePosture,
-        analyzeFace,
-        startSession,
-        endSession,
-        isSessionActive
-    } = useUnifiedAnalysis();
+    const { result, analyzePosture, analyzeFace, startSession, endSession, isSessionActive } = useUnifiedAnalysis();
 
     const {
         isListening,
@@ -916,15 +908,6 @@ function PresentationPageInner() {
                     </motion.div>
                 )}
             </AnimatePresence>
-            {/* Logout Confirmation */}
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
         </div >
     );
 }

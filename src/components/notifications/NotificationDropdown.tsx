@@ -79,7 +79,7 @@ export const NotificationDropdown = () => {
                                                 {/* Icon/Avatar */}
                                                 <div className="shrink-0 mt-0.5">
                                                     <Avatar className="w-8 h-8">
-                                                        <AvatarImage src={notification.sender?.avatar || ""} alt="" className="object-cover" />
+                                                        <AvatarImage src={notification.sender?.avatar || undefined} alt="" className="object-cover" />
                                                         <AvatarFallback className={`flex items-center justify-center ${notification.type === 'like' ? 'bg-pink-500/10 text-pink-500' :
                                                             notification.type === 'comment' ? 'bg-blue-500/10 text-blue-500' :
                                                                 'bg-gray-500/10 text-gray-500'

@@ -70,9 +70,7 @@ export default function UploadPracticePage() {
     const [isParsingRubric, setIsParsingRubric] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [mergedPostureSummary, setMergedPostureSummary] = useState<any>(null);
-    const { user, logout } = useAuth(); // Needed to persist the session
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-
+    const { user } = useAuth(); // Needed to persist the session
     // --- MediaPipe Posture & Face Analysis Setup ---
     const hiddenVideoRef = useRef<HTMLVideoElement>(null);
     const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);

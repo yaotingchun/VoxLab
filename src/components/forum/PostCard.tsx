@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 import { formatForumDate } from '@/lib/utils';
 import { MessageSquare, ThumbsUp, Eye, User, MoreVertical, Edit, Trash2, Play, Share2, CornerUpRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -114,7 +115,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                                 <div className="shrink-0 relative cursor-pointer">
                                     <div className="absolute inset-0 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <Avatar className="relative w-8 h-8 ring-1 ring-transparent group-hover:ring-primary/30 transition-all">
-                                        <AvatarImage src={authorAvatar || ""} alt="" className="object-cover" />
+                                        <AvatarImage src={authorAvatar || undefined} alt="" className="object-cover" />
                                         <AvatarFallback className="bg-white/5 flex items-center justify-center ring-1 ring-white/10 group-hover:ring-white/20 transition-all">
                                             <User className="w-4 h-4 text-gray-400" />
                                         </AvatarFallback>
@@ -203,9 +204,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
                         {/* Text Snippet */}
                         {post.content && (
-                            <p className="text-sm text-gray-400 line-clamp-3 mb-4 leading-relaxed whitespace-pre-line group-hover:text-gray-300 transition-colors">
-                                {post.content}
-                            </p>
+                            <div className="text-sm text-gray-400 line-clamp-3 mb-4 leading-relaxed group-hover:text-gray-300 transition-colors [&>p]:inline [&>h1]:inline [&>h2]:inline [&>h3]:inline [&>h4]:inline [&>ul]:inline [&>ol]:inline [&>li]:inline">
+                                <ReactMarkdown>{post.content}</ReactMarkdown>
+                            </div>
                         )}
 
                         {/* Media Attachment */}

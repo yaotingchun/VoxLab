@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Logo } from "@/components/ui/logo";
 import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
 import { UserProfile } from "@/components/ui/UserProfile";
+
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Copy, Check, ArrowLeft, Radio, TrendingUp, Clock, Gauge, AlertTriangle, Activity, Home } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -231,7 +232,8 @@ export default function SpeechCoachPage() {
     const recordingStartRef = useRef<number>(0);
     const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const analysisIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
+
     const router = useRouter();
 
     // --- WPM Calculation ---
@@ -694,7 +696,7 @@ export default function SpeechCoachPage() {
                             <Home className="w-5 h-5" />
                         </Button>
                         <NotificationDropdown />
-                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} />}
+                        {user && <UserProfile displayName={user.displayName || user.email?.split("@")[0] || "User"} onLogout={() => logout()} />}
                     </div>
                 </div>
             </header>
@@ -1131,6 +1133,7 @@ export default function SpeechCoachPage() {
                     </div>
                 )}
             </main>
+
         </div>
     );
 }

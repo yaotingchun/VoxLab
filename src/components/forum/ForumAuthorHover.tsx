@@ -160,7 +160,7 @@ export const ForumAuthorHover: React.FC<ForumAuthorHoverProps> = ({
                 >
                     <div className="flex items-center gap-3 mb-3">
                         <Avatar className="h-10 w-10">
-                            <AvatarImage src={profile?.photoURL || authorAvatar || ""} alt={authorName} />
+                            <AvatarImage src={profile?.photoURL || authorAvatar || undefined} alt={authorName} />
                             <AvatarFallback className="bg-white/5">
                                 <User className="w-5 h-5 text-gray-400" />
                             </AvatarFallback>

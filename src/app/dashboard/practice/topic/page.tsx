@@ -22,12 +22,10 @@ import {
     Home
 } from "lucide-react";
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader";
-import { SignOutModal } from "@/components/auth/SignOutModal";
+
 import Link from "next/link";
 import { usePracticeStore } from "@/store/practiceStore";
-import { Logo } from "@/components/ui/logo";
-import { NotificationDropdown } from "@/components/notifications/NotificationDropdown";
-import { UserProfile } from "@/components/ui/UserProfile";
+
 import { useAuth } from "@/contexts/AuthContext";
 
 // Types
@@ -56,8 +54,7 @@ const difficultyColors: Record<string, string> = {
 function TopicSelectionInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user, logout } = useAuth();
-    const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+    const { user } = useAuth();
     const [step, setStep] = useState<Step>("mode");
     const setLectureSlide = usePracticeStore((state) => state.setLectureSlide);
     const setLectureMaterial = usePracticeStore((state) => state.setLectureMaterial);
@@ -678,14 +675,6 @@ function TopicSelectionInner() {
                 </AnimatePresence>
             </div>
 
-            <SignOutModal
-                isOpen={isSignOutModalOpen}
-                onClose={() => setIsSignOutModalOpen(false)}
-                onConfirm={() => {
-                    logout();
-                    setIsSignOutModalOpen(false);
-                }}
-            />
         </div>
     );
 }

@@ -75,7 +75,7 @@ export const ForumCategoryGrid: React.FC<ForumCategoryGridProps> = ({ sections, 
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Avatar className="w-5 h-5 opacity-70 ring-1 ring-white/10">
-                                                        <AvatarImage src={stat.latestPost.authorAvatar || ""} alt="" className="object-cover" />
+                                                        <AvatarImage src={stat.latestPost.authorAvatar || undefined} alt="" className="object-cover" />
                                                         <AvatarFallback className="flex items-center justify-center text-gray-500">
                                                             <User className="w-3.5 h-3.5" />
                                                         </AvatarFallback>
