@@ -4,7 +4,7 @@ This document contains the results, feedback, and insights gathered from user te
 
 ## 📊 1. Google Form Statistics
 
-**🌟 At a Glance (6 Total Responses):**
+**🌟 At a Glance:**
 * **Overall Rating:** ⭐⭐⭐⭐ (4.33 / 5)
 * **Ease of Use:** 🚀 (4.33 / 5)
 * **AI Feedback Value:** 🧠 (4.17 / 5)
