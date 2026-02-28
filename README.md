@@ -9,12 +9,8 @@
 </p>
 
 <p align="center">
-  <a href="#-key-features">Features</a> •
-  <a href="#%EF%B8%8F-technologies-used">Tech Stack</a> •
-  <a href="#%EF%B8%8F-implementation-details--innovation">Architecture</a> •
-  <a href="#-installation--setup">Setup</a> •
-  <a href="#-user-testing">User Testing</a> •
-  <a href="#%EF%B8%8F-future-roadmap">Roadmap</a>
+  <b>🎥 <a href="https://youtu.be/LfYqvf51u7g">Watch our Pitching Video (YouTube)</a></b> •
+  <b>📊 <a href="https://drive.google.com/file/d/1CKb4qjWsdsuHxFVUZLfwotngoUC0i-tI/view?usp=sharing">View our Prototype Documentation</a></b>
 </p>
 
 ---
