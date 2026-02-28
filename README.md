@@ -46,8 +46,6 @@ VoxLab directly supports **UN Sustainable Development Goal 4 — Quality Educati
 |------------|------------------------|
 | **SDG 4 — Quality Education (Target 4.4)** — *"By 2030, substantially increase the number of youth and adults who have relevant skills, including technical and vocational skills, for employment, decent jobs and entrepreneurship."* | VoxLab helps users master interviews and presentations, equipping them with the practical, vocational communication skills they need to land decent jobs and succeed in their careers. |
 | **SDG 4 — Quality Education (Target 4.3)** — *"By 2030, ensure equal access for all women and men to affordable and quality technical, vocational and tertiary education, including university."* | VoxLab provides 24/7, high-quality feedback at near-zero cost to the user, ensuring that a student in a remote area has the same access to world-class coaching as an executive in a boardroom. |
-| **SDG 8 — Decent Work & Economic Growth** | Strong communication is a critical workforce skill. VoxLab helps job seekers ace interviews and professionals deliver confident presentations, directly contributing to employability and economic productivity. |
-| **SDG 10 — Reduced Inequalities** | Democratises access to expert-level public speaking feedback that was previously only available to those who could afford private coaches, bridging the gap between privileged and underserved communities. |
 
 ### Solution Description
 
@@ -152,15 +150,17 @@ Users receive instant, actionable feedback during practice sessions and a compre
 
 ### Innovation Highlights
 
-1. **Client-Side ML Processing** — MediaPipe pose and face landmark models run entirely in the browser, enabling real-time visual analysis without sending video to the cloud. This reduces latency and preserves user privacy.
+1. **Live Transcript Generation** — We had built a persistent WebSocket pipeline between the frontend and Google Chirp 2 STT via gRPC streaming. The frontend captures raw Linear16 PCM audio using the Web Audio API and AudioWorklets, streaming it continuously to the Node.js server. The server manages stream rotation (round-timer) before the 5-minute Google limit to maintain seamless transcription.
 
 2. **Multi-Modal Simultaneous Analysis** — VoxLab analyses vocal, visual and content dimensions simultaneously during a single session, providing a holistic coaching experience that mirrors what a human coach would observe.
 
-3. **Structured AI Output** — Using the Vercel AI SDK's `generateObject` with Zod schemas, all AI responses are type-safe and structured, enabling reliable programmatic consumption of Gemini's analysis.
+3. **Pause Analysis** —  We found out that pause is not necessary all bad, a pause after sentence ends could be powerful for speech flow and emphasis, hence we use Chirp 2 model auto punctuation to detect pause in mid sentence or pause after sentence to generate an insightful pause analysis.
 
-4. **WebSocket Speech Pipeline** — A custom WebSocket server bridges the browser's audio stream to Google Cloud Speech-to-Text, enabling low-latency, continuous transcription with interim results.
+4. **Pitch Variety Analysis** — We spend some time researching how to detect is the speech monotone or expressive by a scientific way. At the end, we implement our special calculation for pitch variety by obtaining pitch for every timestamp in raw audio, which use semitone for similar human hearing experience, and uses standard deviation to obtain the variation in pitch.
 
-5. **Progressive Posture Corrections** — Instead of overwhelming users with all posture issues at once, VoxLab displays corrections two at a time with animated guides. As issues are resolved, the next pending correction appears automatically.
+5. **Progressive Posture Corrections** — We implemented a buffer mechanism for bad posture detection for a better posture fixing experience, meaning that if the user persistently have bad posture for 3s, the warning will be popped out, same goes to if user recover back to good posture, they also need to persist the correct posture for 3s for the warning to disappear.
+
+6. **Client-Side ML Processing** — MediaPipe pose and face landmark models run entirely in the browser for real-time visual analysis without sending video to the cloud. This reduces latency and preserves user privacy.
 
 ### Workflow
 
