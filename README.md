@@ -305,7 +305,7 @@ To view our comprehensive user testing results, session recordings and the actio
 - [ ] Multi-language support for speech analysis and AI coaching
 - [ ] Mobile-responsive session experience
 - [ ] Session comparison — side-by-side replay of past sessions to track improvement
-- [ ] Custom rubric upload for presentation grading
+- [ ] Browser-based offline mode for core vocal metrics (WPM and pitch)
 
 ### Medium-Term (6–12 Months)
 - [ ] Group practice rooms — real-time collaborative practice with peer feedback
