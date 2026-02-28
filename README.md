@@ -284,9 +284,16 @@ Open [http://localhost:3000](http://localhost:3000) to access VoxLab.
 
 ## 🧪 User Testing
 
-To view our comprehensive user testing results, session recordings, and the actionable feedback we collected during our user studies, please reference the dedicated testing report:
+We recently conducted user testing with **35 participants** to evaluate the effectiveness, usability, and overall satisfaction of VoxLab. The results validate our approach to providing actionable, multi-modal public speaking feedback.
 
-👉 **[View the full VoxLab User Testing Report (USER_TESTING.md)](./USER_TESTING.md)**
+**📊 Key Metrics (35 Responses):**
+* **Overall Satisfaction:** ⭐⭐⭐⭐ (4.57 / 5)
+* **System Ease of Use:** 🚀 (4.54 / 5)
+* **Helpfulness of AI Feedback:** 🧠 (4.57 / 5)
+
+To view our comprehensive user testing results, session recordings and the actionable feedback we collected during our user studies, please reference the dedicated testing report:
+
+👉 **[View the full VoxLab User Testing Report (UserTesing.md)](./UserTesing.md)**
 
 ---
 
